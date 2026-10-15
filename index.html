@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>TradeLog — Дневник Трейдера</title>
+  
+  <!-- PWA & Mobile Meta Tags -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#090a0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TradeLog">
+  <meta name="application-name" content="TradeLog">
+  <meta name="description" content="Мобильный PWA дневник трейдера: запись сделок, сетапы, таймфреймы, скриншоты и структурирование">
+
+  <!-- Icons -->
+  <link rel="icon" type="image/png" href="./icons/favicon.png">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+
+  <!-- Fonts & Styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="app-container">
+      <div class="header-content">
+        <div class="brand">
+          <div class="brand-icon-wrapper">
+            <img src="./icons/icon.svg" alt="TradeLog" class="brand-icon">
+          </div>
+          <div class="brand-text">
+            <h1>TradeLog</h1>
+          </div>
+          <span class="brand-badge">PRO JOURNAL</span>
+        </div>
+
+        <div class="header-actions">
+          <button class="btn btn-secondary btn-icon-only" onclick="openBackupModal()" title="Резервная копия & Экспорт">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </button>
+          
+          <button class="btn btn-primary" onclick="openTradeModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>+ Сделка</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- PWA Install Banner (appears when installable) -->
+      <div id="pwaInstallBanner" class="install-banner" style="display: none;">
+        <div class="install-text">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
+          <span>Установите TradeLog как приложение на экран телефона</span>
+        </div>
+        <button id="installPwaBtn" class="btn btn-primary btn-sm">Установить</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="app-container">
+    
+    <!-- Top Analytics Summary Cards (Polar.sh / Refero Style) -->
+    <section class="analytics-section">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Винрейт</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <div id="statWinrate" class="stat-value">0%</div>
+          <div class="stat-subtext">По выбранным сделкам</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Итог (PnL / R)</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+          <div id="statPnl" class="stat-value">0.0 R</div>
+          <div class="stat-subtext">Накопленная прибыль</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Всего трейдов</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+          </div>
+          <div id="statTotal" class="stat-value">0</div>
+          <div class="stat-subtext">Сделок в выборке</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Лучший сетап</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+          </div>
+          <div id="statBestSetup" class="stat-value" style="font-size: 1.05rem;">—</div>
+          <div class="stat-subtext">Максимальный винрейт</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Structuring & Filter Card (Month, Setup, TF, Search) -->
+    <section class="controls-card">
+      
+      <!-- Top Filters row: Search & Quick dropdowns -->
+      <div class="controls-row-top">
+        <div class="search-box">
+          <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="searchInput" class="search-input" placeholder="Поиск по активу (BTC, XAU...) или заметкам">
+        </div>
+
+        <select id="filterTfSelect" class="filter-select">
+          <option value="all">Все ТФ</option>
+          <option value="1m">1m</option>
+          <option value="3m">3m</option>
+          <option value="5m">5m</option>
+          <option value="15m">15m</option>
+          <option value="30m">30m</option>
+          <option value="1h">1h</option>
+          <option value="4h">4h</option>
+          <option value="1D">1D</option>
+        </select>
+
+        <select id="filterOutcomeSelect" class="filter-select">
+          <option value="all">Любой результат</option>
+          <option value="WIN">Только Win (Тейк)</option>
+          <option value="LOSS">Только Loss (Стоп)</option>
+          <option value="BE">Безубыток (BE)</option>
+        </select>
+
+        <select id="filterDirectionSelect" class="filter-select">
+          <option value="all">Long & Short</option>
+          <option value="LONG">Только LONG</option>
+          <option value="SHORT">Только SHORT</option>
+        </select>
+      </div>
+
+      <!-- Structuring by Month (Scrollable Pills) -->
+      <div class="filter-pills-wrapper">
+        <div class="pills-label-row">
+          <span>Структурирование по месяцам</span>
+        </div>
+        <div id="monthPills" class="pills-scroll-row">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Structuring by Setup (Scrollable Pills) -->
+      <div class="filter-pills-wrapper">
+        <div class="pills-label-row">
+          <span>Структурирование по сетапам</span>
+        </div>
+        <div id="setupPills" class="pills-scroll-row">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Trades Feed (List grouped by Month) -->
+    <section id="tradesFeed" class="trades-feed">
+      <!-- Dynamically populated -->
+    </section>
+
+  </main>
+
+  <!-- Mobile Floating Action Button (FAB) -->
+  <button class="mobile-fab" onclick="openTradeModal()" title="Добавить сделку">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  </button>
+
+  <!-- ==========================================================================
+       MODAL: Add / Edit Trade
+       ========================================================================== -->
+  <div id="tradeModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle" class="modal-title">Новая сделка</h2>
+        <button type="button" class="close-btn" onclick="closeTradeModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <form id="tradeForm" class="form-grid">
+        
+        <!-- Asset / Pair & Direction -->
+        <div class="form-grid form-grid-2">
+          <div class="form-group">
+            <label class="form-label" for="tradeSymbol">Инструмент / Тикер</label>
+            <input type="text" id="tradeSymbol" class="form-input" placeholder="BTC/USDT, XAU/USD, EUR/USD..." required autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Направление</label>
+            <input type="hidden" id="tradeDirection" value="LONG">
+            <div class="segmented-group">
+              <button type="button" class="seg-btn long active" data-dir="LONG">▲ LONG</button>
+              <button type="button" class="seg-btn short" data-dir="SHORT">▼ SHORT</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Setup Selection -->
+        <div class="form-group">
+          <label class="form-label" for="tradeSetup">Торговый сетап</label>
+          <select id="tradeSetup" class="form-select">
+            <option value="Liquidity Sweep">Liquidity Sweep (Снятие ликвидности)</option>
+            <option value="FVG / Imbalance">FVG / Imbalance (Имбаланс)</option>
+            <option value="Order Block (OB)">Order Block (OB / Блок заказов)</option>
+            <option value="Breakout / Пробой">Breakout / Пробой уровня</option>
+            <option value="Trend Continuation">Trend Continuation (По тренду)</option>
+            <option value="CHoCH / Слом структуры">CHoCH / Слом структуры (SMC)</option>
+            <option value="Support / Resistance">Поддержка / Сопротивление (S/R)</option>
+            <option value="Range / Боковик">Range / Девиация боковика</option>
+            <option value="__custom__">+ Ввести свой сетап...</option>
+          </select>
+        </div>
+
+        <!-- Custom Setup Input (if chosen) -->
+        <div id="customSetupGroup" class="form-group" style="display: none;">
+          <label class="form-label" for="tradeCustomSetup">Название своего сетапа</label>
+          <input type="text" id="tradeCustomSetup" class="form-input" placeholder="Например: False Breakout, SFP...">
+        </div>
+
+        <!-- Timeframe Pills Selector -->
+        <div class="form-group">
+          <label class="form-label">Таймфрейм (TF)</label>
+          <input type="hidden" id="tradeTimeframe" value="15m">
+          <div class="tf-pills-row">
+            <button type="button" class="tf-pill" data-tf="1m">1m</button>
+            <button type="button" class="tf-pill" data-tf="3m">3m</button>
+            <button type="button" class="tf-pill" data-tf="5m">5m</button>
+            <button type="button" class="tf-pill active" data-tf="15m">15m</button>
+            <button type="button" class="tf-pill" data-tf="30m">30m</button>
+            <button type="button" class="tf-pill" data-tf="1h">1h</button>
+            <button type="button" class="tf-pill" data-tf="4h">4h</button>
+            <button type="button" class="tf-pill" data-tf="1D">1D</button>
+            <button type="button" class="tf-pill" data-tf="1W">1W</button>
+          </div>
+        </div>
+
+        <!-- Entry Time & Exit Time -->
+        <div class="form-grid form-grid-2">
+          <div class="form-group">
+            <label class="form-label" for="tradeEntryTime">Время входа в сделку</label>
+            <div class="input-with-action">
+              <input type="datetime-local" id="tradeEntryTime" class="form-input" required>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="setNowForInput('tradeEntryTime')" title="Поставить текущее время">Сейчас</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="tradeExitTime">Время выхода из сделки</label>
+            <div class="input-with-action">
+              <input type="datetime-local" id="tradeExitTime" class="form-input" required>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="setNowForInput('tradeExitTime')" title="Поставить текущее время">Сейчас</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prices (Entry & Exit Price) -->
+        <div class="form-grid form-grid-2">
+          <div class="form-group">
+            <label class="form-label" for="tradeEntryPrice">Цена входа (необязательно)</label>
+            <input type="text" id="tradeEntryPrice" class="form-input" placeholder="например 67450.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="tradeExitPrice">Цена выхода (необязательно)</label>
+            <input type="text" id="tradeExitPrice" class="form-input" placeholder="например 68900.00">
+          </div>
+        </div>
+
+        <!-- Outcome & PnL / R Multiple -->
+        <div class="form-grid form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Результат сделки</label>
+            <input type="hidden" id="tradeOutcome" value="WIN">
+            <div class="segmented-group">
+              <button type="button" class="seg-btn win active" data-outcome="WIN">✓ Тейк</button>
+              <button type="button" class="seg-btn loss" data-outcome="LOSS">✕ Стоп</button>
+              <button type="button" class="seg-btn be" data-outcome="BE">● Б/У</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="tradePnl">Прибыль / R:R (PnL)</label>
+            <input type="text" id="tradePnl" class="form-input" placeholder="+2.5R или +$350">
+            <input type="hidden" id="tradeRMultiple" value="2.0">
+          </div>
+        </div>
+
+        <!-- Screenshot Photos Upload -->
+        <div class="form-group">
+          <label class="form-label">
+            <span>Скриншоты графика</span>
+            <span style="font-weight: 400; color: var(--text-muted);">Ctrl+V для вставки из буфера</span>
+          </label>
+          <input type="file" id="tradeImageInput" accept="image/*" multiple style="display: none;">
+          <div id="imageUploadZone" class="image-upload-zone">
+            <div class="upload-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+            </div>
+            <div class="upload-title">Нажмите или перетащите скриншоты сделки</div>
+            <div class="upload-subtitle">Поддерживаются PNG, JPG, WebP. Автоматическое сохранение в офлайн-базу</div>
+          </div>
+          <div id="formImagePreviews" class="image-preview-list"></div>
+        </div>
+
+        <!-- Notes / Psychology -->
+        <div class="form-group">
+          <label class="form-label" for="tradeNotes">Заметки, психология и ошибки</label>
+          <textarea id="tradeNotes" class="form-textarea" placeholder="Почему зашли в сделку? Были ли соблюдены все правила торгового плана? Какие эмоции?"></textarea>
+        </div>
+
+        <!-- Modal Submit & Cancel Buttons -->
+        <div style="display: flex; gap: 10px; margin-top: 8px;">
+          <button type="button" class="btn btn-secondary" onclick="closeTradeModal()" style="flex: 1;">Отмена</button>
+          <button type="submit" class="btn btn-primary" style="flex: 2;">Сохранить сделку</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL: Backup & Export / Import
+       ========================================================================== -->
+  <div id="backupModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Резервная копия & Данные</h2>
+        <button type="button" class="close-btn" onclick="closeBackupModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+          Все сделки и скриншоты хранятся локально в IndexedDB вашего браузера. Чтобы не потерять данные при очистке кэша или перенести их на телефон, сохраняйте файл бэкапа:
+        </p>
+
+        <button class="btn btn-primary" onclick="handleExportData()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Скачать бэкап (JSON)
+        </button>
+
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label class="btn btn-secondary" style="cursor: pointer;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Восстановить из файла JSON
+            <input type="file" accept=".json" onchange="handleImportData(event)" style="display: none;">
+          </label>
+        </div>
+
+        <div style="border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 6px;">
+          <button class="btn btn-secondary btn-sm" onclick="handleResetData()" style="color: var(--loss); border-color: rgba(244,63,94,0.3); width: 100%;">
+            Очистить все сделки из базы
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL: Screenshot Lightbox Viewer
+       ========================================================================== -->
+  <div id="lightboxModal" class="lightbox-modal" onclick="closeLightbox()">
+    <div class="lightbox-content" onclick="event.stopPropagation()">
+      <button class="lightbox-close" onclick="closeLightbox()" title="Закрыть (Esc)">✕</button>
+      <img id="lightboxImg" class="lightbox-img" src="" alt="Скриншот графика">
+      <div id="lightboxCaption" class="lightbox-caption"></div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="./js/db.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
