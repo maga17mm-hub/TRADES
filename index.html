@@ -49,7 +49,7 @@
             </svg>
           </button>
           
-          <button class="btn btn-primary" onclick="openTradeModal()">
+          <button class="btn btn-primary" onclick="switchTab('record')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -75,135 +75,316 @@
 
   <!-- Main Content Layout -->
   <main class="app-container">
-    
-    <!-- Top Analytics Summary Cards (Polar.sh / Refero Style) -->
-    <section class="analytics-section">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">
-            <span>Винрейт</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
+
+    <!-- ======================================================================
+         TAB 1: ЗАПИСЬ ТРЕЙДОВ
+         ====================================================================== -->
+    <div id="tabRecordView" class="tab-view">
+      <div class="record-card">
+        <div class="record-card-header">
+          <div>
+            <h2 class="record-card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              <span>Запись трейда</span>
+            </h2>
+            <p class="record-card-subtitle">Внесите параметры сделки, сетап, таймфрейм и скриншоты</p>
           </div>
-          <div id="statWinrate" class="stat-value">0%</div>
-          <div class="stat-subtext">По выбранным сделкам</div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="switchTab('journal')">
+            В дневник →
+          </button>
         </div>
 
-        <div class="stat-card">
-          <div class="stat-label">
-            <span>Итог (PnL / R)</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="1" x2="12" y2="23"></line>
-              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-            </svg>
-          </div>
-          <div id="statPnl" class="stat-value">0.0 R</div>
-          <div class="stat-subtext">Накопленная прибыль</div>
-        </div>
+        <form id="recordTradeForm" class="form-grid">
+          
+          <!-- Asset / Pair & Direction -->
+          <div class="form-grid form-grid-2">
+            <div class="form-group">
+              <div class="field-label-row">
+                <label class="form-label" for="recTradeSymbol">Инструмент / Тикер</label>
+                <span class="field-hint">Кликните или введите новый</span>
+              </div>
+              <div class="input-with-action">
+                <input type="text" id="recTradeSymbol" class="form-input" placeholder="BTC/USDT, XAU/USD, EUR/USD..." required autocomplete="off">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="handleSaveCurrentTicker('recTradeSymbol', 'recSavedTickers')">+ Сохранить</button>
+              </div>
+              <div id="recSavedTickers" class="preset-chips-scroll"></div>
+            </div>
 
-        <div class="stat-card">
-          <div class="stat-label">
-            <span>Всего трейдов</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="20" x2="18" y2="10"></line>
-              <line x1="12" y1="20" x2="12" y2="4"></line>
-              <line x1="6" y1="20" x2="6" y2="14"></line>
-            </svg>
+            <div class="form-group">
+              <label class="form-label">Направление</label>
+              <input type="hidden" id="recTradeDirection" value="LONG">
+              <div class="segmented-group">
+                <button type="button" class="seg-btn long active" data-dir="LONG" onclick="setRecDirection('LONG')">▲ LONG</button>
+                <button type="button" class="seg-btn short" data-dir="SHORT" onclick="setRecDirection('SHORT')">▼ SHORT</button>
+              </div>
+            </div>
           </div>
-          <div id="statTotal" class="stat-value">0</div>
-          <div class="stat-subtext">Сделок в выборке</div>
-        </div>
 
-        <div class="stat-card">
-          <div class="stat-label">
-            <span>Лучший сетап</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-            </svg>
+          <!-- Trade Setup -->
+          <div class="form-group">
+            <div class="field-label-row">
+              <label class="form-label" for="recTradeSetup">Торговый сетап</label>
+              <span class="field-hint">Кликните сетап или впишите свой</span>
+            </div>
+            <div class="input-with-action">
+              <input type="text" id="recTradeSetup" class="form-input" placeholder="Breakout, Order Block, SFP, FVG..." required autocomplete="off">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="handleSaveCurrentSetup('recTradeSetup', 'recSavedSetups')">+ Сохранить</button>
+            </div>
+            <div id="recSavedSetups" class="preset-chips-scroll"></div>
           </div>
-          <div id="statBestSetup" class="stat-value" style="font-size: 1.05rem;">—</div>
-          <div class="stat-subtext">Максимальный винрейт</div>
-        </div>
+
+          <!-- Timeframe (TF) -->
+          <div class="form-group">
+            <div class="field-label-row">
+              <label class="form-label">Таймфрейм (TF)</label>
+              <button type="button" class="btn-text-action" onclick="handleAddCustomTimeframe('recSavedTimeframes', 'recTradeTimeframe')">+ Свой ТФ</button>
+            </div>
+            <input type="hidden" id="recTradeTimeframe" value="15m">
+            <div id="recSavedTimeframes" class="preset-chips-scroll"></div>
+          </div>
+
+          <!-- Entry Time & Exit Time -->
+          <div class="form-grid form-grid-2">
+            <div class="form-group">
+              <label class="form-label" for="recTradeEntryTime">Время входа в сделку</label>
+              <div class="input-with-action">
+                <input type="datetime-local" id="recTradeEntryTime" class="form-input" required>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setNowForInput('recTradeEntryTime')">Сейчас</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="recTradeExitTime">Время выхода из сделки</label>
+              <div class="input-with-action">
+                <input type="datetime-local" id="recTradeExitTime" class="form-input" required>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setNowForInput('recTradeExitTime')">Сейчас</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Prices & Outcome & PnL -->
+          <div class="form-grid form-grid-2">
+            <div class="form-group">
+              <label class="form-label" for="recTradeEntryPrice">Цена входа (необязательно)</label>
+              <input type="text" id="recTradeEntryPrice" class="form-input" placeholder="например 67450.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="recTradeExitPrice">Цена выхода (необязательно)</label>
+              <input type="text" id="recTradeExitPrice" class="form-input" placeholder="например 68900.00">
+            </div>
+          </div>
+
+          <div class="form-grid form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Результат сделки</label>
+              <input type="hidden" id="recTradeOutcome" value="WIN">
+              <div class="segmented-group">
+                <button type="button" class="seg-btn win active" data-outcome="WIN" onclick="setRecOutcome('WIN')">✓ Тейк</button>
+                <button type="button" class="seg-btn loss" data-outcome="LOSS" onclick="setRecOutcome('LOSS')">✕ Стоп</button>
+                <button type="button" class="seg-btn be" data-outcome="BE" onclick="setRecOutcome('BE')">● Б/У</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="recTradePnl">Прибыль / R:R (PnL)</label>
+              <input type="text" id="recTradePnl" class="form-input" placeholder="+2.0R или +$350">
+              <input type="hidden" id="recTradeRMultiple" value="2.0">
+            </div>
+          </div>
+
+          <!-- Screenshot Photos Upload -->
+          <div class="form-group">
+            <label class="form-label">
+              <span>Скриншоты графика</span>
+              <span style="font-weight: 400; color: var(--text-muted);">Ctrl+V для вставки из буфера</span>
+            </label>
+            <input type="file" id="recTradeImageInput" accept="image/*" multiple style="display: none;">
+            <div id="recImageUploadZone" class="image-upload-zone">
+              <div class="upload-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+              </div>
+              <div class="upload-title">Нажмите или перетащите скриншоты сделки</div>
+              <div class="upload-subtitle">Поддерживаются PNG, JPG, WebP. Хранятся офлайн без интернета</div>
+            </div>
+            <div id="recFormImagePreviews" class="image-preview-list"></div>
+          </div>
+
+          <!-- Notes / Psychology -->
+          <div class="form-group">
+            <label class="form-label" for="recTradeNotes">Заметки, психология и анализ</label>
+            <textarea id="recTradeNotes" class="form-textarea" placeholder="Почему зашли в сделку? Был ли соблюден торговый план? Эмоции, ошибки и выводы..."></textarea>
+          </div>
+
+          <!-- Submit Button -->
+          <div style="margin-top: 10px;">
+            <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Сохранить сделку в дневник</span>
+            </button>
+          </div>
+
+        </form>
       </div>
-    </section>
+    </div>
 
-    <!-- Structuring & Filter Card (Month, Setup, TF, Search) -->
-    <section class="controls-card">
+    <!-- ======================================================================
+         TAB 2: ДНЕВНИК СДЕЛОК
+         ====================================================================== -->
+    <div id="tabJournalView" class="tab-view" style="display: none;">
       
-      <!-- Top Filters row: Search & Quick dropdowns -->
-      <div class="controls-row-top">
-        <div class="search-box">
-          <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input type="text" id="searchInput" class="search-input" placeholder="Поиск по активу (BTC, XAU...) или заметкам">
+      <!-- Top Analytics Summary Cards (Polar.sh / Refero Style) -->
+      <section class="analytics-section">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Винрейт</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            </div>
+            <div id="statWinrate" class="stat-value">0%</div>
+            <div class="stat-subtext">По выбранным сделкам</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Итог (PnL / R)</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+            </div>
+            <div id="statPnl" class="stat-value">0.0 R</div>
+            <div class="stat-subtext">Накопленная прибыль</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Всего трейдов</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+            </div>
+            <div id="statTotal" class="stat-value">0</div>
+            <div class="stat-subtext">Сделок в выборке</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Лучший сетап</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+            </div>
+            <div id="statBestSetup" class="stat-value" style="font-size: 1.05rem;">—</div>
+            <div class="stat-subtext">Максимальный винрейт</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Structuring & Filter Card (Month, Setup, TF, Search) -->
+      <section class="controls-card">
+        
+        <!-- Top Filters row: Search & Quick dropdowns -->
+        <div class="controls-row-top">
+          <div class="search-box">
+            <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="searchInput" class="search-input" placeholder="Поиск по активу (BTC, XAU...) или заметкам">
+          </div>
+
+          <select id="filterTfSelect" class="filter-select">
+            <option value="all">Все ТФ</option>
+            <option value="1m">1m</option>
+            <option value="3m">3m</option>
+            <option value="5m">5m</option>
+            <option value="15m">15m</option>
+            <option value="30m">30m</option>
+            <option value="1h">1h</option>
+            <option value="4h">4h</option>
+            <option value="1D">1D</option>
+          </select>
+
+          <select id="filterOutcomeSelect" class="filter-select">
+            <option value="all">Любой результат</option>
+            <option value="WIN">Только Win (Тейк)</option>
+            <option value="LOSS">Только Loss (Стоп)</option>
+            <option value="BE">Безубыток (BE)</option>
+          </select>
+
+          <select id="filterDirectionSelect" class="filter-select">
+            <option value="all">Long & Short</option>
+            <option value="LONG">Только LONG</option>
+            <option value="SHORT">Только SHORT</option>
+          </select>
         </div>
 
-        <select id="filterTfSelect" class="filter-select">
-          <option value="all">Все ТФ</option>
-          <option value="1m">1m</option>
-          <option value="3m">3m</option>
-          <option value="5m">5m</option>
-          <option value="15m">15m</option>
-          <option value="30m">30m</option>
-          <option value="1h">1h</option>
-          <option value="4h">4h</option>
-          <option value="1D">1D</option>
-        </select>
-
-        <select id="filterOutcomeSelect" class="filter-select">
-          <option value="all">Любой результат</option>
-          <option value="WIN">Только Win (Тейк)</option>
-          <option value="LOSS">Только Loss (Стоп)</option>
-          <option value="BE">Безубыток (BE)</option>
-        </select>
-
-        <select id="filterDirectionSelect" class="filter-select">
-          <option value="all">Long & Short</option>
-          <option value="LONG">Только LONG</option>
-          <option value="SHORT">Только SHORT</option>
-        </select>
-      </div>
-
-      <!-- Structuring by Month (Scrollable Pills) -->
-      <div class="filter-pills-wrapper">
-        <div class="pills-label-row">
-          <span>Структурирование по месяцам</span>
+        <!-- Structuring by Month (Scrollable Pills) -->
+        <div class="filter-pills-wrapper">
+          <div class="pills-label-row">
+            <span>Структурирование по месяцам</span>
+          </div>
+          <div id="monthPills" class="pills-scroll-row">
+            <!-- Dynamically populated -->
+          </div>
         </div>
-        <div id="monthPills" class="pills-scroll-row">
-          <!-- Dynamically populated -->
-        </div>
-      </div>
 
-      <!-- Structuring by Setup (Scrollable Pills) -->
-      <div class="filter-pills-wrapper">
-        <div class="pills-label-row">
-          <span>Структурирование по сетапам</span>
+        <!-- Structuring by Setup (Scrollable Pills) -->
+        <div class="filter-pills-wrapper">
+          <div class="pills-label-row">
+            <span>Структурирование по сетапам</span>
+          </div>
+          <div id="setupPills" class="pills-scroll-row">
+            <!-- Dynamically populated -->
+          </div>
         </div>
-        <div id="setupPills" class="pills-scroll-row">
-          <!-- Dynamically populated -->
-        </div>
-      </div>
 
-    </section>
+      </section>
 
-    <!-- Trades Feed (List grouped by Month) -->
-    <section id="tradesFeed" class="trades-feed">
-      <!-- Dynamically populated -->
-    </section>
+      <!-- Trades Feed (List grouped by Month) -->
+      <section id="tradesFeed" class="trades-feed">
+        <!-- Dynamically populated -->
+      </section>
+
+    </div>
 
   </main>
 
-  <!-- Mobile Floating Action Button (FAB) -->
-  <button class="mobile-fab" onclick="openTradeModal()" title="Добавить сделку">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="12" y1="5" x2="12" y2="19"></line>
-      <line x1="5" y1="12" x2="19" y2="12"></line>
-    </svg>
-  </button>
+  <!-- ==========================================================================
+       BOTTOM NAVIGATION TAB BAR
+       ========================================================================== -->
+  <nav class="bottom-nav">
+    <div class="bottom-nav-inner">
+      <button type="button" class="bottom-nav-item active" id="navBtnRecord" onclick="switchTab('record')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        <span>Запись трейдов</span>
+      </button>
+      <button type="button" class="bottom-nav-item" id="navBtnJournal" onclick="switchTab('journal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+        </svg>
+        <span>Дневник</span>
+      </button>
+    </div>
+  </nav>
 
   <!-- ==========================================================================
        MODAL: Add / Edit Trade
@@ -211,7 +392,7 @@
   <div id="tradeModal" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
-        <h2 id="modalTitle" class="modal-title">Новая сделка</h2>
+        <h2 id="modalTitle" class="modal-title">Редактирование сделки</h2>
         <button type="button" class="close-btn" onclick="closeTradeModal()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -225,8 +406,15 @@
         <!-- Asset / Pair & Direction -->
         <div class="form-grid form-grid-2">
           <div class="form-group">
-            <label class="form-label" for="tradeSymbol">Инструмент / Тикер</label>
-            <input type="text" id="tradeSymbol" class="form-input" placeholder="BTC/USDT, XAU/USD, EUR/USD..." required autocomplete="off">
+            <div class="field-label-row">
+              <label class="form-label" for="tradeSymbol">Инструмент / Тикер</label>
+              <span class="field-hint">Кликните или введите новый</span>
+            </div>
+            <div class="input-with-action">
+              <input type="text" id="tradeSymbol" class="form-input" placeholder="BTC/USDT, XAU/USD, EUR/USD..." required autocomplete="off">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="handleSaveCurrentTicker('tradeSymbol', 'modalSavedTickers')">+ Сохранить</button>
+            </div>
+            <div id="modalSavedTickers" class="preset-chips-scroll"></div>
           </div>
 
           <div class="form-group">
@@ -241,41 +429,25 @@
 
         <!-- Setup Selection -->
         <div class="form-group">
-          <label class="form-label" for="tradeSetup">Торговый сетап</label>
-          <select id="tradeSetup" class="form-select">
-            <option value="Liquidity Sweep">Liquidity Sweep (Снятие ликвидности)</option>
-            <option value="FVG / Imbalance">FVG / Imbalance (Имбаланс)</option>
-            <option value="Order Block (OB)">Order Block (OB / Блок заказов)</option>
-            <option value="Breakout / Пробой">Breakout / Пробой уровня</option>
-            <option value="Trend Continuation">Trend Continuation (По тренду)</option>
-            <option value="CHoCH / Слом структуры">CHoCH / Слом структуры (SMC)</option>
-            <option value="Support / Resistance">Поддержка / Сопротивление (S/R)</option>
-            <option value="Range / Боковик">Range / Девиация боковика</option>
-            <option value="__custom__">+ Ввести свой сетап...</option>
-          </select>
-        </div>
-
-        <!-- Custom Setup Input (if chosen) -->
-        <div id="customSetupGroup" class="form-group" style="display: none;">
-          <label class="form-label" for="tradeCustomSetup">Название своего сетапа</label>
-          <input type="text" id="tradeCustomSetup" class="form-input" placeholder="Например: False Breakout, SFP...">
+          <div class="field-label-row">
+            <label class="form-label" for="tradeSetup">Торговый сетап</label>
+            <span class="field-hint">Кликните сетап или впишите свой</span>
+          </div>
+          <div class="input-with-action">
+            <input type="text" id="tradeSetup" class="form-input" placeholder="Breakout, Order Block, SFP..." required autocomplete="off">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="handleSaveCurrentSetup('tradeSetup', 'modalSavedSetups')">+ Сохранить</button>
+          </div>
+          <div id="modalSavedSetups" class="preset-chips-scroll"></div>
         </div>
 
         <!-- Timeframe Pills Selector -->
         <div class="form-group">
-          <label class="form-label">Таймфрейм (TF)</label>
-          <input type="hidden" id="tradeTimeframe" value="15m">
-          <div class="tf-pills-row">
-            <button type="button" class="tf-pill" data-tf="1m">1m</button>
-            <button type="button" class="tf-pill" data-tf="3m">3m</button>
-            <button type="button" class="tf-pill" data-tf="5m">5m</button>
-            <button type="button" class="tf-pill active" data-tf="15m">15m</button>
-            <button type="button" class="tf-pill" data-tf="30m">30m</button>
-            <button type="button" class="tf-pill" data-tf="1h">1h</button>
-            <button type="button" class="tf-pill" data-tf="4h">4h</button>
-            <button type="button" class="tf-pill" data-tf="1D">1D</button>
-            <button type="button" class="tf-pill" data-tf="1W">1W</button>
+          <div class="field-label-row">
+            <label class="form-label">Таймфрейм (TF)</label>
+            <button type="button" class="btn-text-action" onclick="handleAddCustomTimeframe('modalSavedTimeframes', 'tradeTimeframe')">+ Свой ТФ</button>
           </div>
+          <input type="hidden" id="tradeTimeframe" value="15m">
+          <div id="modalSavedTimeframes" class="preset-chips-scroll"></div>
         </div>
 
         <!-- Entry Time & Exit Time -->
@@ -284,7 +456,7 @@
             <label class="form-label" for="tradeEntryTime">Время входа в сделку</label>
             <div class="input-with-action">
               <input type="datetime-local" id="tradeEntryTime" class="form-input" required>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="setNowForInput('tradeEntryTime')" title="Поставить текущее время">Сейчас</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="setNowForInput('tradeEntryTime')">Сейчас</button>
             </div>
           </div>
 
@@ -292,7 +464,7 @@
             <label class="form-label" for="tradeExitTime">Время выхода из сделки</label>
             <div class="input-with-action">
               <input type="datetime-local" id="tradeExitTime" class="form-input" required>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="setNowForInput('tradeExitTime')" title="Поставить текущее время">Сейчас</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="setNowForInput('tradeExitTime')">Сейчас</button>
             </div>
           </div>
         </div>
@@ -323,7 +495,7 @@
 
           <div class="form-group">
             <label class="form-label" for="tradePnl">Прибыль / R:R (PnL)</label>
-            <input type="text" id="tradePnl" class="form-input" placeholder="+2.5R или +$350">
+            <input type="text" id="tradePnl" class="form-input" placeholder="+2.0R или +$350">
             <input type="hidden" id="tradeRMultiple" value="2.0">
           </div>
         </div>
@@ -358,7 +530,7 @@
         <!-- Modal Submit & Cancel Buttons -->
         <div style="display: flex; gap: 10px; margin-top: 8px;">
           <button type="button" class="btn btn-secondary" onclick="closeTradeModal()" style="flex: 1;">Отмена</button>
-          <button type="submit" class="btn btn-primary" style="flex: 2;">Сохранить сделку</button>
+          <button type="submit" class="btn btn-primary" style="flex: 2;">Сохранить изменения</button>
         </div>
 
       </form>
@@ -382,7 +554,7 @@
 
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
-          Все сделки и скриншоты хранятся локально в IndexedDB вашего браузера. Чтобы не потерять данные при очистке кэша или перенести их на телефон, сохраняйте файл бэкапа:
+          Все сделки и скриншоты сохраняются локально на вашем устройстве. Чтобы сохранить резервную копию или перенести данные на другое устройство, используйте бэкап:
         </p>
 
         <button class="btn btn-primary" onclick="handleExportData()">

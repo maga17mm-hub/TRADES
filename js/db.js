@@ -1,13 +1,20 @@
 /**
  * TradeLog IndexedDB Storage Layer
- * Supports high-volume trades and full-resolution screenshot storage offline.
+ * Supports high-volume trades, full-resolution screenshot storage offline,
+ * and automatic persistent LocalStorage mirroring.
  */
 
 const DB_NAME = 'TradeLogDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'trades';
+const LS_BACKUP_KEY = 'tradelog_trades_store';
 
 let dbInstance = null;
+
+// Request persistent storage so browser/OS never clears data
+if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
 
 function getDB() {
   return new Promise((resolve, reject) => {
@@ -43,6 +50,43 @@ function getDB() {
 }
 
 /**
+ * Mirror trades to LocalStorage for bulletproof persistence
+ */
+function syncTradesToLocalStorage(trades) {
+  try {
+    localStorage.setItem(LS_BACKUP_KEY, JSON.stringify(trades));
+  } catch (e) {
+    try {
+      // In case quota exceeded due to large images, back up trades without base64 images
+      const lightweight = trades.map(t => ({ ...t, images: [] }));
+      localStorage.setItem(LS_BACKUP_KEY, JSON.stringify(lightweight));
+    } catch (err) {
+      console.warn('LocalStorage backup quota reached:', err);
+    }
+  }
+}
+
+function getTradesFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(LS_BACKUP_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function getAllTradesRaw() {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+/**
  * Add a new trade
  */
 async function addTrade(trade) {
@@ -61,7 +105,16 @@ async function addTrade(trade) {
     trade.updatedAt = new Date().toISOString();
 
     const request = store.add(trade);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = async () => {
+      const newId = request.result;
+      try {
+        const all = await getAllTradesRaw();
+        syncTradesToLocalStorage(all);
+      } catch (err) {
+        console.warn('Sync to localStorage failed:', err);
+      }
+      resolve(newId);
+    };
     request.onerror = (e) => reject(e.target.error);
   });
 }
@@ -81,7 +134,15 @@ async function updateTrade(trade) {
     trade.updatedAt = new Date().toISOString();
 
     const request = store.put(trade);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = async () => {
+      try {
+        const all = await getAllTradesRaw();
+        syncTradesToLocalStorage(all);
+      } catch (err) {
+        console.warn('Sync to localStorage failed:', err);
+      }
+      resolve(request.result);
+    };
     request.onerror = (e) => reject(e.target.error);
   });
 }
@@ -95,7 +156,15 @@ async function deleteTrade(id) {
     const transaction = db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
     const request = store.delete(Number(id));
-    request.onsuccess = () => resolve(true);
+    request.onsuccess = async () => {
+      try {
+        const all = await getAllTradesRaw();
+        syncTradesToLocalStorage(all);
+      } catch (err) {
+        console.warn('Sync to localStorage failed:', err);
+      }
+      resolve(true);
+    };
     request.onerror = (e) => reject(e.target.error);
   });
 }
@@ -123,9 +192,52 @@ async function getAllTrades() {
     const transaction = db.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
     const request = store.getAll();
-    request.onsuccess = () => {
+    request.onsuccess = async () => {
+      let list = request.result || [];
+
+      // One-time cleanup: If existing trades are ONLY the original hardcoded demo trades, clear them so app is clean empty
+      if (localStorage.getItem('tradelog_demo_cleaned_v2') !== 'true') {
+        localStorage.setItem('tradelog_demo_cleaned_v2', 'true');
+        const isOnlyDemo = list.length > 0 && list.every(t => 
+          (t.notes && t.notes.includes('Asian Low')) ||
+          (t.symbol === 'ETH/USDT' && t.notes && t.notes.includes('Order Block')) ||
+          (t.symbol === 'XAU/USD' && t.notes && t.notes.includes('CPI')) ||
+          (t.symbol === 'SOL/USDT' && t.notes && t.notes.includes('FVG'))
+        );
+        if (isOnlyDemo) {
+          await clearAllTrades();
+          list = [];
+        }
+      }
+
+      // Restore from localStorage if IndexedDB is empty
+      if (list.length === 0) {
+        const backup = getTradesFromLocalStorage();
+        if (backup && backup.length > 0) {
+          console.log('Restoring trades from LocalStorage mirror...');
+          try {
+            for (const t of backup) {
+              const item = { ...t };
+              delete item.id;
+              await new Promise((res, rej) => {
+                const tx = db.transaction([STORE_NAME], 'readwrite');
+                const s = tx.objectStore(STORE_NAME);
+                const req = s.add(item);
+                req.onsuccess = () => res(req.result);
+                req.onerror = (e) => rej(e.target.error);
+              });
+            }
+            list = await getAllTradesRaw();
+          } catch (e) {
+            console.warn('Restoration error:', e);
+            list = backup;
+          }
+        }
+      } else {
+        syncTradesToLocalStorage(list);
+      }
+
       // Return sorted by entryTime descending (newest first)
-      const list = request.result || [];
       list.sort((a, b) => {
         const timeA = new Date(a.entryTime || a.createdAt).getTime();
         const timeB = new Date(b.entryTime || b.createdAt).getTime();
@@ -146,7 +258,12 @@ async function clearAllTrades() {
     const transaction = db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
     const request = store.clear();
-    request.onsuccess = () => resolve(true);
+    request.onsuccess = () => {
+      try {
+        localStorage.removeItem(LS_BACKUP_KEY);
+      } catch (e) {}
+      resolve(true);
+    };
     request.onerror = (e) => reject(e.target.error);
   });
 }
@@ -158,7 +275,7 @@ async function exportToJSON() {
   const trades = await getAllTrades();
   const data = {
     appName: 'TradeLog PWA',
-    version: '1.0',
+    version: '2.0',
     exportDate: new Date().toISOString(),
     totalTrades: trades.length,
     trades: trades
@@ -191,7 +308,13 @@ async function importFromJSON(jsonString) {
       count++;
     }
 
-    transaction.oncomplete = () => resolve(count);
+    transaction.oncomplete = async () => {
+      try {
+        const all = await getAllTradesRaw();
+        syncTradesToLocalStorage(all);
+      } catch (err) {}
+      resolve(count);
+    };
     transaction.onerror = (e) => reject(e.target.error);
   });
 }
@@ -251,82 +374,9 @@ function compressImage(file, maxWidth = 1920, maxHeight = 1080, quality = 0.85) 
   });
 }
 
-// Demo data generator (for first-time users so app is immediately visual)
+/**
+ * No demo trades: App starts completely empty for user data
+ */
 async function loadDemoTradesIfEmpty() {
-  const existing = await getAllTrades();
-  if (existing && existing.length > 0) return false;
-
-  const now = new Date();
-  const formatIso = (d) => {
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-
-  const demoTrades = [
-    {
-      symbol: 'BTC/USDT',
-      direction: 'LONG',
-      timeframe: '15m',
-      setup: 'Liquidity Sweep',
-      entryTime: formatIso(new Date(now.getTime() - 2 * 3600 * 1000)),
-      exitTime: formatIso(new Date(now.getTime() - 40 * 60 * 1000)),
-      entryPrice: '67420',
-      exitPrice: '68950',
-      outcome: 'WIN',
-      pnl: '+3.4R',
-      rMultiple: 3.4,
-      notes: 'Снятие ликвидности азиатской сессии (Asian Low) на 15m. Слом структуры (CHoCH) на 1m, вход от FVG с коротким стопом за свинг. Тейк-профит на снятии ликвидности с верхней границы диапазона. Все правила соблюдены.',
-      images: []
-    },
-    {
-      symbol: 'ETH/USDT',
-      direction: 'SHORT',
-      timeframe: '1h',
-      setup: 'Order Block (OB)',
-      entryTime: formatIso(new Date(now.getTime() - 28 * 3600 * 1000)),
-      exitTime: formatIso(new Date(now.getTime() - 22 * 3600 * 1000)),
-      entryPrice: '2640',
-      exitPrice: '2580',
-      outcome: 'WIN',
-      pnl: '+2.5R',
-      rMultiple: 2.5,
-      notes: 'Тест 1h Bearish Order Block после снятия равных максимумов (Equal Highs). Фиксация на пуле ликвидности снизу.',
-      images: []
-    },
-    {
-      symbol: 'XAU/USD',
-      direction: 'LONG',
-      timeframe: '5m',
-      setup: 'Breakout / Пробой',
-      entryTime: formatIso(new Date(now.getTime() - 48 * 3600 * 1000)),
-      exitTime: formatIso(new Date(now.getTime() - 46 * 3600 * 1000)),
-      entryPrice: '2685.5',
-      exitPrice: '2681.0',
-      outcome: 'LOSS',
-      pnl: '-1.0R',
-      rMultiple: -1.0,
-      notes: 'Попытка зайти в лонг на пробое утреннего хая на золоте. Пробой оказался ложным, выбило по системному стопу. Ошибка: вход прямо перед выходом новостей CPI.',
-      images: []
-    },
-    {
-      symbol: 'SOL/USDT',
-      direction: 'LONG',
-      timeframe: '15m',
-      setup: 'FVG / Imbalance',
-      entryTime: formatIso(new Date(now.getTime() - 72 * 3600 * 1000)),
-      exitTime: formatIso(new Date(now.getTime() - 65 * 3600 * 1000)),
-      entryPrice: '152.4',
-      exitPrice: '157.8',
-      outcome: 'WIN',
-      pnl: '+4.1R',
-      rMultiple: 4.1,
-      notes: 'Идеальное заполнение 15m бычьего имбаланса (FVG) на открытии Нью-Йоркской сессии. Реакция импульсная.',
-      images: []
-    }
-  ];
-
-  for (const t of demoTrades) {
-    await addTrade(t);
-  }
-  return true;
+  return false;
 }

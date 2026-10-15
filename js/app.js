@@ -1,6 +1,7 @@
 /**
  * TradeLog - Main Application Controller
- * Handles UI interactions, filtering, analytics, image handling, and PWA logic.
+ * Handles UI interactions, dual tabs, custom presets (tickers, setups, timeframes),
+ * filtering, analytics, image handling, and PWA logic.
  */
 
 // Global State
@@ -13,11 +14,20 @@ let currentFilter = {
   direction: 'all',
   searchQuery: ''
 };
-let currentTradeImages = [];
+
+// Form images states (separate for Record page and Edit modal)
+let recordTradeImages = [];
+let modalTradeImages = [];
 let editingTradeId = null;
 let deferredInstallPrompt = null;
 
-// DOM Elements
+// DOM Elements - Tabs & Nav
+const tabRecordView = document.getElementById('tabRecordView');
+const tabJournalView = document.getElementById('tabJournalView');
+const navBtnRecord = document.getElementById('navBtnRecord');
+const navBtnJournal = document.getElementById('navBtnJournal');
+
+// DOM Elements - Journal Feed & Analytics
 const tradesFeedEl = document.getElementById('tradesFeed');
 const monthPillsEl = document.getElementById('monthPills');
 const setupPillsEl = document.getElementById('setupPills');
@@ -30,7 +40,7 @@ const filterTfSelectEl = document.getElementById('filterTfSelect');
 const filterOutcomeSelectEl = document.getElementById('filterOutcomeSelect');
 const filterDirectionSelectEl = document.getElementById('filterDirectionSelect');
 
-// Modals
+// DOM Elements - Modals
 const tradeModalEl = document.getElementById('tradeModal');
 const tradeFormEl = document.getElementById('tradeForm');
 const modalTitleEl = document.getElementById('modalTitle');
@@ -39,16 +49,19 @@ const lightboxModalEl = document.getElementById('lightboxModal');
 const lightboxImgEl = document.getElementById('lightboxImg');
 const lightboxCaptionEl = document.getElementById('lightboxCaption');
 
+// DOM Elements - Record Tab Form
+const recordTradeFormEl = document.getElementById('recordTradeForm');
+
 // Initialize Application
 document.addEventListener('DOMContentLoaded', async () => {
   // Register Service Worker for PWA
   registerServiceWorker();
 
-  // Load demo trades if database is completely empty
-  await loadDemoTradesIfEmpty();
+  // Initialize presets (tickers, setups, timeframes)
+  initPresets();
 
-  // Load trades from IndexedDB
-  await refreshTrades();
+  // Setup form timestamps
+  initFormTimestamps();
 
   // Setup Event Listeners
   setupEventListeners();
@@ -56,8 +69,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Setup Clipboard Paste for images (Ctrl+V)
   setupClipboardPaste();
 
-  // Check PWA Installability
+  // Setup PWA install banner
   setupPwaInstall();
+
+  // Load trades from DB
+  await refreshTrades();
+
+  // Restore active tab (default to 'record' if no trades yet, else last chosen)
+  const savedTab = localStorage.getItem('tradelog_active_tab');
+  if (savedTab === 'journal') {
+    switchTab('journal');
+  } else if (savedTab === 'record') {
+    switchTab('record');
+  } else {
+    // If user has trades, show journal; if brand new/empty, show record view
+    switchTab(allTrades.length > 0 ? 'journal' : 'record');
+  }
 });
 
 /**
@@ -67,15 +94,313 @@ function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
-        .then((reg) => console.log('Service Worker registered with scope:', reg.scope))
-        .catch((err) => console.log('Service Worker registration failed:', err));
+        .then((reg) => console.log('Service Worker active:', reg.scope))
+        .catch((err) => console.log('Service Worker failed:', err));
     });
   }
 }
 
 /**
- * Refresh trades from DB and update UI
+ * Tab Navigation (Запись трейдов <-> Дневник)
  */
+function switchTab(tabName) {
+  if (tabName === 'record') {
+    tabRecordView.style.display = 'block';
+    tabJournalView.style.display = 'none';
+    navBtnRecord.classList.add('active');
+    navBtnJournal.classList.remove('active');
+    localStorage.setItem('tradelog_active_tab', 'record');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    renderAllPresetPills();
+  } else {
+    tabRecordView.style.display = 'none';
+    tabJournalView.style.display = 'block';
+    navBtnRecord.classList.remove('active');
+    navBtnJournal.classList.add('active');
+    localStorage.setItem('tradelog_active_tab', 'journal');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    updateAnalytics();
+    renderMonthPills();
+    renderSetupPills();
+    renderTradesFeed();
+  }
+}
+
+// Global exposure for onclick
+window.switchTab = switchTab;
+
+/**
+ * ============================================================================
+ * PRESETS MANAGEMENT: Tickers, Trade Setups, Timeframes
+ * User can type new ones, they persist across sessions, and appear as tap buttons.
+ * ============================================================================
+ */
+
+const DEFAULT_TICKERS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'XAU/USD'];
+const DEFAULT_SETUPS = [
+  'Breakout / Пробой',
+  'Order Block (OB)',
+  'FVG / Imbalance',
+  'Liquidity Sweep',
+  'CHoCH / Слом структуры',
+  'Support / Resistance',
+  'Trend Continuation'
+];
+const DEFAULT_TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'];
+
+function initPresets() {
+  if (!localStorage.getItem('tradelog_saved_tickers')) {
+    localStorage.setItem('tradelog_saved_tickers', JSON.stringify(DEFAULT_TICKERS));
+  }
+  if (!localStorage.getItem('tradelog_saved_setups')) {
+    localStorage.setItem('tradelog_saved_setups', JSON.stringify(DEFAULT_SETUPS));
+  }
+  if (!localStorage.getItem('tradelog_saved_timeframes')) {
+    localStorage.setItem('tradelog_saved_timeframes', JSON.stringify(DEFAULT_TIMEFRAMES));
+  }
+  renderAllPresetPills();
+}
+
+function getSavedTickers() {
+  try {
+    const raw = localStorage.getItem('tradelog_saved_tickers');
+    return raw ? JSON.parse(raw) : DEFAULT_TICKERS;
+  } catch {
+    return DEFAULT_TICKERS;
+  }
+}
+
+function saveTicker(ticker) {
+  if (!ticker || !ticker.trim()) return;
+  const clean = ticker.trim().toUpperCase();
+  const list = getSavedTickers();
+  if (!list.includes(clean)) {
+    list.push(clean);
+    localStorage.setItem('tradelog_saved_tickers', JSON.stringify(list));
+    renderAllPresetPills();
+  }
+}
+
+function removeTicker(ticker) {
+  const list = getSavedTickers().filter((t) => t !== ticker);
+  localStorage.setItem('tradelog_saved_tickers', JSON.stringify(list));
+  renderAllPresetPills();
+}
+
+function getSavedSetups() {
+  try {
+    const raw = localStorage.getItem('tradelog_saved_setups');
+    return raw ? JSON.parse(raw) : DEFAULT_SETUPS;
+  } catch {
+    return DEFAULT_SETUPS;
+  }
+}
+
+function saveSetup(setup) {
+  if (!setup || !setup.trim()) return;
+  const clean = setup.trim();
+  const list = getSavedSetups();
+  if (!list.includes(clean)) {
+    list.push(clean);
+    localStorage.setItem('tradelog_saved_setups', JSON.stringify(list));
+    renderAllPresetPills();
+  }
+}
+
+function removeSetup(setup) {
+  const list = getSavedSetups().filter((s) => s !== setup);
+  localStorage.setItem('tradelog_saved_setups', JSON.stringify(list));
+  renderAllPresetPills();
+}
+
+function getSavedTimeframes() {
+  try {
+    const raw = localStorage.getItem('tradelog_saved_timeframes');
+    return raw ? JSON.parse(raw) : DEFAULT_TIMEFRAMES;
+  } catch {
+    return DEFAULT_TIMEFRAMES;
+  }
+}
+
+function saveTimeframe(tf) {
+  if (!tf || !tf.trim()) return;
+  const clean = tf.trim();
+  const list = getSavedTimeframes();
+  if (!list.includes(clean)) {
+    list.push(clean);
+    localStorage.setItem('tradelog_saved_timeframes', JSON.stringify(list));
+    renderAllPresetPills();
+  }
+}
+
+function removeTimeframe(tf) {
+  const list = getSavedTimeframes().filter((t) => t !== tf);
+  localStorage.setItem('tradelog_saved_timeframes', JSON.stringify(list));
+  renderAllPresetPills();
+}
+
+/**
+ * Render all preset chips across Record tab & Modal
+ */
+function renderAllPresetPills() {
+  // Record tab
+  renderTickerPills('recSavedTickers', 'recTradeSymbol');
+  renderSetupPillsForForm('recSavedSetups', 'recTradeSetup');
+  renderTimeframePillsForForm('recSavedTimeframes', 'recTradeTimeframe');
+
+  // Modal
+  renderTickerPills('modalSavedTickers', 'tradeSymbol');
+  renderSetupPillsForForm('modalSavedSetups', 'tradeSetup');
+  renderTimeframePillsForForm('modalSavedTimeframes', 'tradeTimeframe');
+}
+
+function renderTickerPills(containerId, inputId) {
+  const container = document.getElementById(containerId);
+  const input = document.getElementById(inputId);
+  if (!container || !input) return;
+
+  const tickers = getSavedTickers();
+  const currentVal = (input.value || '').trim().toUpperCase();
+
+  container.innerHTML = tickers.map((t) => {
+    const isActive = currentVal === t;
+    return `
+      <span class="preset-chip ${isActive ? 'active' : ''}" data-ticker="${escapeHtml(t)}">
+        <span onclick="selectTicker('${escapeHtml(t)}', '${inputId}', '${containerId}')">${escapeHtml(t)}</span>
+        <span class="preset-chip-del" onclick="event.stopPropagation(); handleDeleteTicker('${escapeHtml(t)}')">✕</span>
+      </span>
+    `;
+  }).join('');
+}
+
+function selectTicker(ticker, inputId, containerId) {
+  const input = document.getElementById(inputId);
+  if (input) {
+    input.value = ticker;
+    renderTickerPills(containerId, inputId);
+  }
+}
+
+function handleSaveCurrentTicker(inputId, containerId) {
+  const input = document.getElementById(inputId);
+  if (!input || !input.value.trim()) {
+    showToast('Введите тикер для сохранения', 'info');
+    return;
+  }
+  const t = input.value.trim().toUpperCase();
+  saveTicker(t);
+  selectTicker(t, inputId, containerId);
+  showToast(`Тикер ${t} сохранен!`, 'success');
+}
+
+function handleDeleteTicker(ticker) {
+  removeTicker(ticker);
+  showToast(`Тикер ${ticker} удален`, 'info');
+}
+
+function renderSetupPillsForForm(containerId, inputId) {
+  const container = document.getElementById(containerId);
+  const input = document.getElementById(inputId);
+  if (!container || !input) return;
+
+  const setups = getSavedSetups();
+  const currentVal = (input.value || '').trim();
+
+  container.innerHTML = setups.map((s) => {
+    const isActive = currentVal === s;
+    return `
+      <span class="preset-chip ${isActive ? 'active' : ''}" data-setup="${escapeHtml(s)}">
+        <span onclick="selectSetup('${escapeHtml(s)}', '${inputId}', '${containerId}')">${escapeHtml(s)}</span>
+        <span class="preset-chip-del" onclick="event.stopPropagation(); handleDeleteSetup('${escapeHtml(s)}')">✕</span>
+      </span>
+    `;
+  }).join('');
+}
+
+function selectSetup(setup, inputId, containerId) {
+  const input = document.getElementById(inputId);
+  if (input) {
+    input.value = setup;
+    renderSetupPillsForForm(containerId, inputId);
+  }
+}
+
+function handleSaveCurrentSetup(inputId, containerId) {
+  const input = document.getElementById(inputId);
+  if (!input || !input.value.trim()) {
+    showToast('Введите название сетапа для сохранения', 'info');
+    return;
+  }
+  const s = input.value.trim();
+  saveSetup(s);
+  selectSetup(s, inputId, containerId);
+  showToast(`Сетап «${s}» сохранен!`, 'success');
+}
+
+function handleDeleteSetup(setup) {
+  removeSetup(setup);
+  showToast(`Сетап «${setup}» удален`, 'info');
+}
+
+function renderTimeframePillsForForm(containerId, hiddenInputId) {
+  const container = document.getElementById(containerId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  if (!container || !hiddenInput) return;
+
+  const tfs = getSavedTimeframes();
+  const currentVal = hiddenInput.value || '15m';
+
+  container.innerHTML = tfs.map((tf) => {
+    const isActive = currentVal === tf;
+    return `
+      <span class="preset-chip ${isActive ? 'active' : ''}" data-tf="${escapeHtml(tf)}">
+        <span onclick="selectTimeframe('${escapeHtml(tf)}', '${hiddenInputId}', '${containerId}')">${escapeHtml(tf)}</span>
+        <span class="preset-chip-del" onclick="event.stopPropagation(); handleDeleteTimeframe('${escapeHtml(tf)}')">✕</span>
+      </span>
+    `;
+  }).join('');
+}
+
+function selectTimeframe(tf, hiddenInputId, containerId) {
+  const hiddenInput = document.getElementById(hiddenInputId);
+  if (hiddenInput) {
+    hiddenInput.value = tf;
+    renderTimeframePillsForForm(containerId, hiddenInputId);
+  }
+}
+
+function handleAddCustomTimeframe(containerId, hiddenInputId) {
+  const customTf = prompt('Введите новый таймфрейм (например: 2m, 10m, 2h, 8h, 3D, 1M):');
+  if (customTf && customTf.trim()) {
+    const clean = customTf.trim();
+    saveTimeframe(clean);
+    selectTimeframe(clean, hiddenInputId, containerId);
+    showToast(`Таймфрейм ${clean} добавлен!`, 'success');
+  }
+}
+
+function handleDeleteTimeframe(tf) {
+  removeTimeframe(tf);
+  showToast(`Таймфрейм ${tf} удален`, 'info');
+}
+
+// Make handlers globally available
+window.selectTicker = selectTicker;
+window.handleSaveCurrentTicker = handleSaveCurrentTicker;
+window.handleDeleteTicker = handleDeleteTicker;
+window.selectSetup = selectSetup;
+window.handleSaveCurrentSetup = handleSaveCurrentSetup;
+window.handleDeleteSetup = handleDeleteSetup;
+window.selectTimeframe = selectTimeframe;
+window.handleAddCustomTimeframe = handleAddCustomTimeframe;
+window.handleDeleteTimeframe = handleDeleteTimeframe;
+
+/**
+ * ============================================================================
+ * REFRESH & ANALYTICS
+ * ============================================================================
+ */
+
 async function refreshTrades() {
   try {
     allTrades = await getAllTrades();
@@ -89,16 +414,15 @@ async function refreshTrades() {
   }
 }
 
-/**
- * Update Top Analytics Cards (Polar.sh stats style)
- */
 function updateAnalytics() {
   const filtered = getFilteredTrades();
   const total = filtered.length;
 
   if (total === 0) {
     statWinrateEl.textContent = '0%';
+    statWinrateEl.className = 'stat-value';
     statPnlEl.textContent = '0.0 R';
+    statPnlEl.className = 'stat-value';
     statTotalEl.textContent = '0';
     statBestSetupEl.textContent = '—';
     return;
@@ -111,16 +435,13 @@ function updateAnalytics() {
   const setupStats = {};
 
   filtered.forEach((t) => {
-    // PnL / R
     const rVal = parseFloat(t.rMultiple || 0);
     totalR += rVal;
 
-    // Outcome counts
     if (t.outcome === 'WIN') wins++;
     else if (t.outcome === 'LOSS') losses++;
     else if (t.outcome === 'BE') be++;
 
-    // Setup stats
     const setupName = t.setup || 'Без сетапа';
     if (!setupStats[setupName]) {
       setupStats[setupName] = { total: 0, wins: 0, r: 0 };
@@ -133,7 +454,6 @@ function updateAnalytics() {
   const decisiveTrades = wins + losses;
   const winrate = decisiveTrades > 0 ? Math.round((wins / decisiveTrades) * 100) : 0;
 
-  // Best setup calculation
   let bestSetupName = '—';
   let bestSetupWinrate = -1;
   for (const [name, s] of Object.entries(setupStats)) {
@@ -157,32 +477,23 @@ function updateAnalytics() {
   statBestSetupEl.textContent = bestSetupName;
 }
 
-/**
- * Filter Trades based on current filter state
- */
 function getFilteredTrades() {
   return allTrades.filter((t) => {
-    // Month filter
     if (currentFilter.month !== 'all' && t.month !== currentFilter.month) {
       return false;
     }
-    // Setup filter
     if (currentFilter.setup !== 'all' && t.setup !== currentFilter.setup) {
       return false;
     }
-    // Timeframe filter
     if (currentFilter.timeframe !== 'all' && t.timeframe !== currentFilter.timeframe) {
       return false;
     }
-    // Outcome filter
     if (currentFilter.outcome !== 'all' && t.outcome !== currentFilter.outcome) {
       return false;
     }
-    // Direction filter
     if (currentFilter.direction !== 'all' && t.direction !== currentFilter.direction) {
       return false;
     }
-    // Search query (symbol or notes)
     if (currentFilter.searchQuery) {
       const q = currentFilter.searchQuery.toLowerCase();
       const symbolMatch = (t.symbol || '').toLowerCase().includes(q);
@@ -194,10 +505,12 @@ function getFilteredTrades() {
   });
 }
 
-/**
- * Render Structuring by Month (Pills)
- */
 function renderMonthPills() {
+  if (allTrades.length === 0) {
+    monthPillsEl.innerHTML = '<span style="color: var(--text-muted); font-size: 0.8rem;">Нет сделок для группировки</span>';
+    return;
+  }
+
   const monthsMap = {};
   allTrades.forEach((t) => {
     const m = t.month || 'Без даты';
@@ -225,7 +538,6 @@ function renderMonthPills() {
 
   monthPillsEl.innerHTML = html;
 
-  // Add click handlers
   monthPillsEl.querySelectorAll('.pill-item').forEach((btn) => {
     btn.addEventListener('click', () => {
       currentFilter.month = btn.dataset.month;
@@ -237,13 +549,15 @@ function renderMonthPills() {
   });
 }
 
-/**
- * Render Structuring by Setup (Pills)
- */
 function renderSetupPills() {
+  if (allTrades.length === 0) {
+    setupPillsEl.innerHTML = '<span style="color: var(--text-muted); font-size: 0.8rem;">Нет сделок для группировки</span>';
+    return;
+  }
+
   const setupsMap = {};
   allTrades.forEach((t) => {
-    const s = t.setup || 'Другой';
+    const s = t.setup || 'Без сетапа';
     setupsMap[s] = (setupsMap[s] || 0) + 1;
   });
 
@@ -267,7 +581,6 @@ function renderSetupPills() {
 
   setupPillsEl.innerHTML = html;
 
-  // Add click handlers
   setupPillsEl.querySelectorAll('.pill-item').forEach((btn) => {
     btn.addEventListener('click', () => {
       currentFilter.setup = btn.dataset.setup;
@@ -279,9 +592,6 @@ function renderSetupPills() {
   });
 }
 
-/**
- * Render Trades Feed (Grouped by Month with monthly metrics)
- */
 function renderTradesFeed() {
   const filtered = getFilteredTrades();
 
@@ -290,14 +600,13 @@ function renderTradesFeed() {
       <div class="empty-state">
         <div class="empty-icon">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="20" x2="18" y2="10"></line>
-            <line x1="12" y1="20" x2="12" y2="4"></line>
-            <line x1="6" y1="20" x2="6" y2="14"></line>
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
           </svg>
         </div>
-        <div class="empty-title">Сделок не найдено</div>
-        <div class="empty-desc">Сделки по выбранным фильтрам отсутствуют. Нажмите кнопку «+ Сделка», чтобы записать новый трейд!</div>
-        <button class="btn btn-primary" onclick="openTradeModal()">+ Записать первую сделку</button>
+        <div class="empty-title">Дневник пуст</div>
+        <div class="empty-desc">Сделки по выбранным критериям отсутствуют. Перейдите во вкладку «Запись трейдов», чтобы внести сделку!</div>
+        <button class="btn btn-primary" onclick="switchTab('record')">+ Записать трейд</button>
       </div>
     `;
     return;
@@ -318,7 +627,6 @@ function renderTradesFeed() {
     const monthTrades = groups[m];
     const monthName = formatMonthName(m);
 
-    // Compute month summary
     let mWins = 0;
     let mLosses = 0;
     let mTotalR = 0;
@@ -362,20 +670,15 @@ function renderTradesFeed() {
   attachCardActionListeners();
 }
 
-/**
- * Generate HTML for an individual trade card (Polar.sh / Refero design)
- */
 function renderTradeCard(t) {
   const outcomeClass = (t.outcome || 'be').toLowerCase();
   const dirClass = (t.direction || 'long').toLowerCase();
   const outcomeLabel = t.outcome === 'WIN' ? 'Тейк-профит' : t.outcome === 'LOSS' ? 'Стоп-лосс' : 'Безубыток';
 
-  // Formatting dates & duration
   const entryFormatted = formatDateTimeDisplay(t.entryTime);
   const exitFormatted = formatDateTimeDisplay(t.exitTime);
   const durationText = calculateDuration(t.entryTime, t.exitTime);
 
-  // Images thumbnails
   const images = t.images || [];
   let imagesHtml = '';
   if (images.length > 0) {
@@ -391,13 +694,11 @@ function renderTradeCard(t) {
     `;
   }
 
-  // Notes snippet
   let notesHtml = '';
   if (t.notes && t.notes.trim()) {
     notesHtml = `<div class="trade-notes-preview">${escapeHtml(t.notes)}</div>`;
   }
 
-  // Price details
   let priceHtml = '';
   if (t.entryPrice || t.exitPrice) {
     priceHtml = `
@@ -419,7 +720,7 @@ function renderTradeCard(t) {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
             </svg>
-            ${escapeHtml(t.setup || 'Сетап')}
+            ${escapeHtml(t.setup || 'Без сетапа')}
           </span>
         </div>
 
@@ -472,9 +773,6 @@ function renderTradeCard(t) {
   `;
 }
 
-/**
- * Attach listeners to cards (e.g. click image to lightbox)
- */
 function attachCardActionListeners() {
   document.querySelectorAll('.thumbnail-box').forEach((box) => {
     box.addEventListener('click', (e) => {
@@ -490,63 +788,99 @@ function attachCardActionListeners() {
 }
 
 /**
+ * ============================================================================
+ * FORM TIMESTAMPS & CONTROLS
+ * ============================================================================
+ */
+
+function initFormTimestamps() {
+  setNowForInput('recTradeEntryTime');
+  setNowForInput('recTradeExitTime');
+}
+
+function setNowForInput(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  el.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+window.setNowForInput = setNowForInput;
+
+function setRecDirection(dir) {
+  document.getElementById('recTradeDirection').value = dir;
+  document.querySelectorAll('#recordTradeForm .seg-btn[data-dir]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.dir === dir);
+  });
+}
+window.setRecDirection = setRecDirection;
+
+function setRecOutcome(outcome) {
+  document.getElementById('recTradeOutcome').value = outcome;
+  document.querySelectorAll('#recordTradeForm .seg-btn[data-outcome]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.outcome === outcome);
+  });
+
+  const pnlInput = document.getElementById('recTradePnl');
+  const rInput = document.getElementById('recTradeRMultiple');
+  if (outcome === 'WIN' && !pnlInput.value) {
+    pnlInput.value = '+2.0R';
+    rInput.value = '2.0';
+  } else if (outcome === 'LOSS' && !pnlInput.value) {
+    pnlInput.value = '-1.0R';
+    rInput.value = '-1.0';
+  } else if (outcome === 'BE' && !pnlInput.value) {
+    pnlInput.value = '0.0R';
+    rInput.value = '0.0';
+  }
+}
+window.setRecOutcome = setRecOutcome;
+
+/**
  * Setup Event Listeners
  */
 function setupEventListeners() {
-  // Search input
+  // Journal Search & Filters
   searchInputEl.addEventListener('input', (e) => {
     currentFilter.searchQuery = e.target.value;
     updateAnalytics();
     renderTradesFeed();
   });
 
-  // Timeframe filter select
   filterTfSelectEl.addEventListener('change', (e) => {
     currentFilter.timeframe = e.target.value;
     updateAnalytics();
     renderTradesFeed();
   });
 
-  // Outcome filter select
   filterOutcomeSelectEl.addEventListener('change', (e) => {
     currentFilter.outcome = e.target.value;
     updateAnalytics();
     renderTradesFeed();
   });
 
-  // Direction filter select
   filterDirectionSelectEl.addEventListener('change', (e) => {
     currentFilter.direction = e.target.value;
     updateAnalytics();
     renderTradesFeed();
   });
 
-  // Quick Timeframe selector buttons in modal
-  document.querySelectorAll('.tf-pill').forEach((pill) => {
-    pill.addEventListener('click', () => {
-      document.querySelectorAll('.tf-pill').forEach((p) => p.classList.remove('active'));
-      pill.classList.add('active');
-      document.getElementById('tradeTimeframe').value = pill.dataset.tf;
-    });
-  });
-
-  // Direction toggle buttons in modal
-  document.querySelectorAll('.seg-btn[data-dir]').forEach((btn) => {
+  // Modal Direction Buttons
+  document.querySelectorAll('#tradeForm .seg-btn[data-dir]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.seg-btn[data-dir]').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('#tradeForm .seg-btn[data-dir]').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('tradeDirection').value = btn.dataset.dir;
     });
   });
 
-  // Outcome toggle buttons in modal
-  document.querySelectorAll('.seg-btn[data-outcome]').forEach((btn) => {
+  // Modal Outcome Buttons
+  document.querySelectorAll('#tradeForm .seg-btn[data-outcome]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.seg-btn[data-outcome]').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('#tradeForm .seg-btn[data-outcome]').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('tradeOutcome').value = btn.dataset.outcome;
 
-      // Auto-suggest PnL sign
       const pnlInput = document.getElementById('tradePnl');
       const rInput = document.getElementById('tradeRMultiple');
       if (btn.dataset.outcome === 'WIN' && !pnlInput.value) {
@@ -562,59 +896,38 @@ function setupEventListeners() {
     });
   });
 
-  // Auto-fill R multiple when PnL input changes
+  // PnL Auto R parsing
+  document.getElementById('recTradePnl').addEventListener('input', (e) => {
+    const match = e.target.value.match(/([+-]?\d+(?:\.\d+)?)/);
+    if (match) document.getElementById('recTradeRMultiple').value = match[1];
+  });
+
   document.getElementById('tradePnl').addEventListener('input', (e) => {
-    const val = e.target.value;
-    const match = val.match(/([+-]?\d+(?:\.\d+)?)/);
-    if (match) {
-      document.getElementById('tradeRMultiple').value = match[1];
-    }
+    const match = e.target.value.match(/([+-]?\d+(?:\.\d+)?)/);
+    if (match) document.getElementById('tradeRMultiple').value = match[1];
   });
 
-  // Image file input change
-  const imageInputEl = document.getElementById('tradeImageInput');
-  const uploadZoneEl = document.getElementById('imageUploadZone');
+  // Images for Record Tab
+  setupImageUpload(
+    'recTradeImageInput',
+    'recImageUploadZone',
+    'recFormImagePreviews',
+    () => recordTradeImages,
+    (imgs) => { recordTradeImages = imgs; }
+  );
 
-  uploadZoneEl.addEventListener('click', () => imageInputEl.click());
+  // Images for Modal
+  setupImageUpload(
+    'tradeImageInput',
+    'imageUploadZone',
+    'formImagePreviews',
+    () => modalTradeImages,
+    (imgs) => { modalTradeImages = imgs; }
+  );
 
-  uploadZoneEl.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadZoneEl.classList.add('dragover');
-  });
-
-  uploadZoneEl.addEventListener('dragleave', () => {
-    uploadZoneEl.classList.remove('dragover');
-  });
-
-  uploadZoneEl.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    uploadZoneEl.classList.remove('dragover');
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      await processImageFiles(e.dataTransfer.files);
-    }
-  });
-
-  imageInputEl.addEventListener('change', async (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      await processImageFiles(e.target.files);
-      imageInputEl.value = ''; // Reset input so same file can be re-added if desired
-    }
-  });
-
-  // Trade form submit
-  tradeFormEl.addEventListener('submit', handleTradeSubmit);
-
-  // Setup selector change: if "custom", show custom input
-  const setupSelect = document.getElementById('tradeSetup');
-  const customSetupGroup = document.getElementById('customSetupGroup');
-  setupSelect.addEventListener('change', () => {
-    if (setupSelect.value === '__custom__') {
-      customSetupGroup.style.display = 'block';
-      document.getElementById('tradeCustomSetup').focus();
-    } else {
-      customSetupGroup.style.display = 'none';
-    }
-  });
+  // Forms submit
+  recordTradeFormEl.addEventListener('submit', handleRecordTradeSubmit);
+  tradeFormEl.addEventListener('submit', handleModalTradeSubmit);
 
   // Close modals on escape key
   document.addEventListener('keydown', (e) => {
@@ -627,12 +940,97 @@ function setupEventListeners() {
 }
 
 /**
+ * Reusable image upload setup for Record Tab and Modal
+ */
+function setupImageUpload(inputId, zoneId, previewId, getImages, setImages) {
+  const inputEl = document.getElementById(inputId);
+  const zoneEl = document.getElementById(zoneId);
+
+  if (!inputEl || !zoneEl) return;
+
+  zoneEl.addEventListener('click', () => inputEl.click());
+
+  zoneEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    zoneEl.classList.add('dragover');
+  });
+
+  zoneEl.addEventListener('dragleave', () => {
+    zoneEl.classList.remove('dragover');
+  });
+
+  zoneEl.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    zoneEl.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processImageFiles(e.dataTransfer.files, getImages, setImages, previewId);
+    }
+  });
+
+  inputEl.addEventListener('change', async (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      await processImageFiles(e.target.files, getImages, setImages, previewId);
+      inputEl.value = '';
+    }
+  });
+}
+
+async function processImageFiles(files, getImages, setImages, previewId) {
+  showToast('Сжатие скриншотов...', 'info');
+  const current = [...getImages()];
+  for (const file of Array.from(files)) {
+    if (file.type.startsWith('image/')) {
+      try {
+        const compressed = await compressImage(file);
+        current.push(compressed);
+      } catch (err) {
+        console.error('Failed to compress image:', err);
+      }
+    }
+  }
+  setImages(current);
+  renderImagePreviews(previewId, current, (idx) => {
+    current.splice(idx, 1);
+    setImages(current);
+    renderImagePreviews(previewId, current, null);
+  });
+  showToast(`Скриншотов добавлено: ${current.length}`, 'success');
+}
+
+function renderImagePreviews(previewContainerId, images, onDeleteCallback) {
+  const container = document.getElementById(previewContainerId);
+  if (!container) return;
+
+  if (images.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = images.map((img, idx) => `
+    <div class="preview-item">
+      <img src="${img.dataUrl}" alt="Превью ${idx + 1}">
+      <button type="button" class="preview-delete-btn" data-del-idx="${idx}" title="Удалить">✕</button>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.preview-delete-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(btn.dataset.delIdx);
+      if (onDeleteCallback) onDeleteCallback(idx);
+    });
+  });
+}
+
+/**
  * Handle Clipboard Paste for Screenshots (Ctrl+V)
  */
 function setupClipboardPaste() {
   window.addEventListener('paste', async (e) => {
-    // Only capture paste if modal is active
-    if (!tradeModalEl.classList.contains('active')) return;
+    const isModalActive = tradeModalEl.classList.contains('active');
+    const isRecordTabActive = tabRecordView.style.display !== 'none';
+
+    if (!isModalActive && !isRecordTabActive) return;
 
     const items = (e.clipboardData || e.originalEvent.clipboardData).items;
     for (const item of items) {
@@ -642,8 +1040,19 @@ function setupClipboardPaste() {
           showToast('Обработка скриншота из буфера...', 'info');
           try {
             const compressed = await compressImage(file);
-            currentTradeImages.push(compressed);
-            renderFormImagePreviews();
+            if (isModalActive) {
+              modalTradeImages.push(compressed);
+              renderImagePreviews('formImagePreviews', modalTradeImages, (idx) => {
+                modalTradeImages.splice(idx, 1);
+                renderImagePreviews('formImagePreviews', modalTradeImages, null);
+              });
+            } else {
+              recordTradeImages.push(compressed);
+              renderImagePreviews('recFormImagePreviews', recordTradeImages, (idx) => {
+                recordTradeImages.splice(idx, 1);
+                renderImagePreviews('recFormImagePreviews', recordTradeImages, null);
+              });
+            }
             showToast('Скриншот вставлен!', 'success');
           } catch (err) {
             console.error('Image paste compression failed:', err);
@@ -656,182 +1065,40 @@ function setupClipboardPaste() {
 }
 
 /**
- * Process uploaded / dropped image files
+ * ============================================================================
+ * SUBMIT: TAB 1 (ЗАПИСЬ ТРЕЙДА)
+ * ============================================================================
  */
-async function processImageFiles(files) {
-  showToast('Сжатие и подготовка графиков...', 'info');
-  for (const file of Array.from(files)) {
-    if (file.type.startsWith('image/')) {
-      try {
-        const compressed = await compressImage(file);
-        currentTradeImages.push(compressed);
-      } catch (err) {
-        console.error('Failed to compress image:', err);
-      }
-    }
-  }
-  renderFormImagePreviews();
-  showToast(`Добавлено изображений: ${currentTradeImages.length}`, 'success');
-}
-
-/**
- * Render image thumbnails inside the modal form
- */
-function renderFormImagePreviews() {
-  const container = document.getElementById('formImagePreviews');
-  if (currentTradeImages.length === 0) {
-    container.innerHTML = '';
-    return;
-  }
-
-  container.innerHTML = currentTradeImages.map((img, idx) => `
-    <div class="preview-item">
-      <img src="${img.dataUrl}" alt="Превью ${idx + 1}">
-      <button type="button" class="preview-delete-btn" onclick="removeFormImage(${idx})" title="Удалить">✕</button>
-    </div>
-  `).join('');
-}
-
-function removeFormImage(idx) {
-  currentTradeImages.splice(idx, 1);
-  renderFormImagePreviews();
-}
-
-/**
- * Open Modal to Add New Trade
- */
-function openTradeModal() {
-  editingTradeId = null;
-  modalTitleEl.textContent = 'Новая сделка';
-  tradeFormEl.reset();
-  currentTradeImages = [];
-  renderFormImagePreviews();
-
-  // Set default timestamps
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  const nowStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-  document.getElementById('tradeEntryTime').value = nowStr;
-  document.getElementById('tradeExitTime').value = nowStr;
-
-  // Set defaults: LONG, 15m, WIN
-  setDirectionState('LONG');
-  setTimeframeState('15m');
-  setOutcomeState('WIN');
-
-  document.getElementById('tradePnl').value = '+2.0R';
-  document.getElementById('tradeRMultiple').value = '2.0';
-  document.getElementById('customSetupGroup').style.display = 'none';
-
-  tradeModalEl.classList.add('active');
-  document.body.style.overflow = 'hidden';
-}
-
-/**
- * Open Modal to Edit Existing Trade
- */
-async function editTrade(id) {
-  const trade = allTrades.find((t) => t.id === Number(id));
-  if (!trade) return;
-
-  editingTradeId = trade.id;
-  modalTitleEl.textContent = `Редактирование сделки #${trade.id}`;
-
-  document.getElementById('tradeSymbol').value = trade.symbol || '';
-  document.getElementById('tradeEntryTime').value = trade.entryTime || '';
-  document.getElementById('tradeExitTime').value = trade.exitTime || '';
-  document.getElementById('tradeEntryPrice').value = trade.entryPrice || '';
-  document.getElementById('tradeExitPrice').value = trade.exitPrice || '';
-  document.getElementById('tradePnl').value = trade.pnl || '';
-  document.getElementById('tradeRMultiple').value = trade.rMultiple || '';
-  document.getElementById('tradeNotes').value = trade.notes || '';
-
-  // Setup
-  const setupSelect = document.getElementById('tradeSetup');
-  const setupOptions = Array.from(setupSelect.options).map((o) => o.value);
-  if (setupOptions.includes(trade.setup)) {
-    setupSelect.value = trade.setup;
-    document.getElementById('customSetupGroup').style.display = 'none';
-  } else {
-    setupSelect.value = '__custom__';
-    document.getElementById('customSetupGroup').style.display = 'block';
-    document.getElementById('tradeCustomSetup').value = trade.setup || '';
-  }
-
-  // Direction, TF, Outcome
-  setDirectionState(trade.direction || 'LONG');
-  setTimeframeState(trade.timeframe || '15m');
-  setOutcomeState(trade.outcome || 'WIN');
-
-  // Images
-  currentTradeImages = [...(trade.images || [])];
-  renderFormImagePreviews();
-
-  tradeModalEl.classList.add('active');
-  document.body.style.overflow = 'hidden';
-}
-
-function setDirectionState(dir) {
-  document.getElementById('tradeDirection').value = dir;
-  document.querySelectorAll('.seg-btn[data-dir]').forEach((b) => {
-    b.classList.toggle('active', b.dataset.dir === dir);
-  });
-}
-
-function setTimeframeState(tf) {
-  document.getElementById('tradeTimeframe').value = tf;
-  document.querySelectorAll('.tf-pill').forEach((p) => {
-    p.classList.toggle('active', p.dataset.tf === tf);
-  });
-}
-
-function setOutcomeState(outcome) {
-  document.getElementById('tradeOutcome').value = outcome;
-  document.querySelectorAll('.seg-btn[data-outcome]').forEach((b) => {
-    b.classList.toggle('active', b.dataset.outcome === outcome);
-  });
-}
-
-function setNowForInput(inputId) {
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  document.getElementById(inputId).value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-}
-
-function closeTradeModal() {
-  tradeModalEl.classList.remove('active');
-  document.body.style.overflow = '';
-}
-
-/**
- * Handle Trade Form Submit
- */
-async function handleTradeSubmit(e) {
+async function handleRecordTradeSubmit(e) {
   e.preventDefault();
 
-  const symbol = document.getElementById('tradeSymbol').value.trim().toUpperCase();
+  const symbol = document.getElementById('recTradeSymbol').value.trim().toUpperCase();
   if (!symbol) {
-    showToast('Введите тикер или пару (например BTC/USDT)', 'error');
+    showToast('Введите тикер (например BTC/USDT)', 'error');
     return;
   }
 
-  const direction = document.getElementById('tradeDirection').value;
-  const timeframe = document.getElementById('tradeTimeframe').value;
-  const outcome = document.getElementById('tradeOutcome').value;
-  const entryTime = document.getElementById('tradeEntryTime').value;
-  const exitTime = document.getElementById('tradeExitTime').value;
-  const entryPrice = document.getElementById('tradeEntryPrice').value.trim();
-  const exitPrice = document.getElementById('tradeExitPrice').value.trim();
-  const pnl = document.getElementById('tradePnl').value.trim();
-  const rMultiple = parseFloat(document.getElementById('tradeRMultiple').value || 0);
-  const notes = document.getElementById('tradeNotes').value.trim();
-
-  // Setup resolution
-  let setup = document.getElementById('tradeSetup').value;
-  if (setup === '__custom__') {
-    setup = document.getElementById('tradeCustomSetup').value.trim() || 'Свой сетап';
+  const setup = document.getElementById('recTradeSetup').value.trim();
+  if (!setup) {
+    showToast('Введите или выберите сетап', 'error');
+    return;
   }
+
+  const direction = document.getElementById('recTradeDirection').value;
+  const timeframe = document.getElementById('recTradeTimeframe').value || '15m';
+  const outcome = document.getElementById('recTradeOutcome').value;
+  const entryTime = document.getElementById('recTradeEntryTime').value;
+  const exitTime = document.getElementById('recTradeExitTime').value;
+  const entryPrice = document.getElementById('recTradeEntryPrice').value.trim();
+  const exitPrice = document.getElementById('recTradeExitPrice').value.trim();
+  const pnl = document.getElementById('recTradePnl').value.trim() || (outcome === 'WIN' ? '+2.0R' : outcome === 'LOSS' ? '-1.0R' : '0.0R');
+  const rMultiple = parseFloat(document.getElementById('recTradeRMultiple').value || 0);
+  const notes = document.getElementById('recTradeNotes').value.trim();
+
+  // Auto-save new presets so next time they appear as buttons!
+  saveTicker(symbol);
+  saveSetup(setup);
+  saveTimeframe(timeframe);
 
   const tradeData = {
     symbol,
@@ -846,7 +1113,128 @@ async function handleTradeSubmit(e) {
     pnl,
     rMultiple,
     notes,
-    images: currentTradeImages
+    images: [...recordTradeImages]
+  };
+
+  try {
+    await addTrade(tradeData);
+    showToast('Сделка успешно записана в дневник!', 'success');
+
+    // Reset record form
+    recordTradeFormEl.reset();
+    recordTradeImages = [];
+    renderImagePreviews('recFormImagePreviews', [], null);
+    initFormTimestamps();
+    setRecDirection('LONG');
+    setRecOutcome('WIN');
+    document.getElementById('recTradeTimeframe').value = '15m';
+    renderAllPresetPills();
+
+    // Refresh trades data and switch to journal to see the result
+    await refreshTrades();
+    switchTab('journal');
+  } catch (err) {
+    console.error('Failed to save trade:', err);
+    showToast('Ошибка при сохранении сделки', 'error');
+  }
+}
+
+/**
+ * ============================================================================
+ * MODAL EDIT & SUBMIT
+ * ============================================================================
+ */
+async function editTrade(id) {
+  const trade = allTrades.find((t) => t.id === Number(id));
+  if (!trade) return;
+
+  editingTradeId = trade.id;
+  modalTitleEl.textContent = `Редактирование сделки #${trade.id}`;
+
+  document.getElementById('tradeSymbol').value = trade.symbol || '';
+  document.getElementById('tradeSetup').value = trade.setup || '';
+  document.getElementById('tradeTimeframe').value = trade.timeframe || '15m';
+  document.getElementById('tradeDirection').value = trade.direction || 'LONG';
+  document.getElementById('tradeOutcome').value = trade.outcome || 'WIN';
+  document.getElementById('tradeEntryTime').value = trade.entryTime || '';
+  document.getElementById('tradeExitTime').value = trade.exitTime || '';
+  document.getElementById('tradeEntryPrice').value = trade.entryPrice || '';
+  document.getElementById('tradeExitPrice').value = trade.exitPrice || '';
+  document.getElementById('tradePnl').value = trade.pnl || '';
+  document.getElementById('tradeRMultiple').value = trade.rMultiple || '';
+  document.getElementById('tradeNotes').value = trade.notes || '';
+
+  // Update direction buttons
+  document.querySelectorAll('#tradeForm .seg-btn[data-dir]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.dir === (trade.direction || 'LONG'));
+  });
+
+  // Update outcome buttons
+  document.querySelectorAll('#tradeForm .seg-btn[data-outcome]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.outcome === (trade.outcome || 'WIN'));
+  });
+
+  // Images
+  modalTradeImages = [...(trade.images || [])];
+  renderImagePreviews('formImagePreviews', modalTradeImages, (idx) => {
+    modalTradeImages.splice(idx, 1);
+    renderImagePreviews('formImagePreviews', modalTradeImages, null);
+  });
+
+  // Render presets
+  renderAllPresetPills();
+
+  tradeModalEl.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+window.editTrade = editTrade;
+
+function closeTradeModal() {
+  tradeModalEl.classList.remove('active');
+  document.body.style.overflow = '';
+}
+window.closeTradeModal = closeTradeModal;
+
+async function handleModalTradeSubmit(e) {
+  e.preventDefault();
+
+  const symbol = document.getElementById('tradeSymbol').value.trim().toUpperCase();
+  if (!symbol) {
+    showToast('Введите тикер (например BTC/USDT)', 'error');
+    return;
+  }
+
+  const setup = document.getElementById('tradeSetup').value.trim();
+  const direction = document.getElementById('tradeDirection').value;
+  const timeframe = document.getElementById('tradeTimeframe').value;
+  const outcome = document.getElementById('tradeOutcome').value;
+  const entryTime = document.getElementById('tradeEntryTime').value;
+  const exitTime = document.getElementById('tradeExitTime').value;
+  const entryPrice = document.getElementById('tradeEntryPrice').value.trim();
+  const exitPrice = document.getElementById('tradeExitPrice').value.trim();
+  const pnl = document.getElementById('tradePnl').value.trim();
+  const rMultiple = parseFloat(document.getElementById('tradeRMultiple').value || 0);
+  const notes = document.getElementById('tradeNotes').value.trim();
+
+  // Save presets
+  saveTicker(symbol);
+  if (setup) saveSetup(setup);
+  if (timeframe) saveTimeframe(timeframe);
+
+  const tradeData = {
+    symbol,
+    direction,
+    timeframe,
+    setup: setup || 'Без сетапа',
+    outcome,
+    entryTime,
+    exitTime,
+    entryPrice,
+    exitPrice,
+    pnl,
+    rMultiple,
+    notes,
+    images: modalTradeImages
   };
 
   try {
@@ -856,20 +1244,17 @@ async function handleTradeSubmit(e) {
       showToast('Сделка успешно обновлена!', 'success');
     } else {
       await addTrade(tradeData);
-      showToast('Сделка успешно сохранена в дневник!', 'success');
+      showToast('Сделка сохранена!', 'success');
     }
 
     closeTradeModal();
     await refreshTrades();
   } catch (err) {
-    console.error('Failed to save trade:', err);
+    console.error('Failed to save trade in modal:', err);
     showToast('Ошибка при сохранении сделки', 'error');
   }
 }
 
-/**
- * Delete Trade Confirmation
- */
 async function confirmDeleteTrade(id) {
   if (confirm(`Вы уверены, что хотите удалить сделку #${id}?`)) {
     try {
@@ -882,9 +1267,12 @@ async function confirmDeleteTrade(id) {
     }
   }
 }
+window.confirmDeleteTrade = confirmDeleteTrade;
 
 /**
- * Image Lightbox Viewer
+ * ============================================================================
+ * LIGHTBOX VIEWER
+ * ============================================================================
  */
 function openLightbox(imgSrc, caption = '') {
   lightboxImgEl.src = imgSrc;
@@ -892,24 +1280,30 @@ function openLightbox(imgSrc, caption = '') {
   lightboxModalEl.classList.add('active');
   document.body.style.overflow = 'hidden';
 }
+window.openLightbox = openLightbox;
 
 function closeLightbox() {
   lightboxModalEl.classList.remove('active');
   document.body.style.overflow = '';
 }
+window.closeLightbox = closeLightbox;
 
 /**
- * Backup & Export / Import Handlers
+ * ============================================================================
+ * BACKUP & RESTORE
+ * ============================================================================
  */
 function openBackupModal() {
   backupModalEl.classList.add('active');
   document.body.style.overflow = 'hidden';
 }
+window.openBackupModal = openBackupModal;
 
 function closeBackupModal() {
   backupModalEl.classList.remove('active');
   document.body.style.overflow = '';
 }
+window.closeBackupModal = closeBackupModal;
 
 async function handleExportData() {
   try {
@@ -930,6 +1324,7 @@ async function handleExportData() {
     showToast('Ошибка при экспорте данных', 'error');
   }
 }
+window.handleExportData = handleExportData;
 
 async function handleImportData(event) {
   const file = event.target.files[0];
@@ -949,6 +1344,7 @@ async function handleImportData(event) {
   };
   reader.readAsText(file);
 }
+window.handleImportData = handleImportData;
 
 async function handleResetData() {
   if (confirm('ВНИМАНИЕ! Это действие удалит ВСЕ сохраненные сделки и графики. Продолжить?')) {
@@ -958,9 +1354,12 @@ async function handleResetData() {
     await refreshTrades();
   }
 }
+window.handleResetData = handleResetData;
 
 /**
- * PWA Installation Prompt Setup
+ * ============================================================================
+ * PWA INSTALLATION
+ * ============================================================================
  */
 function setupPwaInstall() {
   const installBanner = document.getElementById('pwaInstallBanner');
@@ -990,7 +1389,9 @@ function setupPwaInstall() {
 }
 
 /**
- * Helper Utilities
+ * ============================================================================
+ * FORMATTING HELPERS
+ * ============================================================================
  */
 function formatMonthName(monthStr) {
   if (!monthStr || monthStr === 'Без даты') return 'Без даты';
@@ -1073,3 +1474,4 @@ function showToast(message, type = 'info') {
     toast.remove();
   }, 3200);
 }
+window.showToast = showToast;
