@@ -672,6 +672,23 @@
           <input type="text" id="tradeSetupCustom" class="form-input" placeholder="Введите название сетапа..." style="display: none; margin-top: 6px;">
         </div>
 
+        <!-- Entry Criteria Selection -->
+        <div class="form-group">
+          <div class="field-label-row">
+            <label class="form-label" for="tradeCriteria">Критерии входа</label>
+            <button type="button" class="btn-preset-tune" onclick="togglePresetManager('criteria')">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              <span>Настроить</span>
+            </button>
+          </div>
+          <div id="presetManager_criteria" class="preset-manager-panel" style="display: none;"></div>
+          <select id="tradeCriteria" class="form-select" onchange="handleSelectCustomToggle(this, 'tradeCriteriaCustom')">
+            <option value="Тренд старшего ТФ + Слом структуры">Тренд старшего ТФ + Слом структуры</option>
+            <option value="__custom__">+ Ввести свои критерии...</option>
+          </select>
+          <input type="text" id="tradeCriteriaCustom" class="form-input" placeholder="Введите свои критерии входа..." style="display: none; margin-top: 6px;">
+        </div>
+
         <!-- Timeframe Selector -->
         <div class="form-group">
           <div class="field-label-row">

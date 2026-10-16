@@ -511,6 +511,16 @@ const DEFAULT_PRESETS = {
   ],
   timeframe: [
     '1m', '3m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'
+  ],
+  criteria: [
+    'Тренд старшего ТФ + Слом структуры',
+    'Снятие ликвидности (Sweep)',
+    'Тест Order Block (OB)',
+    'Тест зоны FVG / Imbalance',
+    'Дивергенция RSI / MACD',
+    'Паттерн подтверждения (Пин-бар / Поглощение)',
+    'Круглый уровень / Уровень поддержки/сопротивления',
+    'Объёмный всплеск (Volume Spike)'
   ]
 };
 
@@ -618,7 +628,7 @@ function renderPresetManager(type) {
 window.renderPresetManager = renderPresetManager;
 
 function populatePresetSelects(targetType, selectValueToKeep) {
-  const typesToPopulate = targetType ? [targetType] : ['symbol', 'direction', 'setup', 'timeframe'];
+  const typesToPopulate = targetType ? [targetType] : ['symbol', 'direction', 'setup', 'timeframe', 'criteria'];
 
   typesToPopulate.forEach((type) => {
     const list = getCustomPresets(type);
@@ -674,6 +684,19 @@ function populatePresetSelects(targetType, selectValueToKeep) {
           select.value = curVal;
         } else if (list.includes('15m')) {
           select.value = '15m';
+        } else if (list.length > 0) {
+          select.value = list[0];
+        }
+      }
+    } else if (type === 'criteria') {
+      const select = document.getElementById('tradeCriteria');
+      if (select) {
+        const curVal = selectValueToKeep || select.value;
+        let opts = list.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+        opts += `<option value="__custom__">+ Ввести свои критерии...</option>`;
+        select.innerHTML = opts;
+        if (curVal && (list.includes(curVal) || curVal === '__custom__')) {
+          select.value = curVal;
         } else if (list.length > 0) {
           select.value = list[0];
         }
@@ -1336,6 +1359,10 @@ function renderTradeCard(t) {
     ? `<span class="card-entry-pill" title="Цена входа"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>Вход: ${escapeHtml(t.entryPrice)}</span>`
     : '';
 
+  const criteriaBadgeHtml = t.criteria
+    ? `<span class="criteria-badge" title="Критерии входа"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>${escapeHtml(t.criteria)}</span>`
+    : '';
+
   return `
     <div class="trade-card ${outcomeClass}" id="trade-card-${t.id}">
       <div class="trade-card-top">
@@ -1344,6 +1371,7 @@ function renderTradeCard(t) {
           <span class="direction-badge ${dirClass}">${escapeHtml(t.direction || 'LONG')}</span>
           <span class="tf-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${escapeHtml(t.timeframe || '15m')}</span>
           <span class="setup-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="2" r="2"></circle></svg>${escapeHtml(t.setup || 'Без сетапа')}</span>
+          ${criteriaBadgeHtml}
           ${priceBadgeHtml}
         </div>
 
@@ -1806,7 +1834,7 @@ function openTradeModal(trade = null) {
   populatePresetSelects();
 
   // Hide preset managers by default
-  ['symbol', 'direction', 'setup', 'timeframe'].forEach((type) => {
+  ['symbol', 'direction', 'setup', 'timeframe', 'criteria'].forEach((type) => {
     const p = document.getElementById(`presetManager_${type}`);
     if (p) p.style.display = 'none';
   });
@@ -1815,6 +1843,8 @@ function openTradeModal(trade = null) {
   const symbolCustom = document.getElementById('tradeSymbolCustom');
   const setupSelect = document.getElementById('tradeSetup');
   const setupCustom = document.getElementById('tradeSetupCustom');
+  const criteriaSelect = document.getElementById('tradeCriteria');
+  const criteriaCustom = document.getElementById('tradeCriteriaCustom');
   const timeframeSelect = document.getElementById('tradeTimeframe');
   const directionSelect = document.getElementById('tradeDirection');
   const outcomeSelect = document.getElementById('tradeOutcome');
@@ -1824,6 +1854,7 @@ function openTradeModal(trade = null) {
 
   if (symbolCustom) { symbolCustom.style.display = 'none'; symbolCustom.value = ''; }
   if (setupCustom) { setupCustom.style.display = 'none'; setupCustom.value = ''; }
+  if (criteriaCustom) { criteriaCustom.style.display = 'none'; criteriaCustom.value = ''; }
 
   if (trade) {
     // Populate existing trade
@@ -1855,6 +1886,22 @@ function openTradeModal(trade = null) {
       }
     }
 
+    if (criteriaSelect) {
+      const match = Array.from(criteriaSelect.options).find(o => o.value === trade.criteria);
+      if (match) {
+        criteriaSelect.value = trade.criteria;
+      } else if (trade.criteria) {
+        criteriaSelect.value = '__custom__';
+        if (criteriaCustom) {
+          criteriaCustom.style.display = 'block';
+          criteriaCustom.value = trade.criteria || '';
+        }
+      } else {
+        const critList = getCustomPresets('criteria');
+        criteriaSelect.value = critList[0] || '';
+      }
+    }
+
     if (timeframeSelect) timeframeSelect.value = trade.timeframe || '15m';
     if (outcomeSelect) outcomeSelect.value = trade.outcome || 'WIN';
 
@@ -1877,6 +1924,10 @@ function openTradeModal(trade = null) {
     if (setupSelect) {
       const setups = getCustomPresets('setup');
       setupSelect.value = setups.includes('Breakout / Пробой') ? 'Breakout / Пробой' : (setups[0] || '');
+    }
+    if (criteriaSelect) {
+      const critList = getCustomPresets('criteria');
+      criteriaSelect.value = critList[0] || '';
     }
     if (timeframeSelect) {
       const tfs = getCustomPresets('timeframe');
@@ -1920,12 +1971,26 @@ function closeTradeModal() {
   document.documentElement.classList.remove('modal-open');
   document.body.style.overflow = '';
 
-  ['symbol', 'direction', 'setup', 'timeframe'].forEach((type) => {
+  ['symbol', 'direction', 'setup', 'timeframe', 'criteria'].forEach((type) => {
     const p = document.getElementById(`presetManager_${type}`);
     if (p) p.style.display = 'none';
   });
+
+  const criteriaCustom = document.getElementById('tradeCriteriaCustom');
+  if (criteriaCustom) { criteriaCustom.style.display = 'none'; criteriaCustom.value = ''; }
 }
 window.closeTradeModal = closeTradeModal;
+
+function saveCriteria(criteria) {
+  if (!criteria || criteria === '__custom__') return;
+  const list = getCustomPresets('criteria');
+  if (!list.includes(criteria)) {
+    list.push(criteria);
+    saveCustomPresets('criteria', list);
+    populatePresetSelects('criteria', criteria);
+  }
+}
+window.saveCriteria = saveCriteria;
 
 function handleSelectCustomToggle(selectEl, customInputId) {
   const customEl = document.getElementById(customInputId);
@@ -1976,6 +2041,13 @@ async function handleModalTradeSubmit(e) {
     setup = setupCustom ? setupCustom.value.trim() : 'Свой сетап';
   }
 
+  const criteriaSelect = document.getElementById('tradeCriteria');
+  const criteriaCustom = document.getElementById('tradeCriteriaCustom');
+  let criteria = criteriaSelect ? criteriaSelect.value : '';
+  if (criteria === '__custom__') {
+    criteria = criteriaCustom ? criteriaCustom.value.trim() : '';
+  }
+
   const direction = document.getElementById('tradeDirection').value;
   const timeframe = document.getElementById('tradeTimeframe').value;
   const outcome = document.getElementById('tradeOutcome').value;
@@ -1996,6 +2068,7 @@ async function handleModalTradeSubmit(e) {
   // Save presets
   saveTicker(symbol);
   if (setup) saveSetup(setup);
+  if (criteria) saveCriteria(criteria);
   if (timeframe) saveTimeframe(timeframe);
 
   const tradeData = {
@@ -2003,6 +2076,7 @@ async function handleModalTradeSubmit(e) {
     direction,
     timeframe,
     setup: setup || 'Без сетапа',
+    criteria: criteria || '',
     outcome,
     entryTime,
     exitTime,

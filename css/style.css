@@ -73,6 +73,7 @@
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --bottom-nav-height: 64px;
 }
 
 /* ==========================================================================
@@ -719,6 +720,19 @@ body {
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.1);
   border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.criteria-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.1);
+  border: 1px solid rgba(167, 139, 250, 0.25);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   display: inline-flex;
@@ -1386,18 +1400,24 @@ body {
    Bottom Navigation Bar (Raycast Floating Glass Pill)
    ========================================================================== */
 .bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 90;
+  z-index: 999 !important;
   pointer-events: none;
   padding: 6px 16px;
-  padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+  padding-bottom: max(10px, env(safe-area-inset-bottom, 10px)) !important;
   background: linear-gradient(to top, rgba(4, 5, 6, 0.98) 75%, rgba(4, 5, 6, 0) 100%);
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .bottom-nav-inner {
@@ -1465,8 +1485,8 @@ body {
 }
 
 @keyframes tabFadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Record Trade Card View */
@@ -2975,10 +2995,10 @@ body {
 
 /* Floating Action Button at Bottom Left */
 .journal-add-fab {
-  position: fixed;
-  bottom: calc(var(--bottom-nav-height) + 18px);
-  left: 20px;
-  z-index: 100;
+  position: fixed !important;
+  bottom: calc(var(--bottom-nav-height) + 16px) !important;
+  left: 20px !important;
+  z-index: 998 !important;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -2993,6 +3013,11 @@ body {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .journal-add-fab svg {
@@ -3713,10 +3738,19 @@ main.app-container {
     min-height: 36px;
   }
   .bottom-nav {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
     padding: 4px 10px !important;
     padding-bottom: max(12px, env(safe-area-inset-bottom, 12px)) !important;
     background: #040506 !important;
     border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+    z-index: 999 !important;
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
   }
   .bottom-nav-inner {
     max-width: 100% !important;

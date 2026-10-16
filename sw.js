@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tradelog-v10-paper';
+const CACHE_NAME = 'tradelog-v11';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
