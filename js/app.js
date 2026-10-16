@@ -2197,6 +2197,40 @@ function testDmitryVoice() {
 }
 window.testDmitryVoice = testDmitryVoice;
 
+let savedVoiceScrollY = 0;
+
+function openVoiceSettingsModal() {
+  const modal = document.getElementById('voiceSettingsModal');
+  if (!modal) return;
+
+  populateSettingsVoiceList();
+  if (typeof updateVoiceToggleUI === 'function') {
+    updateVoiceToggleUI();
+  }
+
+  savedVoiceScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  document.body.style.top = `-${savedVoiceScrollY}px`;
+  modal.classList.add('active');
+  document.documentElement.classList.add('modal-open');
+  document.body.classList.add('modal-open');
+}
+window.openVoiceSettingsModal = openVoiceSettingsModal;
+
+function closeVoiceSettingsModal() {
+  const modal = document.getElementById('voiceSettingsModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+  document.documentElement.classList.remove('modal-open');
+  document.body.classList.remove('modal-open');
+  const restoreY = Math.abs(parseInt(document.body.style.top || '0', 10)) || savedVoiceScrollY;
+  document.body.style.top = '';
+  if (restoreY) {
+    window.scrollTo(0, restoreY);
+  }
+}
+window.closeVoiceSettingsModal = closeVoiceSettingsModal;
+
 async function forceAppCacheReset() {
   if (confirm('Сбросить весь кэш приложения и загрузить актуальную версию? Ваши сделки и мысли сохранятся в базе данных.')) {
     try {

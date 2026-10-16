@@ -390,7 +390,9 @@ body.modal-open,
 .auth-guest-view,
 .auth-form,
 #profileModal,
-#profileModal * {
+#profileModal *,
+#voiceSettingsModal,
+#voiceSettingsModal * {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
@@ -402,7 +404,9 @@ body.modal-open::-webkit-scrollbar,
 .auth-guest-view::-webkit-scrollbar,
 .auth-form::-webkit-scrollbar,
 #profileModal::-webkit-scrollbar,
-#profileModal *::-webkit-scrollbar {
+#profileModal *::-webkit-scrollbar,
+#voiceSettingsModal::-webkit-scrollbar,
+#voiceSettingsModal *::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;

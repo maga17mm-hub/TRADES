@@ -360,14 +360,27 @@ window.toggleAiVoice = toggleAiVoice;
 function updateVoiceToggleUI() {
   const btn = document.getElementById('aiVoiceToggleBtn');
   const label = document.getElementById('aiVoiceToggleLabel');
-  if (!btn) return;
+  if (btn) {
+    if (isVoiceEnabled) {
+      btn.classList.add('active');
+      if (label) label.textContent = 'Дмитрий: Вкл';
+    } else {
+      btn.classList.remove('active');
+      if (label) label.textContent = 'Дмитрий: Выкл';
+    }
+  }
 
-  if (isVoiceEnabled) {
-    btn.classList.add('active');
-    if (label) label.textContent = 'Дмитрий: Вкл';
-  } else {
-    btn.classList.remove('active');
-    if (label) label.textContent = 'Дмитрий: Выкл';
+  const modalToggleBtn = document.getElementById('modalVoiceToggleBtn');
+  if (modalToggleBtn) {
+    if (isVoiceEnabled) {
+      modalToggleBtn.textContent = 'Включено';
+      modalToggleBtn.classList.remove('btn-secondary');
+      modalToggleBtn.classList.add('btn-primary');
+    } else {
+      modalToggleBtn.textContent = 'Выключено';
+      modalToggleBtn.classList.remove('btn-primary');
+      modalToggleBtn.classList.add('btn-secondary');
+    }
   }
 }
 

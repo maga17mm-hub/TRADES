@@ -69,7 +69,13 @@ function renderJournalThoughtsList() {
   let filtered = [...allJournalThoughts];
 
   if (journalFilterTag && journalFilterTag !== 'all') {
-    filtered = filtered.filter(t => (t.tag || 'Мысли') === journalFilterTag);
+    filtered = filtered.filter(t => {
+      const tag = t.tag || 'Запись';
+      if (journalFilterTag === 'Запись' || journalFilterTag === 'Мысли') {
+        return tag === 'Запись' || tag === 'Мысли';
+      }
+      return tag === journalFilterTag;
+    });
   }
 
   if (journalSearchQuery && journalSearchQuery.trim()) {
@@ -129,7 +135,7 @@ function renderJournalThoughtsList() {
   container.innerHTML = filtered.map(thought => {
     const { title, snippet } = getThoughtTitleAndSnippet(thought);
     const dateStr = formatThoughtShortDate(thought.createdAt);
-    const tag = thought.tag || 'Мысли';
+    const tag = (thought.tag && thought.tag !== 'Мысли') ? thought.tag : 'Запись';
     const hasAudio = !!thought.audioData;
     const audioDurationText = thought.audioDuration ? `${thought.audioDuration} сек` : 'Голос';
 
@@ -376,7 +382,7 @@ function renderThoughtViewMode(thought) {
   const dateUpdated = thought.updatedAt && thought.updatedAt !== thought.createdAt 
     ? `· Изменено ${formatThoughtFullDate(thought.updatedAt)}` 
     : '';
-  const tag = thought.tag || 'Мысли';
+  const tag = (thought.tag && thought.tag !== 'Мысли') ? thought.tag : 'Запись';
 
   const audioHtml = thought.audioData ? `
     <div class="ios-note-audio-box">
@@ -431,7 +437,7 @@ function renderThoughtComposerMode(existingThought) {
   if (!container) return;
 
   const initialText = existingThought ? (existingThought.text || '') : '';
-  const initialTag = existingThought ? (existingThought.tag || 'Мысли') : 'Мысли';
+  const initialTag = existingThought ? (existingThought.tag || 'Запись') : 'Запись';
   const existingAudio = existingThought ? existingThought.audioData : null;
   const existingDuration = existingThought ? (existingThought.audioDuration || 0) : 0;
 
@@ -451,7 +457,7 @@ function renderThoughtComposerMode(existingThought) {
           </svg>
         </div>
         <select id="iosNoteEditTag" class="form-select form-select-sm" style="width: auto; min-width: 140px; max-width: 170px; height: 30px; min-height: 30px; padding: 2px 24px 2px 10px; font-size: 0.76rem; border-radius: 15px;">
-          <option value="Мысли" ${initialTag === 'Мысли' ? 'selected' : ''}>Мысли и выводы</option>
+          <option value="Запись" ${(initialTag === 'Запись' || initialTag === 'Мысли') ? 'selected' : ''}>Запись</option>
           <option value="Психология" ${initialTag === 'Психология' ? 'selected' : ''}>Психология</option>
           <option value="Анализ рынка" ${initialTag === 'Анализ рынка' ? 'selected' : ''}>Анализ рынка</option>
           <option value="Торговый план" ${initialTag === 'Торговый план' ? 'selected' : ''}>Торговый план</option>
@@ -465,20 +471,7 @@ function renderThoughtComposerMode(existingThought) {
       </div>
 
       <!-- Voice Memo Section -->
-      <div class="thought-record-box" style="margin-bottom: 20px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;">
-          <span style="font-size: 0.84rem; font-weight: 500; color: var(--text-primary); display: inline-flex; align-items: center; gap: 6px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-              <line x1="12" y1="19" x2="12" y2="23"></line>
-              <line x1="8" y1="23" x2="16" y2="23"></line>
-            </svg>
-            Голосовая запись
-          </span>
-          <span style="font-size: 0.74rem; color: var(--text-muted);">Без ограничений по времени</span>
-        </div>
-
+      <div class="thought-record-box" style="margin-bottom: 20px; padding: 14px 16px;">
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
           <button type="button" id="thoughtRecordBtn" class="btn btn-secondary thought-mic-btn" onclick="toggleThoughtAudioRecording()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -501,7 +494,7 @@ function renderThoughtComposerMode(existingThought) {
         </div>
 
         <!-- Audio Preview Box -->
-        <div id="thoughtAudioPreviewBox" style="margin-top: 12px; display: ${currentRecordedAudioDataUrl ? 'block' : 'none'};">
+        <div id="thoughtAudioPreviewBox" style="margin-top: 10px; display: ${currentRecordedAudioDataUrl ? 'block' : 'none'};">
           ${renderAudioPreviewCardHtml(currentRecordedAudioDataUrl, currentRecordedAudioDuration)}
         </div>
       </div>
@@ -560,7 +553,7 @@ async function saveCurrentThought() {
   const tagSelect = document.getElementById('iosNoteEditTag');
 
   const text = textInput ? textInput.value.trim() : '';
-  const tag = tagSelect ? tagSelect.value : 'Мысли';
+  const tag = tagSelect ? tagSelect.value : 'Запись';
 
   if (!text && !currentRecordedAudioDataUrl) {
     showToast('Введите текст или запишите голосовую мысль', 'warning');

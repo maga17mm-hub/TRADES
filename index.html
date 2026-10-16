@@ -301,7 +301,7 @@
               <div class="ios-notes-filter-wrap">
                 <select id="journalFilterTag" class="form-select form-select-sm" onchange="filterJournalThoughts(this.value)">
                   <option value="all">Все категории</option>
-                  <option value="Мысли">Мысли и выводы</option>
+                  <option value="Запись">Запись</option>
                   <option value="Психология">Психология и эмоции</option>
                   <option value="Анализ рынка">Анализ рынка</option>
                   <option value="Торговый план">Торговый план</option>
@@ -519,37 +519,12 @@
           <span>Голос и ассистент</span>
         </h3>
         <p class="settings-section-subtitle">
-          Настройка синтеза речи ответов и распознавания голоса.
+          Настройка синтеза речи, выбор голоса и акцента для озвучки ответов.
         </p>
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-input); border-radius: var(--radius-sm);">
-            <div>
-              <div style="font-weight: 500; font-size: 0.88rem; color: var(--text-primary);">Озвучка ответов голосом Дмитрия</div>
-              <div style="font-size: 0.74rem; color: var(--text-muted);">ИИ озвучивает ответы и добавленные сделки</div>
-            </div>
-            <button type="button" class="btn btn-secondary btn-sm" id="settingsVoiceToggleBtn" onclick="toggleAiVoice()">
-              Включено
-            </button>
-          </div>
-
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 0.78rem;">Выбор голосового синтезатора в системе</label>
-            <select id="settingsVoiceSelect" class="form-select" onchange="handleVoiceSelectChange(this)">
-              <option value="">Автовыбор (Дмитрий / Приоритетный русский голос)</option>
-            </select>
-          </div>
-
-          <div style="display: flex; gap: 8px;">
-            <button type="button" class="btn btn-secondary btn-sm" onclick="testDmitryVoice()" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              <span>Проверить голос Дмитрия</span>
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="openAiSettings()" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-              <span>Настройки API</span>
-            </button>
-          </div>
-        </div>
+        <button type="button" class="btn btn-secondary btn-md" id="settingsVoiceModalBtn" onclick="openVoiceSettingsModal()" style="width: 100%; justify-content: center; gap: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <span>Настроить голос и ассистента</span>
+        </button>
       </section>
 
       <!-- Data & Backup Card -->
@@ -1226,6 +1201,94 @@
 
       </div>
 
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL: Voice & AI Settings (Голос и ассистент)
+       ========================================================================== -->
+  <div id="voiceSettingsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="voiceSettingsModalTitle" onclick="if (event.target === this) closeVoiceSettingsModal()">
+    <div class="modal-content profile-modal-content">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="profile-modal-icon-badge">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="23"></line>
+              <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
+          </div>
+          <div>
+            <h2 id="voiceSettingsModalTitle" class="modal-title">Голос и ассистент</h2>
+            <div class="profile-modal-subtitle">Синтез речи, выбор голоса и акцента</div>
+          </div>
+        </div>
+        <button type="button" class="close-btn" onclick="closeVoiceSettingsModal()" aria-label="Закрыть окно настроек голоса">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px;">
+        
+        <!-- Toggle voice -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-input); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+          <div>
+            <div style="font-weight: 550; font-size: 0.92rem; color: var(--text-primary); margin-bottom: 2px;">Озвучка ответов Дмитрием</div>
+            <div style="font-size: 0.76rem; color: var(--text-muted);">ИИ озвучивает ответы и добавленные сделки</div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="modalVoiceToggleBtn" onclick="toggleAiVoice()" style="min-width: 90px; text-align: center;">
+            Включено
+          </button>
+        </div>
+
+        <!-- Voice & Accent selection -->
+        <div class="form-group" style="margin: 0;">
+          <label class="form-label" for="settingsVoiceSelect" style="font-size: 0.82rem; font-weight: 550; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            Голос и акцент
+          </label>
+          <select id="settingsVoiceSelect" class="form-select" onchange="handleVoiceSelectChange(this)" style="font-size: 0.86rem; padding: 10px 14px; border-radius: var(--radius-sm);">
+            <option value="">Автовыбор (Дмитрий / Приоритетный русский голос)</option>
+          </select>
+          <span class="form-helper" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px; display: block;">
+            Выберите голосовой синтезатор в вашей операционной системе или региональный акцент
+          </span>
+        </div>
+
+        <!-- Buttons row -->
+        <div style="display: flex; gap: 10px; flex-direction: column; margin-top: 4px;">
+          <button type="button" class="btn btn-secondary btn-md" onclick="testDmitryVoice()" style="width: 100%; justify-content: center; gap: 8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <span>Проверить голос Дмитрия</span>
+          </button>
+          
+          <button type="button" class="btn btn-secondary btn-md" onclick="closeVoiceSettingsModal(); setTimeout(openAiSettings, 150);" style="width: 100%; justify-content: center; gap: 8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Настройки API ассистента</span>
+          </button>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-lg" onclick="closeVoiceSettingsModal()" style="width: 100%; justify-content: center; gap: 8px; margin-top: 10px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>Готово</span>
+        </button>
+
+      </div>
     </div>
   </div>
 
