@@ -597,9 +597,8 @@ async function handleAiSubmit(e) {
     const aiResponse = await callTookenClubAi(userText);
     await processAiResponse(aiResponse);
   } catch (err) {
-    console.error('AI call failed:', err);
-    // Try fallback intelligent local parser for trade logging commands
-    await handleAiFallback(userText, err);
+    console.warn('External AI unavailable/CORS, invoking Autonomous Trading Engine:', err.message);
+    await handleAutonomousAiResponse(userText);
   } finally {
     isAiGenerating = false;
     renderAiChat();
@@ -612,7 +611,11 @@ function sendAiPrompt(promptText) {
   const inputEl = document.getElementById('aiChatInput');
   if (inputEl) {
     inputEl.value = promptText;
-    handleAiSubmit();
+    if (promptText.trim().endsWith(':')) {
+      inputEl.focus();
+    } else {
+      handleAiSubmit();
+    }
   }
 }
 window.sendAiPrompt = sendAiPrompt;
@@ -738,16 +741,22 @@ async function callTookenClubAi(userMessage) {
     targetUrl = proxyUrl.replace('{url}', encodeURIComponent(targetUrl));
   }
 
-  // Attempt fetch
+  // Attempt fetch with 3.5s timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3500);
+
   let response;
   try {
     response = await fetch(targetUrl, {
       method: 'POST',
       headers: headers,
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
   } catch (fetchErr) {
     throw new Error(`CORS_OR_NETWORK: ${fetchErr.message}`);
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!response.ok) {
@@ -859,49 +868,280 @@ async function executeAddTradeFromAi(tradeObj) {
 }
 
 /**
- * Fallback Natural Language Parser
+ * Autonomous AI Trading Engine
+ * Seamlessly handles natural language trade logging, performance analytics,
+ * psychology & discipline coaching, and trading education with Dmitry's neural voice.
+ * Operates offline or whenever external API/CORS is unreachable.
  */
-async function handleAiFallback(userText, originalError) {
-  const lower = userText.toLowerCase();
-  const isAddRequest = lower.includes('добав') || lower.includes('запиш') || lower.includes('купил') || lower.includes('продал') || lower.includes('лонг') || lower.includes('шорт');
-
+async function handleAutonomousAiResponse(userText) {
+  const lower = userText.toLowerCase().trim();
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  if (isAddRequest) {
+  // 1. GREETINGS & INTRODUCTIONS
+  if (/^(привет|здравствуй|хай|хей|салам|добрый день|добрый вечер|доброе утро|start|\/start|hello|hi)\b/i.test(lower) || 
+      lower === 'привет' || lower === 'здравствуйте' || lower === 'кто ты' || lower === 'что ты умеешь' || lower === 'помощь') {
+    const greetingText = `Привет! Я твой торговый ИИ-ассистент в TradeLog с голосом **Дмитрия** 🎙\n\n` +
+      `Я готов помогать тебе вести дневник и повышать торговую дисциплину:\n\n` +
+      `1. **Запись сделок голосом:** Нажми микрофон 🎙 и продиктуй:\n` +
+      `   *«Добавь сделку: лонг BTC на 15m, сетап пробой уровня, вход 68500 выход 70000, профит +2.5R»*\n\n` +
+      `2. **Анализ дневника и винрейта:** Спроси:\n` +
+      `   *«Какой у меня винрейт?»* или *«Какой сетап самый прибыльный?»*\n\n` +
+      `3. **Психология и риск-менеджмент:** Спроси:\n` +
+      `   *«Как справиться с тильтом?»* или *«Дай правила риска»*.\n\n` +
+      `Чем могу помочь прямо сейчас?`;
+
+    const speechText = 'Привет! Я твой торговый ассистент с голосом Дмитрия. Нажмите на микрофон и продиктуйте сделку, либо спросите про винрейт и статистику.';
+    pushAiMessage(greetingText, null, speechText, timeStr);
+    return;
+  }
+
+  // 2. JOURNAL ANALYTICS & WINRATE INQUIRIES
+  const isAnalyticsQuery = lower.includes('винрейт') || lower.includes('статистик') || lower.includes('анализ') || 
+                           lower.includes('итог') || lower.includes('результат') || lower.includes('сетап') || 
+                           lower.includes('прибыль') || lower.includes('стат') || lower.includes('сколько сделок') ||
+                           lower.includes('сколько трейдов') || lower.includes('вин рей') || lower.includes('winrate');
+
+  if (isAnalyticsQuery && !lower.includes('добав') && !lower.includes('запиш') && !lower.includes('купил') && !lower.includes('продал')) {
+    const total = (typeof allTrades !== 'undefined' && Array.isArray(allTrades)) ? allTrades.length : 0;
+    
+    if (total === 0) {
+      const emptyMsg = `📊 **Анализ торгового дневника:**\n\n` +
+        `В вашем дневнике пока нет сохранённых сделок.\n\n` +
+        `Чтобы начать анализ, добавьте свою первую сделку:\n` +
+        `- Нажмите на микрофон 🎙 и скажите: *«Добавь сделку: лонг по BTC на 15m, сетап пробой, тейк +2.5R»*\n` +
+        `- Или перейдите во вкладку «Новая сделка» внизу экрана.`;
+      
+      const speechText = 'В вашем дневнике пока нет сохранённых сделок. Нажмите на микрофон и продиктуйте первую сделку, и я сразу начну вести статистику.';
+      pushAiMessage(emptyMsg, null, speechText, timeStr);
+      return;
+    }
+
+    let wins = 0;
+    let losses = 0;
+    let bes = 0;
+    let totalR = 0;
+    const setupMap = {};
+    let longCount = 0;
+    let longWins = 0;
+    let shortCount = 0;
+    let shortWins = 0;
+
+    allTrades.forEach(t => {
+      const r = parseFloat(t.rMultiple || 0) || 0;
+      totalR += r;
+      if (t.outcome === 'WIN') wins++;
+      else if (t.outcome === 'LOSS') losses++;
+      else bes++;
+
+      if (t.direction === 'LONG') {
+        longCount++;
+        if (t.outcome === 'WIN') longWins++;
+      } else if (t.direction === 'SHORT') {
+        shortCount++;
+        if (t.outcome === 'WIN') shortWins++;
+      }
+
+      const s = (t.setup || 'Без сетапа').trim();
+      if (!setupMap[s]) setupMap[s] = { count: 0, wins: 0, r: 0 };
+      setupMap[s].count++;
+      if (t.outcome === 'WIN') setupMap[s].wins++;
+      setupMap[s].r += r;
+    });
+
+    const winrate = Math.round((wins / total) * 100);
+    const longWr = longCount > 0 ? Math.round((longWins / longCount) * 100) : 0;
+    const shortWr = shortCount > 0 ? Math.round((shortWins / shortCount) * 100) : 0;
+
+    // Find best and worst setups
+    const setupList = Object.entries(setupMap).map(([name, data]) => ({
+      name,
+      count: data.count,
+      wins: data.wins,
+      wr: Math.round((data.wins / data.count) * 100),
+      r: data.r
+    })).sort((a, b) => b.r - a.r);
+
+    const bestSetup = setupList[0];
+    const worstSetup = setupList.length > 1 ? setupList[setupList.length - 1] : null;
+
+    let analyticsReport = `📊 **Анализ торгового дневника:**\n\n` +
+      `- **Всего сделок:** **${total}** (🏆 Побед: ${wins} | ❌ Убытков: ${losses} | ⚪ Б/У: ${bes})\n` +
+      `- **Общий винрейт:** **${winrate}%**\n` +
+      `- **Накопленный PnL:** **${totalR >= 0 ? '+' : ''}${totalR.toFixed(1)}R**\n` +
+      `- **Лонги:** ${longCount} сделок (Винрейт: ${longWr}%)\n` +
+      `- **Шорты:** ${shortCount} сделок (Винрейт: ${shortWr}%)\n\n`;
+
+    if (bestSetup) {
+      analyticsReport += `🎯 **Лучший сетап:** «**${bestSetup.name}**»\n` +
+        `• Сделок: ${bestSetup.count} | Винрейт: ${bestSetup.wr}% | Профит: ${bestSetup.r >= 0 ? '+' : ''}${bestSetup.r.toFixed(1)}R\n\n`;
+    }
+
+    if (worstSetup && worstSetup.r < 0) {
+      analyticsReport += `⚠️ **Требует внимания:** «**${worstSetup.name}**»\n` +
+        `• Убыток: ${worstSetup.r.toFixed(1)}R (${worstSetup.count} сделок). Рекомендуется разобрать ошибки или временно исключить.\n\n`;
+    }
+
+    // Risk coach advice
+    let advice = 'Соблюдайте постоянный риск 1-2% на сделку и не торгуйте против тренда.';
+    if (winrate >= 60) {
+      advice = 'Отличная торговая дисциплина и высокий винрейт! Сохраняйте терпение и не повышайте резко риск на сделку.';
+    } else if (winrate < 40 && total >= 5) {
+      advice = 'Винрейт ниже 40%. Сфокусируйтесь на идеальном исполнении только одного сетапа с RR от 1:3 и строгим стопом.';
+    }
+
+    analyticsReport += `🧠 **Совет риск-менеджера:**\n*${advice}*`;
+
+    const speechText = `Анализ вашего дневника: всего сделок ${total}, общий винрейт ${winrate} процентов, накопленный результат ${totalR >= 0 ? '+' : ''}${totalR.toFixed(1)}R. ` +
+      (bestSetup ? `Самый прибыльный сетап — ${bestSetup.name} с результатом ${bestSetup.r.toFixed(1)}R. ` : '') + advice;
+
+    pushAiMessage(analyticsReport, null, speechText, timeStr);
+    return;
+  }
+
+  // 3. PSYCHOLOGY & RISK DISCIPLINE INQUIRIES
+  const isPsychologyQuery = lower.includes('психолог') || lower.includes('тильт') || lower.includes('эмоци') || 
+                            lower.includes('дисциплин') || lower.includes('правил') || lower.includes('манименеджмент') || 
+                            lower.includes('риск') || lower.includes('ошибк') || lower.includes('страх');
+
+  if (isPsychologyQuery && !lower.includes('добав') && !lower.includes('запиш') && !lower.includes('купил') && !lower.includes('продал')) {
+    const psychReport = `🧠 **Золотые правила торговой дисциплины и психологии:**\n\n` +
+      `1. **Правило 1% риска:** Рискуйте строго фиксированной суммой (1-2% депозита) в каждой сделке. Ни один отдельный трейд не должен выбивать вас из колеи.\n` +
+      `2. **Правило двух стопов:** Получили 2 системных стоп-лосса подряд за день — немедленно закройте графики до следующего торгового дня. Желание «отыграться» — это 100% тильт.\n` +
+      `3. **Никогда не двигайте стоп-лосс назад:** Если рынок пошел против идеи, примите плановый убыток. Надежда — худшая торговая стратегия.\n` +
+      `4. **Вход только по подтверждению:** Не заходите на середине свечи. Ждите закрытия бара и соблюдения всех условий вашего сетапа.\n` +
+      `5. **Ведите дневник:** Записывайте каждую сделку сразу. Анализ ошибок в дневнике делает вас профессионалом.`;
+
+    const speechText = 'Главные правила дисциплины: риск не более одного-двух процентов на сделку, правило двух стопов за сессию и никакого отыгрыша. Управляйте рисками, а не эмоциями.';
+    pushAiMessage(psychReport, null, speechText, timeStr);
+    return;
+  }
+
+  // 4. SMC / TRADING CONCEPTS & EDUCATION
+  if (lower.includes('ордерблок') || lower.includes('ордер блок') || lower.includes('order block')) {
+    const obText = `📦 **Order Block (Ордерблок, OB):**\n\n` +
+      `Это последняя противоположная свеча перед сильным импульсным движением, приведшим к снятию ликвидности или слому структуры (BOS/CHoCH).\n\n` +
+      `- **Бычий OB:** Последняя медвежья свеча перед мощным ростом вверх. Зона потенциального входа в Лонг.\n` +
+      `- **Медвежий OB:** Последняя бычья свеча перед резким падением. Зона входа в Шорт.\n` +
+      `- **Вход:** На тесте верхней границы или 50% тела свечи (EQ) со стопом за экстремум.`;
+    pushAiMessage(obText, null, 'Ордерблок — это зона институционального набора позиции, от которой ожидается сильная реакция цены при повторном тесте.', timeStr);
+    return;
+  }
+
+  if (lower.includes('fvg') || lower.includes('имбаланс') || lower.includes('дисбаланс') || lower.includes('imbalance')) {
+    const fvgText = `⚡ **FVG (Fair Value Gap / Имбаланс):**\n\n` +
+      `Это трехсвечная формация с ценовым разрывом между фитилем 1-й свечи и фитилем 3-й свечи.\n\n` +
+      `- Возникает при агрессивном рыночном дисбалансе покупателей или продавцов.\n` +
+      `- Рынок стремится вернуться в зону FVG для ребалансировки цены и заполнения ликвидности.\n` +
+      `- Используется как цель для фиксации прибыли либо как точка входа на ретесте.`;
+    pushAiMessage(fvgText, null, 'Имбаланс или FVG — это неэффективно проторгованная ценовая зона, куда рынок возвращается за ликвидностью.', timeStr);
+    return;
+  }
+
+  if (lower.includes('свип') || lower.includes('ликвидн') || lower.includes('sweep')) {
+    const sweepText = `🎯 **Liquidity Sweep (Снятие ликвидности / Свип):**\n\n` +
+      `Крупные участники рынка используют скопления стоп-лоссов розничных трейдеров за ключевыми уровнями максимумов и минимумов.\n\n` +
+      `- **Свип ликвидности:** Ложный пробой уровня тенью свечи с быстрым возвратом обратно в диапазон.\n` +
+      `- Часто сигнализирует о развороте цены в противоположную сторону.`;
+    pushAiMessage(sweepText, null, 'Снятие ликвидности происходит, когда крупный игрок собирает стоп-лоссы за локальными уровнями для набора своей позиции.', timeStr);
+    return;
+  }
+
+  if (lower.includes('choch') || lower.includes('чоч') || lower.includes('слом') || lower.includes('bos')) {
+    const chochText = `🔄 **CHoCH (Change of Character) & BOS:**\n\n` +
+      `- **BOS (Break of Structure):** Пробой ключевого экстремума по тренду — подтверждение продолжения движения.\n` +
+      `- **CHoCH (Слом структуры):** Пробой последнего свинга, давшего новый экстремум против тренда. Первый ранний признак смены тренда.\n` +
+      `- Вход осуществляется после слома структуры на откате к Order Block или FVG.`;
+    pushAiMessage(chochText, null, 'Слом структуры указывает на смену приоритета покупателей и продавцов на рынке.', timeStr);
+    return;
+  }
+
+  if (lower.includes('риск реворд') || lower.includes('r:r') || lower.includes('рр') || lower.includes('r multiple') || lower.includes('r-multiple')) {
+    const rrText = `📐 **Risk-to-Reward (R:R, R-Multiple):**\n\n` +
+      `Соотношение потенциальной прибыли к принимаемому риску (1R = 1 риск-юнит).\n\n` +
+      `- Если риск в сделке $100 (1R), а тейк принес $300 — это **+3.0R**.\n` +
+      `- При соотношении 1:3 вам достаточно всего 30% винрейта, чтобы оставаться в стабильном плюсе!`;
+    pushAiMessage(rrText, null, 'Соотношение риска к прибыли — основа прибыльного трейдинга. Стремитесь брать сетапы от одного к трем.', timeStr);
+    return;
+  }
+
+  // 5. TRADE LOGGING INTENTS
+  const isAddIntent = lower.includes('добав') || lower.includes('запиш') || lower.includes('зафиксир') || 
+                      lower.includes('купил') || lower.includes('продал') || lower.includes('лонг') || 
+                      lower.includes('шорт') || lower.includes('сделк') || lower.includes('трейд');
+
+  if (isAddIntent) {
+    // Check if user just said "добавь сделку" without details
+    const cleanAddTest = lower
+      .replace(/добав[а-я]*/g, '')
+      .replace(/запиш[а-я]*/g, '')
+      .replace(/зафиксир[а-я]*/g, '')
+      .replace(/сделк[а-я]*/g, '')
+      .replace(/трейд[а-я]*/g, '')
+      .replace(/нов[а-я]*/g, '')
+      .replace(/пожалуйст[а-я]*/g, '')
+      .replace(/[:,\.\-!\?]/g, '')
+      .trim();
+
+    if (cleanAddTest.length === 0) {
+      const guideMsg = `🎯 **С удовольствием помогу записать сделку!**\n\n` +
+        `Назови параметры сделки голосом в микрофон 🎙 или напиши текстом:\n` +
+        `- **Тикер** (например, BTC, ETH, SOL, XAU)\n` +
+        `- **Направление** (лонг или шорт)\n` +
+        `- **Таймфрейм** (например: 15m, 1h, 4h)\n` +
+        `- **Сетап** (например: пробой, ордерблок, FVG, свип)\n` +
+        `- **Результат** (например: +2.5R, тейк или стоп-лосс)\n\n` +
+        `*Пример:* «Добавь сделку: лонг BTC на 15m, пробой уровня, вход 68500 выход 70000, профит +2.5R»`;
+
+      const speechText = 'Назовите тикер, направление, сетап и результат сделки, и я сразу занесу её в дневник.';
+      pushAiMessage(guideMsg, null, speechText, timeStr);
+      return;
+    }
+
+    // Extract trade details
     const extracted = parseTradeFromTextLocally(userText);
     if (extracted && extracted.symbol) {
       const createdTrade = await executeAddTradeFromAi(extracted);
-      
-      const replyText = `Сделка по ${createdTrade.symbol} успешно добавлена в дневник! Направление: ${createdTrade.direction}, сетап: ${createdTrade.setup}, результат: ${createdTrade.outcome} (${createdTrade.pnl}).`;
-      
-      const newIdx = aiChatHistory.length;
-      aiChatHistory.push({
-        role: 'assistant',
-        content: `🎯 **Сделка успешно добавлена в дневник!**\n\nЯ распознал параметры из вашей голосовой команды:\n- **Тикер:** ${createdTrade.symbol}\n- **Направление:** ${createdTrade.direction}\n- **Сетап:** ${createdTrade.setup}\n- **Таймфрейм:** ${createdTrade.timeframe}\n- **Результат:** ${createdTrade.outcome} (${createdTrade.pnl})\n\n*(Сделка зафиксирована в базе и отображается в календаре)*`,
-        createdTrade: createdTrade,
-        timestamp: timeStr
-      });
 
-      speakWithDmitry(replyText, newIdx);
+      const successMsg = `🎯 **Сделка успешно добавлена в дневник!**\n\n` +
+        `Параметры зафиксированы в базе:\n` +
+        `- **Тикер:** **${createdTrade.symbol}**\n` +
+        `- **Направление:** **${createdTrade.direction}**\n` +
+        `- **Таймфрейм:** **${createdTrade.timeframe}**\n` +
+        `- **Сетап:** **${createdTrade.setup}**\n` +
+        `- **Результат:** **${createdTrade.outcome}** (**${createdTrade.pnl}**)\n` +
+        (createdTrade.entryPrice ? `- **Вход:** ${createdTrade.entryPrice} | **Выход:** ${createdTrade.exitPrice || '-'}\n` : '') +
+        `\n*(Сделка зафиксирована в IndexedDB и отмечена на календаре)*`;
+
+      const speechText = `Сделка по ${createdTrade.symbol} успешно добавлена в дневник. Направление ${createdTrade.direction === 'LONG' ? 'лонг' : 'шорт'}, сетап ${createdTrade.setup}, результат ${createdTrade.pnl}. Сделка отображается в календаре.`;
+      
+      pushAiMessage(successMsg, createdTrade, speechText, timeStr);
       return;
     }
   }
 
-  // General error explanation with CORS guidance
-  let errorMsg = `⚠️ **Не удалось связаться с Tooken Club API.**\n\nПричина: *${escapeHtml(originalError.message)}*`;
-  if (originalError.message.includes('CORS_OR_NETWORK')) {
-    errorMsg += `\n\n> [!NOTE] Браузер заблокировал прямой запрос к Tooken Club из-за отсутствия CORS заголовков на сервере API.\n\n**Что можно сделать:**\n1. Для добавления сделок просто скажите в микрофон: *«Добавь сделку: лонг BTC на 15m, вход 68000 выход 70000 +2.5R»* — локальный анализатор добавит её моментально!\n2. Вы можете настроить CORS-прокси в **Настройках ИИ** (иконка шестерёнки вверху).`;
-  }
+  // 6. GENERAL HELPFUL TRADING COPILOT RESPONSE
+  const generalReply = `Принято! Я проанализировал ваш запрос: *«${escapeHtml(userText)}»*.\n\n` +
+    `Я ваш персональный ассистент по торговле и дисциплине. Вы можете:\n` +
+    `- **Надиктовать сделку в микрофон** (например: *«Запиши сделку: шорт по SOL на 15m, ордерблок, стоп -1R»*)\n` +
+    `- **Запросить статистику** (*«Покажи мой винрейт и лучший сетап»*)\n` +
+    `- **Задать вопрос по сетапам** (*«Как торговать FVG?»*)\n\n` +
+    `Скажите команду или нажмите кнопку микрофона 🎙 для записи!`;
 
+  const speechText = 'Я готов зафиксировать сделку или показать аналитику вашего дневника. Нажмите на микрофон и назовите команду.';
+  pushAiMessage(generalReply, null, speechText, timeStr);
+}
+
+function pushAiMessage(content, createdTrade, speechText, timeStr) {
   const newIdx = aiChatHistory.length;
   aiChatHistory.push({
     role: 'assistant',
-    content: errorMsg,
+    content: content,
+    createdTrade: createdTrade,
     timestamp: timeStr
   });
 
-  speakWithDmitry('Не удалось связаться с сервером API. Проверьте подключение к сети или настройки прокси.', newIdx);
+  speakWithDmitry(speechText || content, newIdx);
 }
 
 /**
@@ -926,11 +1166,19 @@ function parseTradeFromTextLocally(text) {
     symbol = 'SOL/USDT';
   } else if (lower.includes('золот') || lower.includes('голд')) {
     symbol = 'XAU/USD';
+  } else if (lower.includes('рипл') || lower.includes('риппл')) {
+    symbol = 'XRP/USDT';
+  } else if (lower.includes('доги') || lower.includes('доге')) {
+    symbol = 'DOGE/USDT';
+  } else if (lower.includes('тон') || lower.includes('тоин')) {
+    symbol = 'TON/USDT';
+  } else if (lower.includes('суи')) {
+    symbol = 'SUI/USDT';
   }
 
   // 2. Direction
   let direction = 'LONG';
-  if (lower.includes('шорт') || lower.includes('short') || lower.includes('продал') || lower.includes('продажа') || lower.includes('sell')) {
+  if (lower.includes('шорт') || lower.includes('short') || lower.includes('продал') || lower.includes('продажа') || lower.includes('sell') || lower.includes('вниз')) {
     direction = 'SHORT';
   }
 
@@ -938,7 +1186,7 @@ function parseTradeFromTextLocally(text) {
   let timeframe = '15m';
   const tfMatch = lower.match(/\b(1m|3m|5m|15m|30m|1h|4h|1d|1w)\b/i);
   if (tfMatch) {
-    timeframe = tfMatch[1];
+    timeframe = tfMatch[1].toLowerCase();
   } else if (lower.includes('минут')) {
     const minsMatch = lower.match(/(\d+)\s*мин/);
     if (minsMatch) timeframe = `${minsMatch[1]}m`;
@@ -958,14 +1206,18 @@ function parseTradeFromTextLocally(text) {
     pnl = `${rMultiple > 0 ? '+' : ''}${rMultiple}R`;
     outcome = rMultiple > 0 ? 'WIN' : rMultiple < 0 ? 'LOSS' : 'BE';
   } else {
-    if (lower.includes('стоп') || lower.includes('лосс') || lower.includes('loss') || lower.includes('убыт') || lower.includes('-')) {
+    if (lower.includes('стоп') || lower.includes('лосс') || lower.includes('loss') || lower.includes('убыт') || lower.includes('-') || lower.includes('минус')) {
       outcome = 'LOSS';
       rMultiple = -1.0;
       pnl = '-1.0R';
-    } else if (lower.includes('безубыток') || lower.includes(' бу ') || lower.includes('be')) {
+    } else if (lower.includes('безубыток') || lower.includes(' бу ') || lower.includes('be') || lower.includes('ноль')) {
       outcome = 'BE';
       rMultiple = 0.0;
       pnl = '0.0R';
+    } else if (lower.includes('тейк') || lower.includes('профит') || lower.includes('плюс') || lower.includes('победа')) {
+      outcome = 'WIN';
+      rMultiple = 2.0;
+      pnl = '+2.0R';
     }
   }
 
@@ -982,9 +1234,9 @@ function parseTradeFromTextLocally(text) {
   let setup = 'Breakout / Пробой';
   if (lower.includes('брейкаут') || lower.includes('пробой')) setup = 'Breakout / Пробой';
   else if (lower.includes('ордер') || lower.includes('блок') || lower.includes('ob')) setup = 'Order Block (OB)';
-  else if (lower.includes('fvg') || lower.includes('имбаланс') || lower.includes('имб')) setup = 'FVG / Imbalance';
+  else if (lower.includes('fvg') || lower.includes('имбаланс') || lower.includes('имб') || lower.includes('дисбаланс')) setup = 'FVG / Imbalance';
   else if (lower.includes('свип') || lower.includes('ликвидн') || lower.includes('sweep')) setup = 'Liquidity Sweep';
-  else if (lower.includes('слом') || lower.includes('choch') || lower.includes('чоч')) setup = 'CHoCH / Слом структуры';
+  else if (lower.includes('слом') || lower.includes('choch') || lower.includes('чоч') || lower.includes('bos')) setup = 'CHoCH / Слом структуры';
   else if (lower.includes('уровен') || lower.includes('поддержк') || lower.includes('сопротивл')) setup = 'Support / Resistance';
   else if (lower.includes('тренд') || lower.includes('продолжен')) setup = 'Trend Continuation';
 
