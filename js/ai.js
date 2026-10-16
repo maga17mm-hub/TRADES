@@ -183,8 +183,87 @@ function getAvailableRussianVoices() {
 }
 window.getAvailableRussianVoices = getAvailableRussianVoices;
 
+// Native Russian Streaming Audio Player (Fallback when OS has no Russian TTS)
+let currentTtsAudio = null;
+let currentTtsAudioChunks = [];
+let currentTtsChunkIndex = 0;
+
+function splitIntoTtsChunks(text, maxLen = 170) {
+  const sentences = text.match(/[^.!?\n]+[.!?\n]+|\S+/g) || [text];
+  const chunks = [];
+  let cur = '';
+  for (const s of sentences) {
+    const cleanS = s.trim();
+    if (!cleanS) continue;
+    if ((cur + ' ' + cleanS).trim().length <= maxLen) {
+      cur = (cur + ' ' + cleanS).trim();
+    } else {
+      if (cur) chunks.push(cur);
+      if (cleanS.length > maxLen) {
+        const words = cleanS.split(' ');
+        let sub = '';
+        for (const w of words) {
+          if ((sub + ' ' + w).trim().length <= maxLen) {
+            sub = (sub + ' ' + w).trim();
+          } else {
+            if (sub) chunks.push(sub);
+            sub = w;
+          }
+        }
+        if (sub) chunks.push(sub);
+        cur = '';
+      } else {
+        cur = cleanS;
+      }
+    }
+  }
+  if (cur) chunks.push(cur);
+  return chunks.filter(c => c.trim().length > 0);
+}
+
+function playRussianAudioTts(text, msgIdx = null) {
+  stopSpeaking();
+  currentTtsAudioChunks = splitIntoTtsChunks(text, 170);
+  if (currentTtsAudioChunks.length === 0) return;
+
+  currentlySpeakingIdx = msgIdx;
+  updateSpeechButtonsUI();
+  currentTtsChunkIndex = 0;
+
+  function playNextChunk() {
+    if (!isVoiceEnabled || currentTtsChunkIndex >= currentTtsAudioChunks.length) {
+      currentlySpeakingIdx = null;
+      updateSpeechButtonsUI();
+      return;
+    }
+
+    const chunk = currentTtsAudioChunks[currentTtsChunkIndex++];
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ru&client=tw-ob&q=${encodeURIComponent(chunk)}`;
+
+    currentTtsAudio = new Audio(url);
+    currentTtsAudio.playbackRate = 1.0;
+
+    currentTtsAudio.onended = () => {
+      playNextChunk();
+    };
+
+    currentTtsAudio.onerror = (e) => {
+      console.warn('TTS chunk playback notice:', e);
+      playNextChunk();
+    };
+
+    currentTtsAudio.play().catch(err => {
+      console.warn('Audio play notice (user interaction required):', err);
+      currentlySpeakingIdx = null;
+      updateSpeechButtonsUI();
+    });
+  }
+
+  playNextChunk();
+}
+
 function speakWithDmitry(text, msgIdx = null) {
-  if (!isVoiceEnabled || !('speechSynthesis' in window)) return;
+  if (!isVoiceEnabled) return;
 
   stopSpeaking();
 
@@ -197,45 +276,54 @@ function speakWithDmitry(text, msgIdx = null) {
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/#+\s+/g, '')
     .replace(/https?:\/\/\S+/g, '')
-    .replace(/[🎯✨⚡📊🧠⚙️👁✏️✕🔴🎙🔊]/g, '')
+    .replace(/[🎯✨⚡📊🧠⚙️👁✏️✕🔴🎙🔊✓]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 
   if (!cleanText) return;
 
-  const utterance = new SpeechSynthesisUtterance(cleanText);
-  utterance.lang = 'ru-RU';
-  utterance.rate = 1.0;
-  utterance.pitch = 0.95; // masculine timbre for Dmitry
-
   const dmitryVoice = getDmitryVoice();
   if (dmitryVoice) {
+    // Russian system voice (Dmitry / Microsoft Pavel / Google Russian) available in browser!
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.voice = dmitryVoice;
+    utterance.lang = dmitryVoice.lang || 'ru-RU';
+    utterance.rate = 1.0;
+    utterance.pitch = 0.95; // masculine timbre for Dmitry
+
+    currentlySpeakingIdx = msgIdx;
+    updateSpeechButtonsUI();
+
+    utterance.onend = () => {
+      currentlySpeakingIdx = null;
+      updateSpeechButtonsUI();
+    };
+
+    utterance.onerror = (e) => {
+      console.warn('Speech synthesis error, falling back to Russian stream:', e);
+      playRussianAudioTts(cleanText, msgIdx);
+    };
+
+    window.speechSynthesis.speak(utterance);
   } else {
-    utterance.lang = 'ru-RU';
+    // System only has English voices (David/Zira). NEVER use English TTS for Russian!
+    // Stream crystal-clear native Russian audio!
+    playRussianAudioTts(cleanText, msgIdx);
   }
-
-  currentlySpeakingIdx = msgIdx;
-  updateSpeechButtonsUI();
-
-  utterance.onend = () => {
-    currentlySpeakingIdx = null;
-    updateSpeechButtonsUI();
-  };
-
-  utterance.onerror = (e) => {
-    console.warn('Speech synthesis error:', e);
-    currentlySpeakingIdx = null;
-    updateSpeechButtonsUI();
-  };
-
-  window.speechSynthesis.speak(utterance);
 }
 
 function stopSpeaking() {
   if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
+    try { window.speechSynthesis.cancel(); } catch (e) {}
   }
+  if (currentTtsAudio) {
+    try {
+      currentTtsAudio.pause();
+      currentTtsAudio.currentTime = 0;
+    } catch (e) {}
+    currentTtsAudio = null;
+  }
+  currentTtsAudioChunks = [];
   currentlySpeakingIdx = null;
   updateSpeechButtonsUI();
 }
@@ -321,7 +409,7 @@ function initSpeechRecognition() {
 
   const recognition = new SpeechRecognition();
   recognition.lang = 'ru-RU';
-  recognition.continuous = true; // DO NOT disconnect on brief pause!
+  recognition.continuous = true;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
@@ -349,7 +437,7 @@ function initSpeechRecognition() {
       inputEl.value = fullText;
     }
 
-    // Reset silence timer: wait 2.5 seconds of silence before auto-submitting
+    // Debounce silence timer: wait 3.5 seconds of silence AFTER speaking before auto-submitting
     clearTimeout(recognitionSilenceTimer);
     recognitionSilenceTimer = setTimeout(() => {
       const el = document.getElementById('aiChatInput');
@@ -357,31 +445,31 @@ function initSpeechRecognition() {
         stopListening();
         setTimeout(() => handleAiSubmit(), 150);
       }
-    }, 2500);
+    }, 3500);
   };
 
   recognition.onerror = (event) => {
-    if (event.error === 'no-speech') {
-      // User paused, do not disconnect!
+    console.warn('Speech recognition notice:', event.error);
+    if (event.error === 'no-speech' || event.error === 'aborted') {
+      // Natural silence or buffer pause - DO NOT kill session!
       return;
     }
-    stopListening();
     if (event.error === 'not-allowed') {
+      stopListening();
       showToast('Доступ к микрофону заблокирован. Разрешите микрофон в браузере.', 'error');
-    } else {
-      console.warn('Speech recognition notice:', event.error);
     }
   };
 
   recognition.onend = () => {
+    // If still in listening mode, KEEP LISTENING! Web Speech API frequently cycles buffer
     if (isListening) {
-      const inputEl = document.getElementById('aiChatInput');
-      stopListening();
-      if (inputEl && inputEl.value.trim().length > 1) {
-        setTimeout(() => handleAiSubmit(), 200);
+      try {
+        recognition.start();
+      } catch (e) {
+        // Recognition already active or transitioning
       }
     } else {
-      stopListening();
+      updateMicButtonUI(false);
     }
   };
 
@@ -391,7 +479,7 @@ function initSpeechRecognition() {
 function toggleVoiceRecording() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    showToast('Голосовой ввод не поддерживается браузером. Используйте Chrome, Edge или Safari.', 'error');
+    showToast('Голосовой ввод не поддерживается данным браузером.', 'error');
     return;
   }
 
@@ -412,22 +500,23 @@ function startListening() {
   stopSpeaking(); // don't listen to Dmitry's own voice
   clearTimeout(recognitionSilenceTimer);
 
+  isListening = true;
+  updateMicButtonUI(true);
+
   if (!speechRecognizer) {
     speechRecognizer = initSpeechRecognition();
   }
-  if (!speechRecognizer) return;
+  if (!speechRecognizer) {
+    isListening = false;
+    updateMicButtonUI(false);
+    showToast('Не удалось инициализировать микрофон', 'error');
+    return;
+  }
 
   try {
     speechRecognizer.start();
   } catch (err) {
-    console.warn('Recognition start state reset:', err);
-    try {
-      speechRecognizer.abort();
-      speechRecognizer = initSpeechRecognition();
-      speechRecognizer.start();
-    } catch (e) {
-      stopListening();
-    }
+    console.log('Recognizer start note:', err);
   }
 }
 
@@ -754,7 +843,7 @@ ${recentTrades || 'Пока нет сделок'}
 }
 
 /**
- * Call Tooken Club OpenAI-Compatible API
+ * Call Tooken Club OpenAI-Compatible API (gpt-5.6-terra)
  */
 async function callTookenClubAi(userMessage) {
   const apiKey = getAiApiKey();
@@ -784,7 +873,7 @@ async function callTookenClubAi(userMessage) {
     model: model,
     messages: messages,
     temperature: 0.3,
-    max_tokens: 1000
+    max_tokens: 1500
   };
 
   const headers = {
@@ -792,41 +881,58 @@ async function callTookenClubAi(userMessage) {
     'Authorization': `Bearer ${apiKey}`
   };
 
-  // Determine endpoint URL
-  let targetUrl = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
+  const directUrl = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
+  const endpointsToTry = [];
+
+  // 1. Explicit user proxy if set in settings
   if (proxyUrl) {
-    targetUrl = proxyUrl.replace('{url}', encodeURIComponent(targetUrl));
+    endpointsToTry.push(proxyUrl.replace('{url}', encodeURIComponent(directUrl)));
   }
 
-  // Attempt fetch with 3.5s timeout
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-  let response;
-  try {
-    response = await fetch(targetUrl, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-  } catch (fetchErr) {
-    throw new Error(`CORS_OR_NETWORK: ${fetchErr.message}`);
-  } finally {
-    clearTimeout(timeoutId);
+  // 2. Local /api/chat if deployed on Vercel/Node host
+  if (window.location.protocol.startsWith('http')) {
+    endpointsToTry.push(`${window.location.origin}/api/chat`);
   }
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Ошибка API (${response.status}): ${errorText}`);
+  // 3. Direct Tooken Club endpoint
+  endpointsToTry.push(directUrl);
+
+  // 4. Demo CORS proxy
+  endpointsToTry.push(`https://cors-anywhere.herokuapp.com/${directUrl}`);
+
+  let lastError = null;
+
+  for (const targetUrl of endpointsToTry) {
+    try {
+      const controller = new AbortController();
+      // 45 seconds timeout to allow GPT-5.6-Terra reasoning and completion
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.choices && data.choices[0] && data.choices[0].message) {
+          return data.choices[0].message.content;
+        }
+      } else {
+        const errorText = await response.text();
+        console.warn(`Target ${targetUrl} returned status ${response.status}:`, errorText);
+        lastError = new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+    } catch (fetchErr) {
+      console.warn(`Target ${targetUrl} failed:`, fetchErr.message);
+      lastError = fetchErr;
+    }
   }
 
-  const data = await response.json();
-  if (data.choices && data.choices[0] && data.choices[0].message) {
-    return data.choices[0].message.content;
-  }
-
-  throw new Error('Некорректный формат ответа от модели');
+  throw new Error(`CORS_OR_NETWORK: ${lastError ? lastError.message : 'Все эндпоинты недоступны'}`);
 }
 
 /**
@@ -1177,16 +1283,17 @@ async function handleAutonomousAiResponse(userText) {
     }
   }
 
-  // 6. GENERAL HELPFUL TRADING COPILOT RESPONSE
-  const generalReply = `Принято! Я проанализировал ваш запрос: *«${escapeHtml(userText)}»*.\n\n` +
-    `Я ваш персональный ассистент по торговле и дисциплине. Вы можете:\n` +
-    `- **Надиктовать сделку в микрофон** (например: *«Запиши сделку: шорт по SOL на 15m, ордерблок, стоп -1R»*)\n` +
-    `- **Запросить статистику** (*«Покажи мой винрейт и лучший сетап»*)\n` +
-    `- **Задать вопрос по сетапам** (*«Как торговать FVG?»*)\n\n` +
-    `Скажите команду или нажмите кнопку микрофона 🎙 для записи!`;
+  // 6. IF EXTERNAL LLM (GPT-5.6-TERRA) WAS BLOCKED BY BROWSER CORS
+  const corsNotice = `⚠️ **Браузер заблокировал сетевой запрос к модели \`${getAiModel()}\` (Tooken Club).**\n\n` +
+    `Сервер Tooken Club (\`https://tooken.club/v1\`) не отправляет браузерный CORS-заголовок (\`Access-Control-Allow-Origin\`), поэтому браузер запрещает прямое обращение с веб-страницы.\n\n` +
+    `**Как включить реальный ChatGPT прямо сейчас:**\n\n` +
+    `1. 👉 **[Разрешить доступ через CORS Demo](https://cors-anywhere.herokuapp.com/corsdemo)** — перейдите по ссылке и нажмите кнопку **«Request temporary access to the demo server»** (это моментально откроет доступ к модели прямо в текущем браузере на несколько часов).\n\n` +
+    `2. **Развертывание в Vercel (без CORS):** Мы уже добавили в проект серверный файл \`api/chat.js\`. При публикации проекта на Vercel все запросы к Tooken Club идут через сервер без браузерных блокировок!\n\n` +
+    `3. **Свой прокси:** В шапке ассистента нажмите шестерёнку ⚙️ и укажите свой URL CORS-прокси.\n\n` +
+    `*Примечание: Добавление сделок голосом и текстом работает всегда моментально (например, скажите в микрофон «Добавь сделку: лонг BTC на 15m...»)!*`;
 
-  const speechText = 'Я готов зафиксировать сделку или показать аналитику вашего дневника. Нажмите на микрофон и назовите команду.';
-  pushAiMessage(generalReply, null, speechText, timeStr);
+  const speechNotice = 'Запрос к языковой модели заблокирован политикой безопасности браузера. Для прямого общения с ChatGPT разрешите доступ по ссылке в чате.';
+  pushAiMessage(corsNotice, null, speechNotice, timeStr);
 }
 
 function pushAiMessage(content, createdTrade, speechText, timeStr) {
