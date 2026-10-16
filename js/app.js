@@ -1138,6 +1138,18 @@ function renderSetupPills() {
 let currentGroupBy = 'month';
 let currentSortBy = 'date_desc';
 
+function toggleTradesFilterPanel() {
+  const panel = document.getElementById('tradesFilterPanel');
+  const label = document.getElementById('filterToggleBtnLabel');
+  if (!panel) return;
+  const isHidden = panel.style.display === 'none' || !panel.style.display;
+  panel.style.display = isHidden ? 'block' : 'none';
+  if (label) {
+    label.innerHTML = isHidden ? '⚙️ Скрыть фильтры ▴' : '⚙️ Фильтры и сортировка ▾';
+  }
+}
+window.toggleTradesFilterPanel = toggleTradesFilterPanel;
+
 function setTradesGrouping(groupBy) {
   currentGroupBy = groupBy;
   const btnGroup = document.getElementById('groupingBtnGroup');

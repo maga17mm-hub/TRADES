@@ -547,9 +547,9 @@ function updateMicButtonUI(listening) {
 
   if (inputEl) {
     if (listening) {
-      inputEl.placeholder = '🔴 Слушаю вас... Говорите команду';
+      inputEl.placeholder = '🔴 Слушаю вас...';
     } else {
-      inputEl.placeholder = 'Скажите «Добавить сделку: лонг BTC...» или задайте вопрос';
+      inputEl.placeholder = '';
     }
   }
 }

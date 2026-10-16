@@ -264,12 +264,9 @@ async function renderJournalThoughtsFeed() {
         <div class="empty-state-card" style="padding: 32px 20px; text-align: center;">
           <div style="font-size: 2.2rem; margin-bottom: 10px;">📖</div>
           <h3 style="font-size: 1.05rem; font-weight: 600; color: #fff; margin-bottom: 6px;">Ваш дневник мыслей пуст</h3>
-          <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 360px; margin: 0 auto 16px;">
+          <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 360px; margin: 0 auto;">
             Здесь хранятся ваши личные размышления, эмоции, психология и голосовые заметки без сделок.
           </p>
-          <button type="button" class="btn btn-primary btn-sm" onclick="switchJournalSubTab('compose')">
-            ✍️ Записать мысль
-          </button>
         </div>
       `;
       return;

@@ -38,34 +38,6 @@
             <h1>TradeLog</h1>
           </div>
         </div>
-
-        <div class="header-actions">
-          <button class="btn btn-secondary ai-trigger-btn" onclick="openAiAssistant()" title="ИИ-Ассистент (gpt-5.6-terra)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ff6363" stroke-width="2.5">
-              <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path>
-            </svg>
-            <span>ИИ Ассистент</span>
-          </button>
-          <button class="btn btn-secondary btn-icon-only" onclick="openBackupModal()" title="Резервная копия & Экспорт">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- PWA Install Banner (appears when installable) -->
-      <div id="pwaInstallBanner" class="install-banner" style="display: none;">
-        <div class="install-text">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6363" stroke-width="2">
-            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-            <line x1="12" y1="18" x2="12.01" y2="18"></line>
-          </svg>
-          <span>Установите TradeLog как приложение на экран телефона</span>
-        </div>
-        <button id="installPwaBtn" class="btn btn-primary btn-sm">Установить</button>
       </div>
     </div>
   </header>
@@ -209,42 +181,50 @@
 
       <!-- All Trades History & Filter Section -->
       <section class="controls-card" style="margin-top: 16px; margin-bottom: 14px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
           <div>
             <h3 style="font-size: 0.95rem; font-weight: 600; color: #fff;">История сделок</h3>
             <span style="font-size: 0.74rem; color: var(--text-muted);">Группировка и фильтрация по параметрам</span>
           </div>
-          <button type="button" class="btn btn-primary btn-sm" onclick="openTradeModal()">+ Записать сделку</button>
+          <button type="button" class="btn-trades-filter-toggle" onclick="toggleTradesFilterPanel()" title="Сортировка и группировка">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+            </svg>
+            <span id="filterToggleBtnLabel">⚙️ Фильтры и сортировка ▾</span>
+          </button>
         </div>
 
-        <!-- Grouping & Sorting Controls -->
-        <div class="trades-toolbar-row">
-          <div class="toolbar-subgroup">
-            <span class="toolbar-label">Группировка:</span>
-            <div class="toolbar-seg-group" id="groupingBtnGroup">
-              <button type="button" class="toolbar-seg-btn active" data-groupby="month" onclick="setTradesGrouping('month')">📅 По месяцам</button>
-              <button type="button" class="toolbar-seg-btn" data-groupby="setup" onclick="setTradesGrouping('setup')">🎯 По сетапам</button>
-              <button type="button" class="toolbar-seg-btn" data-groupby="timeframe" onclick="setTradesGrouping('timeframe')">⏱ По TF</button>
-              <button type="button" class="toolbar-seg-btn" data-groupby="all" onclick="setTradesGrouping('all')">📋 Списком</button>
+        <!-- Collapsible Grouping & Sorting Controls (Hidden by default to save screen space) -->
+        <div id="tradesFilterPanel" class="trades-filter-panel" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle);">
+          <div class="trades-toolbar-grid">
+            <div class="toolbar-group-col">
+              <span class="toolbar-label">Группировка сделок:</span>
+              <div class="toolbar-seg-grid" id="groupingBtnGroup">
+                <button type="button" class="toolbar-seg-btn active" data-groupby="month" onclick="setTradesGrouping('month')">📅 Месяцы</button>
+                <button type="button" class="toolbar-seg-btn" data-groupby="setup" onclick="setTradesGrouping('setup')">🎯 Сетапы</button>
+                <button type="button" class="toolbar-seg-btn" data-groupby="timeframe" onclick="setTradesGrouping('timeframe')">⏱ Таймфрейм</button>
+                <button type="button" class="toolbar-seg-btn" data-groupby="all" onclick="setTradesGrouping('all')">📋 Списком</button>
+              </div>
+            </div>
+
+            <div class="toolbar-sort-col">
+              <span class="toolbar-label">Сортировка:</span>
+              <select id="tradeSortSelect" class="form-select form-select-sm" onchange="setTradesSorting(this.value)">
+                <option value="date_desc">Сначала новые (дата)</option>
+                <option value="date_asc">Сначала старые</option>
+                <option value="pnl_desc">Прибыль (max PnL)</option>
+                <option value="pnl_asc">Убыток (min PnL)</option>
+                <option value="entry_price">По цене входа</option>
+              </select>
             </div>
           </div>
-          <div class="toolbar-subgroup sort-subgroup">
-            <span class="toolbar-label">Сортировка:</span>
-            <select id="tradeSortSelect" class="form-select form-select-sm" onchange="setTradesSorting(this.value)">
-              <option value="date_desc">Сначала новые (дата)</option>
-              <option value="date_asc">Сначала старые</option>
-              <option value="pnl_desc">Прибыль (max PnL)</option>
-              <option value="pnl_asc">Убыток (min PnL)</option>
-              <option value="entry_price">По цене входа</option>
-            </select>
-          </div>
-        </div>
 
-        <div class="filter-pills-wrapper" style="margin-top: 10px;">
-          <div id="monthPills" class="pills-scroll-row"></div>
-        </div>
-        <div class="filter-pills-wrapper" style="margin-top: 8px;">
-          <div id="setupPills" class="pills-scroll-row"></div>
+          <div class="filter-pills-wrapper" style="margin-top: 10px;">
+            <div id="monthPills" class="pills-scroll-row"></div>
+          </div>
+          <div class="filter-pills-wrapper" style="margin-top: 8px;">
+            <div id="setupPills" class="pills-scroll-row"></div>
+          </div>
         </div>
       </section>
 
@@ -290,16 +270,16 @@
       <!-- Sub-view 1: Compose New Thought Box -->
       <section id="journalComposeSection" class="thought-compose-card">
         <form onsubmit="handleSaveJournalThought(event)">
-          <div class="form-group">
+          <div class="form-group" style="margin-bottom: 16px;">
             <div class="field-label-row">
               <label class="form-label" for="journalThoughtText">Мысли, эмоции и выводы</label>
               <span class="field-hint">Текст или аудиозапись</span>
             </div>
-            <textarea id="journalThoughtText" class="form-textarea" rows="4" placeholder="Запишите свои мысли по рынку, психологическое состояние, эмоции после сессии или торговый план..."></textarea>
+            <textarea id="journalThoughtText" class="form-textarea" rows="4" placeholder="Напишите свои мысли по рынку" style="margin-bottom: 6px;"></textarea>
           </div>
 
           <!-- Voice Memo Recording Button & Waveform -->
-          <div style="margin-bottom: 14px;">
+          <div class="thought-voice-row" style="margin-bottom: 16px; margin-top: 6px;">
             <button type="button" id="thoughtRecordBtn" class="thought-audio-btn" onclick="toggleThoughtAudioRecording()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -904,7 +884,7 @@
             <line x1="8" y1="23" x2="16" y2="23"></line>
           </svg>
         </button>
-        <textarea id="aiChatInput" class="ai-chat-textarea" placeholder="Скажите «Добавить сделку: лонг BTC...» или задайте вопрос" rows="1" onkeydown="if(event.key === 'Enter' && !event.shiftKey){ event.preventDefault(); handleAiSubmit(event); }"></textarea>
+        <textarea id="aiChatInput" class="ai-chat-textarea" placeholder="" rows="1" onkeydown="if(event.key === 'Enter' && !event.shiftKey){ event.preventDefault(); handleAiSubmit(event); }"></textarea>
         <button type="submit" id="aiSendBtn" class="ai-send-btn" title="Отправить сообщение">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <line x1="22" y1="2" x2="11" y2="13"></line>
