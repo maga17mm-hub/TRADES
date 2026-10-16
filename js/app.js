@@ -419,7 +419,7 @@ function renderCalDayDetails(tradesByDate) {
     const rClass = rVal > 0 ? 'stat-win' : rVal < 0 ? 'stat-loss' : '';
 
     return `
-      <div class="cal-trade-item" onclick="editTrade(${t.id})">
+      <div class="cal-trade-item" onclick="openTradeDetailModal(${t.id})" style="cursor: pointer;">
         <div class="cal-trade-main">
           ${outcomeBadge}
           <span class="cal-trade-symbol">${escapeHtml(t.symbol)}</span>
@@ -1332,6 +1332,7 @@ function renderTradeCard(t) {
       <div class="trade-compact-main">
         <span class="trade-symbol">${escapeHtml(t.symbol || 'ASSET')}</span>
         <span class="direction-badge ${dirClass}">${escapeHtml(t.direction || 'LONG')}</span>
+        <span class="setup-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="2" r="2"></circle></svg>${escapeHtml(t.setup || 'Без сетапа')}</span>
         <span class="outcome-badge ${outcomeClass}">${outcomeLabel}</span>
         <span class="trade-pnl-text ${outcomeClass}">${pnlDisplay}</span>
       </div>
