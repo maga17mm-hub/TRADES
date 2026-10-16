@@ -116,6 +116,11 @@ function registerServiceWorker() {
  * Tab Navigation (Домой <-> Дневник <-> Настройки)
  */
 function switchTab(tabName) {
+  // If a modal is open, do not switch tabs in background
+  if (document.body.classList.contains('modal-open')) {
+    return;
+  }
+
   const tabHomeView = document.getElementById('tabHomeView');
   const tabRecordView = document.getElementById('tabRecordView');
   const tabJournalView = document.getElementById('tabJournalView');

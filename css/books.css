@@ -332,8 +332,9 @@ main.app-container { padding-top: 43px; }
 .theme-card.active .theme-card-check { color: var(--brand); }
 
 /* Forms: readable labels, 44px controls and bottom sheets on phones. */
-.modal-overlay { background: rgb(29 26 21 / 30%); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); visibility: hidden; }
+.modal-overlay { background: rgb(29 26 21 / 30%); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); visibility: hidden; z-index: 1200 !important; }
 .modal-overlay.active { visibility: visible; }
+body.modal-open .bottom-nav { display: none !important; pointer-events: none !important; visibility: hidden !important; }
 .modal-content { background: var(--bg-modal); border: 0; padding: 0 28px 28px; border-radius: 28px; gap: 22px; box-shadow: var(--shadow-modal); scrollbar-width: thin; }
 .modal-header { position: sticky; top: 0; z-index: 2; background: var(--bg-modal); padding-block: 24px 19px; border-color: var(--border-subtle); gap: 14px; }
 .modal-title { font-family: var(--font-editorial); font-size: 29px; font-weight: 500; letter-spacing: -.7px; line-height: 1.2; }

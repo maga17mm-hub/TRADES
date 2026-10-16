@@ -976,7 +976,7 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 1200;
   background: rgba(0, 0, 0, 0.78);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -986,6 +986,12 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.22s ease;
+}
+
+body.modal-open .bottom-nav {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 
 .modal-overlay.active {
@@ -3849,6 +3855,25 @@ main.app-container {
 .profile-modal-content {
   max-width: 500px;
   width: 100%;
+  padding-bottom: calc(44px + var(--safe-bottom, env(safe-area-inset-bottom, 24px))) !important;
+}
+
+@media (max-width: 640px) {
+  .profile-modal-content {
+    border-radius: 26px 26px 0 0 !important;
+    max-height: calc(100dvh - 36px) !important;
+    padding: 20px 20px calc(56px + var(--safe-bottom, env(safe-area-inset-bottom, 24px))) !important;
+    margin-bottom: 0 !important;
+  }
+}
+
+.auth-form {
+  padding-bottom: 24px;
+}
+
+.auth-form .btn-primary {
+  margin-top: 14px;
+  margin-bottom: 16px;
 }
 
 .profile-modal-icon-badge {
