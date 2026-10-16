@@ -2865,3 +2865,369 @@ body {
 .theme-card.active .theme-card-check {
   display: inline-block;
 }
+
+/* ============================================================================
+   MODAL SCROLLBAR LOCK (Prevents background scrollbar clash)
+   ============================================================================ */
+html.modal-open,
+body.modal-open {
+  overflow: hidden !important;
+  height: 100% !important;
+  overscroll-behavior: none !important;
+}
+
+/* ============================================================================
+   HOME: DEDICATED RECORD TRADE ACTION BUTTON
+   ============================================================================ */
+.home-record-action-bar {
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+
+.home-add-trade-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 20px;
+  font-size: 0.98rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  background: var(--brand);
+  color: #ffffff;
+  box-shadow: 0 4px 16px var(--brand-glow);
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 99, 99, 0.3);
+}
+
+.home-add-trade-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px var(--brand-glow);
+  background: #ff5252;
+}
+
+/* ============================================================================
+   TRADES TOOLBAR: GROUPING & SORTING
+   ============================================================================ */
+.trades-toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.toolbar-subgroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar-label {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.toolbar-seg-group {
+  display: inline-flex;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+  overflow-x: auto;
+}
+
+.toolbar-seg-btn {
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.toolbar-seg-btn:hover {
+  color: #fff;
+}
+
+.toolbar-seg-btn.active {
+  background: var(--color-ink);
+  color: var(--brand);
+  border: 1px solid rgba(255, 99, 99, 0.35);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.sort-subgroup {
+  min-width: 170px;
+}
+
+/* ============================================================================
+   CARD HIGHLIGHTS (Entry price pill, price timing highlight)
+   ============================================================================ */
+.card-entry-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  letter-spacing: -0.01em;
+}
+
+.highlight-price-item {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+.price-val-highlight {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* ============================================================================
+   PRESET MANAGER IN TRADE MODAL
+   ============================================================================ */
+.btn-preset-tune {
+  background: transparent;
+  border: none;
+  color: var(--brand);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.btn-preset-tune:hover {
+  background: rgba(255, 99, 99, 0.12);
+}
+
+.preset-manager-panel {
+  background: var(--color-ink);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.preset-manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.preset-mgr-title {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.preset-mgr-reset {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.preset-mgr-reset:hover {
+  color: #fff;
+}
+
+.preset-chips-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.preset-manage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 0.74rem;
+  color: var(--text-primary);
+}
+
+.preset-chip-del {
+  background: transparent;
+  border: none;
+  color: var(--loss);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.preset-chip-del:hover {
+  color: #ff4757;
+}
+
+.preset-add-row {
+  display: flex;
+  gap: 6px;
+}
+
+/* ============================================================================
+   JOURNAL SUBTABS & ALIGNED ACTION GRID
+   ============================================================================ */
+.journal-subnav-bar {
+  display: flex;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.journal-subnav-pill {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.journal-subnav-pill:hover {
+  color: #fff;
+}
+
+.journal-subnav-pill.active {
+  background: var(--color-ink);
+  color: #fff;
+  font-weight: 600;
+  border: 1px solid var(--border-medium);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.journal-subnav-pill.active svg {
+  stroke: var(--brand);
+}
+
+.journal-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(255, 99, 99, 0.15);
+  color: var(--brand);
+}
+
+.thought-actions-grid {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  margin-top: 10px;
+}
+
+.thought-tag-col {
+  flex: 1;
+  min-width: 170px;
+}
+
+.thought-submit-col {
+  flex-shrink: 0;
+}
+
+.thought-save-btn {
+  padding: 9px 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (max-width: 540px) {
+  .thought-actions-grid {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .thought-save-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ============================================================================
+   AI ASSISTANT CLOSE BUTTON & MOBILE HEADER ADJUSTMENTS
+   ============================================================================ */
+.ai-close-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+  background: rgba(255, 99, 99, 0.12);
+  border: 1px solid rgba(255, 99, 99, 0.3);
+  color: #ff6363;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 6px;
+  transition: all 0.15s ease;
+}
+
+.ai-close-btn:hover {
+  background: rgba(255, 99, 99, 0.25);
+  color: #fff;
+  border-color: #ff6363;
+}
+
+@media (max-width: 480px) {
+  #aiVoiceToggleLabel {
+    display: none;
+  }
+  .ai-voice-btn {
+    padding: 6px 8px !important;
+  }
+  .ai-header-controls {
+    gap: 4px;
+  }
+  .ai-close-btn {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+  }
+}

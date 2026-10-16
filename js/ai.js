@@ -562,6 +562,8 @@ function openAiAssistant(initialPrompt = '') {
   if (!modal) return;
 
   modal.classList.add('active');
+  document.body.classList.add('modal-open');
+  document.documentElement.classList.add('modal-open');
   document.body.style.overflow = 'hidden';
 
   const inputEl = document.getElementById('aiChatInput');
@@ -582,6 +584,8 @@ function closeAiAssistant() {
   if (modal) {
     modal.classList.remove('active');
   }
+  document.body.classList.remove('modal-open');
+  document.documentElement.classList.remove('modal-open');
   document.body.style.overflow = '';
   stopSpeaking();
   stopListening();

@@ -443,12 +443,14 @@ function renderCalDayDetails(tradesByDate) {
 }
 
 function openNewTradeForDate(dateStr) {
-  switchTab('record');
-  const dateInput = document.getElementById('recTradeEntryTime');
+  openTradeModal();
+  const dateInput = document.getElementById('tradeEntryTime');
+  const exitInput = document.getElementById('tradeExitTime');
   if (dateInput) {
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     dateInput.value = `${dateStr}T${timeStr}`;
+    if (exitInput) exitInput.value = `${dateStr}T${timeStr}`;
   }
 }
 window.openNewTradeForDate = openNewTradeForDate;
@@ -481,6 +483,200 @@ const DEFAULT_SETUPS = [
 ];
 const DEFAULT_TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'];
 
+const DEFAULT_PRESETS = {
+  symbol: [
+    'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'XAU/USD', 'BNB/USDT',
+    'XRP/USDT', 'TON/USDT', 'SUI/USDT', 'DOGE/USDT', 'AVAX/USDT',
+    'LINK/USDT', 'NEAR/USDT', 'PEPE/USDT', 'EUR/USD', 'GBP/USD'
+  ],
+  direction: [
+    'LONG', 'SHORT'
+  ],
+  setup: [
+    'Breakout / Пробой',
+    'Order Block (OB)',
+    'FVG / Imbalance',
+    'Liquidity Sweep',
+    'CHoCH / Слом структуры',
+    'Support & Resistance',
+    'Trend Continuation',
+    'SFP / Ложный пробой',
+    'Range / Боковик'
+  ],
+  timeframe: [
+    '1m', '3m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'
+  ]
+};
+
+function getCustomPresets(type) {
+  try {
+    const raw = localStorage.getItem('tradelog_presets_' + type);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return [...(DEFAULT_PRESETS[type] || [])];
+}
+window.getCustomPresets = getCustomPresets;
+
+function saveCustomPresets(type, list) {
+  try {
+    localStorage.setItem('tradelog_presets_' + type, JSON.stringify(list));
+  } catch (e) {}
+}
+window.saveCustomPresets = saveCustomPresets;
+
+function resetCustomPresets(type) {
+  saveCustomPresets(type, DEFAULT_PRESETS[type]);
+  renderPresetManager(type);
+  populatePresetSelects(type);
+  showToast('Список сброшен к исходным значениям', 'info');
+}
+window.resetCustomPresets = resetCustomPresets;
+
+function deletePresetItem(type, itemToDelete) {
+  const list = getCustomPresets(type).filter((item) => item !== itemToDelete);
+  if (list.length === 0) {
+    showToast('В списке должен оставаться хотя бы один пункт', 'warning');
+    return;
+  }
+  saveCustomPresets(type, list);
+  renderPresetManager(type);
+  populatePresetSelects(type);
+  showToast(`«${itemToDelete}» удален из списка`, 'info');
+}
+window.deletePresetItem = deletePresetItem;
+
+function addPresetItem(type) {
+  const inputEl = document.getElementById(`newPresetInput_${type}`);
+  if (!inputEl) return;
+  const val = inputEl.value.trim();
+  if (!val) return;
+
+  const list = getCustomPresets(type);
+  if (list.includes(val)) {
+    showToast('Такой пункт уже есть в списке', 'warning');
+    return;
+  }
+  list.push(val);
+  saveCustomPresets(type, list);
+  inputEl.value = '';
+  renderPresetManager(type);
+  populatePresetSelects(type, val);
+  showToast(`«${val}» добавлен в список!`, 'success');
+}
+window.addPresetItem = addPresetItem;
+
+function togglePresetManager(type) {
+  const panel = document.getElementById(`presetManager_${type}`);
+  if (!panel) return;
+  const isHidden = panel.style.display === 'none' || !panel.style.display;
+  panel.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) {
+    renderPresetManager(type);
+  }
+}
+window.togglePresetManager = togglePresetManager;
+
+function renderPresetManager(type) {
+  const panel = document.getElementById(`presetManager_${type}`);
+  if (!panel) return;
+
+  const list = getCustomPresets(type);
+  const chipsHtml = list.map((item) => {
+    const escapedItem = escapeHtml(item);
+    const itemArg = item.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return `
+      <span class="preset-manage-chip">
+        <span class="preset-chip-text">${escapedItem}</span>
+        <button type="button" class="preset-chip-del" onclick="deletePresetItem('${type}', '${itemArg}')" title="Удалить из списка">✕</button>
+      </span>
+    `;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="preset-manager-header">
+      <span class="preset-mgr-title">Настройка списка (нажмите ✕ для удаления):</span>
+      <button type="button" class="preset-mgr-reset" onclick="resetCustomPresets('${type}')">Сброс</button>
+    </div>
+    <div class="preset-chips-cloud">
+      ${chipsHtml}
+    </div>
+    <div class="preset-add-row">
+      <input type="text" id="newPresetInput_${type}" class="form-input form-input-sm" placeholder="Добавить свой пункт..." onkeydown="if(event.key==='Enter'){event.preventDefault();addPresetItem('${type}');}">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="addPresetItem('${type}')">+ Добавить</button>
+    </div>
+  `;
+}
+window.renderPresetManager = renderPresetManager;
+
+function populatePresetSelects(targetType, selectValueToKeep) {
+  const typesToPopulate = targetType ? [targetType] : ['symbol', 'direction', 'setup', 'timeframe'];
+
+  typesToPopulate.forEach((type) => {
+    const list = getCustomPresets(type);
+
+    if (type === 'symbol') {
+      const select = document.getElementById('tradeSymbol');
+      if (select) {
+        const curVal = selectValueToKeep || select.value;
+        let opts = list.map((sym) => `<option value="${escapeHtml(sym)}">${escapeHtml(sym)}</option>`).join('');
+        opts += `<option value="__custom__">+ Ввести свой тикер...</option>`;
+        select.innerHTML = opts;
+        if (curVal && (list.includes(curVal) || curVal === '__custom__')) {
+          select.value = curVal;
+        } else if (list.length > 0) {
+          select.value = list[0];
+        }
+      }
+    } else if (type === 'direction') {
+      const select = document.getElementById('tradeDirection');
+      if (select) {
+        const curVal = selectValueToKeep || select.value;
+        const opts = list.map((dir) => {
+          const arrow = dir.toUpperCase().includes('SHORT') ? '▼' : '▲';
+          return `<option value="${escapeHtml(dir)}">${arrow} ${escapeHtml(dir)}</option>`;
+        }).join('');
+        select.innerHTML = opts;
+        if (curVal && list.includes(curVal)) {
+          select.value = curVal;
+        } else if (list.length > 0) {
+          select.value = list[0];
+        }
+      }
+    } else if (type === 'setup') {
+      const select = document.getElementById('tradeSetup');
+      if (select) {
+        const curVal = selectValueToKeep || select.value;
+        let opts = list.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+        opts += `<option value="__custom__">+ Ввести свой сетап...</option>`;
+        select.innerHTML = opts;
+        if (curVal && (list.includes(curVal) || curVal === '__custom__')) {
+          select.value = curVal;
+        } else if (list.length > 0) {
+          select.value = list[0];
+        }
+      }
+    } else if (type === 'timeframe') {
+      const select = document.getElementById('tradeTimeframe');
+      if (select) {
+        const curVal = selectValueToKeep || select.value;
+        const opts = list.map((tf) => `<option value="${escapeHtml(tf)}">${escapeHtml(tf)}</option>`).join('');
+        select.innerHTML = opts;
+        if (curVal && list.includes(curVal)) {
+          select.value = curVal;
+        } else if (list.includes('15m')) {
+          select.value = '15m';
+        } else if (list.length > 0) {
+          select.value = list[0];
+        }
+      }
+    }
+  });
+}
+window.populatePresetSelects = populatePresetSelects;
+
 function initPresets() {
   if (!localStorage.getItem('tradelog_saved_tickers')) {
     localStorage.setItem('tradelog_saved_tickers', JSON.stringify(DEFAULT_TICKERS));
@@ -491,6 +687,7 @@ function initPresets() {
   if (!localStorage.getItem('tradelog_saved_timeframes')) {
     localStorage.setItem('tradelog_saved_timeframes', JSON.stringify(DEFAULT_TIMEFRAMES));
   }
+  populatePresetSelects();
   renderAllPresetPills();
 }
 
@@ -938,6 +1135,27 @@ function renderSetupPills() {
   });
 }
 
+let currentGroupBy = 'month';
+let currentSortBy = 'date_desc';
+
+function setTradesGrouping(groupBy) {
+  currentGroupBy = groupBy;
+  const btnGroup = document.getElementById('groupingBtnGroup');
+  if (btnGroup) {
+    btnGroup.querySelectorAll('.toolbar-seg-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.groupby === groupBy);
+    });
+  }
+  renderTradesFeed();
+}
+window.setTradesGrouping = setTradesGrouping;
+
+function setTradesSorting(sortBy) {
+  currentSortBy = sortBy;
+  renderTradesFeed();
+}
+window.setTradesSorting = setTradesSorting;
+
 function renderTradesFeed() {
   const filtered = getFilteredTrades();
 
@@ -951,62 +1169,103 @@ function renderTradesFeed() {
           </svg>
         </div>
         <div class="empty-title">Дневник пуст</div>
-        <div class="empty-desc">Сделки по выбранным критериям отсутствуют. Перейдите во вкладку «Запись трейдов», чтобы внести сделку!</div>
-        <button class="btn btn-primary" onclick="switchTab('record')">+ Записать трейд</button>
+        <div class="empty-desc">Сделки по выбранным критериям отсутствуют. Нажмите кнопку ниже, чтобы внести новую сделку!</div>
+        <button class="btn btn-primary" onclick="openTradeModal()">+ Записать сделку</button>
       </div>
     `;
     return;
   }
 
-  // Group by month
-  const groups = {};
-  filtered.forEach((t) => {
-    const m = t.month || 'Без даты';
-    if (!groups[m]) groups[m] = [];
-    groups[m].push(t);
+  // Sort trades according to currentSortBy
+  const sortedTrades = [...filtered].sort((a, b) => {
+    if (currentSortBy === 'date_desc') {
+      return new Date(b.entryTime || b.createdAt || 0) - new Date(a.entryTime || a.createdAt || 0);
+    }
+    if (currentSortBy === 'date_asc') {
+      return new Date(a.entryTime || a.createdAt || 0) - new Date(b.entryTime || b.createdAt || 0);
+    }
+    if (currentSortBy === 'pnl_desc') {
+      return (parseFloat(b.rMultiple) || 0) - (parseFloat(a.rMultiple) || 0);
+    }
+    if (currentSortBy === 'pnl_asc') {
+      return (parseFloat(a.rMultiple) || 0) - (parseFloat(b.rMultiple) || 0);
+    }
+    if (currentSortBy === 'entry_price') {
+      const pa = parseFloat(String(a.entryPrice || '0').replace(/[^0-9.]/g, '')) || 0;
+      const pb = parseFloat(String(b.entryPrice || '0').replace(/[^0-9.]/g, '')) || 0;
+      return pb - pa;
+    }
+    return 0;
   });
 
-  const sortedMonthKeys = Object.keys(groups).sort().reverse();
+  // Group trades
+  const groups = {};
+  sortedTrades.forEach((t) => {
+    let key = 'Все сделки';
+    if (currentGroupBy === 'month') {
+      key = t.month || 'Без месяца';
+    } else if (currentGroupBy === 'setup') {
+      key = t.setup || 'Без сетапа';
+    } else if (currentGroupBy === 'timeframe') {
+      key = t.timeframe || 'Без таймфрейма';
+    } else if (currentGroupBy === 'all') {
+      key = 'Все сделки';
+    }
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(t);
+  });
+
+  let groupKeys = Object.keys(groups);
+  if (currentGroupBy === 'month') {
+    groupKeys.sort().reverse();
+  }
+
   let fullHtml = '';
+  groupKeys.forEach((key) => {
+    const groupTrades = groups[key];
+    let groupTitle = key;
+    let groupIcon = '📋';
 
-  sortedMonthKeys.forEach((m) => {
-    const monthTrades = groups[m];
-    const monthName = formatMonthName(m);
+    if (currentGroupBy === 'month') {
+      groupTitle = formatMonthName(key);
+      groupIcon = '📅';
+    } else if (currentGroupBy === 'setup') {
+      groupTitle = `Сетап: ${key}`;
+      groupIcon = '🎯';
+    } else if (currentGroupBy === 'timeframe') {
+      groupTitle = `Таймфрейм: ${key}`;
+      groupIcon = '⏱';
+    }
 
-    let mWins = 0;
-    let mLosses = 0;
-    let mTotalR = 0;
-    monthTrades.forEach((t) => {
-      if (t.outcome === 'WIN') mWins++;
-      if (t.outcome === 'LOSS') mLosses++;
-      mTotalR += parseFloat(t.rMultiple || 0);
+    let gWins = 0;
+    let gLosses = 0;
+    let gTotalR = 0;
+    groupTrades.forEach((t) => {
+      if (t.outcome === 'WIN') gWins++;
+      if (t.outcome === 'LOSS') gLosses++;
+      gTotalR += parseFloat(t.rMultiple || 0);
     });
 
-    const mDecisive = mWins + mLosses;
-    const mWinrate = mDecisive > 0 ? Math.round((mWins / mDecisive) * 100) : 0;
-    const rPrefix = mTotalR > 0 ? '+' : '';
+    const gDecisive = gWins + gLosses;
+    const gWinrate = gDecisive > 0 ? Math.round((gWins / gDecisive) * 100) : 0;
+    const rPrefix = gTotalR > 0 ? '+' : '';
 
     fullHtml += `
       <div class="month-group">
         <div class="month-group-header">
           <div class="month-header-left">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="16" y1="2" x2="16" y2="6"></line>
-              <line x1="8" y1="2" x2="8" y2="6"></line>
-              <line x1="3" y1="10" x2="21" y2="10"></line>
-            </svg>
-            <span class="month-title">${escapeHtml(monthName)}</span>
-            <span class="pill-badge">${monthTrades.length} сделок</span>
+            <span style="font-size: 1.05rem; line-height: 1;">${groupIcon}</span>
+            <span class="month-title">${escapeHtml(groupTitle)}</span>
+            <span class="pill-badge">${groupTrades.length} сделок</span>
           </div>
           <div class="month-header-stats">
-            <span>WR: <strong class="${mWinrate >= 50 ? 'stat-win' : 'stat-loss'}">${mWinrate}%</strong></span>
-            <span>Итог: <strong class="${mTotalR > 0 ? 'stat-win' : mTotalR < 0 ? 'stat-loss' : ''}">${rPrefix}${mTotalR.toFixed(1)}R</strong></span>
+            <span>WR: <strong class="${gWinrate >= 50 ? 'stat-win' : 'stat-loss'}">${gWinrate}%</strong></span>
+            <span>Итог: <strong class="${gTotalR > 0 ? 'stat-win' : gTotalR < 0 ? 'stat-loss' : ''}">${rPrefix}${gTotalR.toFixed(1)}R</strong></span>
           </div>
         </div>
 
         <div class="month-cards-container">
-          ${monthTrades.map((trade) => renderTradeCard(trade)).join('')}
+          ${groupTrades.map((trade) => renderTradeCard(trade)).join('')}
         </div>
       </div>
     `;
@@ -1048,12 +1307,16 @@ function renderTradeCard(t) {
   let priceHtml = '';
   if (t.entryPrice || t.exitPrice) {
     priceHtml = `
-      <div class="timing-item">
-        <span class="timing-label">Цены входа / выхода</span>
-        <span class="timing-val">${t.entryPrice || '—'} → ${t.exitPrice || '—'}</span>
+      <div class="timing-item highlight-price-item">
+        <span class="timing-label">Вход / Выход</span>
+        <span class="timing-val price-val-highlight">${escapeHtml(t.entryPrice || '—')} → ${escapeHtml(t.exitPrice || '—')}</span>
       </div>
     `;
   }
+
+  const priceBadgeHtml = t.entryPrice
+    ? `<span class="card-entry-pill" title="Цена входа">📍 Вход: ${escapeHtml(t.entryPrice)}</span>`
+    : '';
 
   return `
     <div class="trade-card ${outcomeClass}" id="trade-card-${t.id}">
@@ -1061,13 +1324,9 @@ function renderTradeCard(t) {
         <div class="trade-asset-info">
           <span class="trade-symbol">${escapeHtml(t.symbol || 'ASSET')}</span>
           <span class="direction-badge ${dirClass}">${escapeHtml(t.direction || 'LONG')}</span>
-          <span class="tf-badge">${escapeHtml(t.timeframe || '15m')}</span>
-          <span class="setup-badge">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-            </svg>
-            ${escapeHtml(t.setup || 'Без сетапа')}
-          </span>
+          <span class="tf-badge">⏱ ${escapeHtml(t.timeframe || '15m')}</span>
+          <span class="setup-badge">🎯 ${escapeHtml(t.setup || 'Без сетапа')}</span>
+          ${priceBadgeHtml}
         </div>
 
         <div class="trade-outcome-wrapper">
@@ -1525,6 +1784,15 @@ function openTradeModal(trade = null) {
     modalTitleEl.textContent = trade ? `Редактирование сделки #${trade.id}` : 'Новая сделка';
   }
 
+  // Populate newest presets into selects
+  populatePresetSelects();
+
+  // Hide preset managers by default
+  ['symbol', 'direction', 'setup', 'timeframe'].forEach((type) => {
+    const p = document.getElementById(`presetManager_${type}`);
+    if (p) p.style.display = 'none';
+  });
+
   const symbolSelect = document.getElementById('tradeSymbol');
   const symbolCustom = document.getElementById('tradeSymbolCustom');
   const setupSelect = document.getElementById('tradeSetup');
@@ -1583,10 +1851,19 @@ function openTradeModal(trade = null) {
 
   } else {
     // Fresh trade
-    if (symbolSelect) symbolSelect.value = 'BTC/USDT';
+    if (symbolSelect) {
+      const symbols = getCustomPresets('symbol');
+      symbolSelect.value = symbols.includes('BTC/USDT') ? 'BTC/USDT' : (symbols[0] || '');
+    }
     if (directionSelect) directionSelect.value = 'LONG';
-    if (setupSelect) setupSelect.value = 'Breakout / Пробой';
-    if (timeframeSelect) timeframeSelect.value = '15m';
+    if (setupSelect) {
+      const setups = getCustomPresets('setup');
+      setupSelect.value = setups.includes('Breakout / Пробой') ? 'Breakout / Пробой' : (setups[0] || '');
+    }
+    if (timeframeSelect) {
+      const tfs = getCustomPresets('timeframe');
+      timeframeSelect.value = tfs.includes('15m') ? '15m' : (tfs[0] || '');
+    }
     if (outcomeSelect) outcomeSelect.value = 'WIN';
 
     document.getElementById('tradeEntryTime').value = currentIso;
@@ -1605,6 +1882,8 @@ function openTradeModal(trade = null) {
   });
 
   tradeModalEl.classList.add('active');
+  document.body.classList.add('modal-open');
+  document.documentElement.classList.add('modal-open');
   document.body.style.overflow = 'hidden';
 }
 window.openTradeModal = openTradeModal;
@@ -1619,7 +1898,14 @@ window.editTrade = editTrade;
 
 function closeTradeModal() {
   tradeModalEl.classList.remove('active');
+  document.body.classList.remove('modal-open');
+  document.documentElement.classList.remove('modal-open');
   document.body.style.overflow = '';
+
+  ['symbol', 'direction', 'setup', 'timeframe'].forEach((type) => {
+    const p = document.getElementById(`presetManager_${type}`);
+    if (p) p.style.display = 'none';
+  });
 }
 window.closeTradeModal = closeTradeModal;
 

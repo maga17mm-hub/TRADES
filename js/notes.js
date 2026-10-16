@@ -14,11 +14,36 @@ let currentRecordedAudioDataUrl = null;
 let currentRecordedAudioDuration = 0;
 let isRecordingThoughtAudio = false;
 
+let currentJournalSubTab = 'compose';
+
 document.addEventListener('DOMContentLoaded', () => {
   initJournalThoughts();
 });
 
+function switchJournalSubTab(subtab) {
+  currentJournalSubTab = subtab;
+  const composeBtn = document.getElementById('journalSubtabComposeBtn');
+  const feedBtn = document.getElementById('journalSubtabFeedBtn');
+  const composeSec = document.getElementById('journalComposeSection');
+  const feedSec = document.getElementById('journalFeedSection');
+
+  if (subtab === 'compose') {
+    if (composeBtn) composeBtn.classList.add('active');
+    if (feedBtn) feedBtn.classList.remove('active');
+    if (composeSec) composeSec.style.display = 'block';
+    if (feedSec) feedSec.style.display = 'none';
+  } else {
+    if (composeBtn) composeBtn.classList.remove('active');
+    if (feedBtn) feedBtn.classList.add('active');
+    if (composeSec) composeSec.style.display = 'none';
+    if (feedSec) feedSec.style.display = 'block';
+    renderJournalThoughtsFeed();
+  }
+}
+window.switchJournalSubTab = switchJournalSubTab;
+
 async function initJournalThoughts() {
+  switchJournalSubTab('compose');
   await renderJournalThoughtsFeed();
 }
 
@@ -211,6 +236,7 @@ async function handleSaveJournalThought(e) {
     if (textInput) textInput.value = '';
     clearCurrentThoughtAudio();
     await renderJournalThoughtsFeed();
+    switchJournalSubTab('feed');
   } catch (err) {
     console.error('Failed to save thought:', err);
     showToast('Ошибка сохранения записи', 'error');
@@ -228,16 +254,21 @@ async function renderJournalThoughtsFeed() {
   try {
     const thoughts = await getAllJournalThoughts();
 
+    const countBadge = document.getElementById('journalCountBadge');
+    if (countBadge) {
+      countBadge.textContent = thoughts ? thoughts.length : 0;
+    }
+
     if (!thoughts || thoughts.length === 0) {
       container.innerHTML = `
-        <div class="empty-state-card" style="padding: 36px 20px; text-align: center;">
+        <div class="empty-state-card" style="padding: 32px 20px; text-align: center;">
           <div style="font-size: 2.2rem; margin-bottom: 10px;">📖</div>
           <h3 style="font-size: 1.05rem; font-weight: 600; color: #fff; margin-bottom: 6px;">Ваш дневник мыслей пуст</h3>
           <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 360px; margin: 0 auto 16px;">
             Здесь хранятся ваши личные размышления, эмоции, психология и голосовые заметки без сделок.
           </p>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('journalThoughtText').focus()">
-            + Написать первую мысль
+          <button type="button" class="btn btn-primary btn-sm" onclick="switchJournalSubTab('compose')">
+            ✍️ Записать мысль
           </button>
         </div>
       `;
