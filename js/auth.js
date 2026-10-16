@@ -134,6 +134,8 @@ function updateProfileUI() {
 }
 window.updateProfileUI = updateProfileUI;
 
+let savedAuthScrollY = 0;
+
 /**
  * Open Profile / Auth Modal
  */
@@ -155,7 +157,10 @@ async function openProfileModal() {
     switchAuthTab('login');
   }
 
+  savedAuthScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  document.body.style.top = `-${savedAuthScrollY}px`;
   modal.classList.add('active');
+  document.documentElement.classList.add('modal-open');
   document.body.classList.add('modal-open');
 }
 window.openProfileModal = openProfileModal;
@@ -168,7 +173,13 @@ function closeProfileModal() {
   if (modal) {
     modal.classList.remove('active');
   }
+  document.documentElement.classList.remove('modal-open');
   document.body.classList.remove('modal-open');
+  const restoreY = Math.abs(parseInt(document.body.style.top || '0', 10)) || savedAuthScrollY;
+  document.body.style.top = '';
+  if (restoreY) {
+    window.scrollTo(0, restoreY);
+  }
 }
 window.closeProfileModal = closeProfileModal;
 

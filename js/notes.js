@@ -442,27 +442,26 @@ function renderThoughtComposerMode(existingThought) {
   container.innerHTML = `
     <div class="ios-note-edit-card">
       
-      <!-- Category Tag Row -->
-      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap;">
-        <div style="display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 0.82rem;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <!-- Category Tag Row (Compact, Right-aligned) -->
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 12px;">
+        <div style="display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 0.74rem;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
             <line x1="7" y1="7" x2="7.01" y2="7"></line>
           </svg>
-          <span>Категория:</span>
         </div>
-        <select id="iosNoteEditTag" class="form-select form-select-sm" style="max-width: 220px;">
+        <select id="iosNoteEditTag" class="form-select form-select-sm" style="width: auto; min-width: 140px; max-width: 170px; height: 30px; min-height: 30px; padding: 2px 24px 2px 10px; font-size: 0.76rem; border-radius: 15px;">
           <option value="Мысли" ${initialTag === 'Мысли' ? 'selected' : ''}>Мысли и выводы</option>
-          <option value="Психология" ${initialTag === 'Психология' ? 'selected' : ''}>Психология и эмоции</option>
+          <option value="Психология" ${initialTag === 'Психология' ? 'selected' : ''}>Психология</option>
           <option value="Анализ рынка" ${initialTag === 'Анализ рынка' ? 'selected' : ''}>Анализ рынка</option>
           <option value="Торговый план" ${initialTag === 'Торговый план' ? 'selected' : ''}>Торговый план</option>
-          <option value="Ошибки" ${initialTag === 'Ошибки' ? 'selected' : ''}>Ошибки и дисциплина</option>
+          <option value="Ошибки" ${initialTag === 'Ошибки' ? 'selected' : ''}>Ошибки</option>
         </select>
       </div>
 
       <!-- Main Textarea -->
       <div style="margin-bottom: 16px;">
-        <textarea id="iosNoteEditText" class="ios-note-textarea" placeholder="Запишите свои мысли, выводы по рынку или психологическое состояние...">${safeEscape(initialText)}</textarea>
+        <textarea id="iosNoteEditText" class="ios-note-textarea" placeholder="Напишите свои мысли по рынку...">${safeEscape(initialText)}</textarea>
       </div>
 
       <!-- Voice Memo Section -->
