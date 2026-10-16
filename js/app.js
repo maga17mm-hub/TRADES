@@ -371,7 +371,10 @@ function renderCalDayDetails(tradesByDate) {
     calDayDetailsEl.innerHTML = `
       <div class="cal-details-header">
         <div class="cal-details-title">
-          <span>📅 ${formattedDate}</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            ${formattedDate}
+          </span>
           <span class="cal-details-badge" style="background: var(--color-ink); color: var(--color-smoke);">Нет сделок</span>
         </div>
         <button type="button" class="btn btn-primary btn-sm" onclick="openNewTradeForDate('${calSelectedDate}')">
@@ -427,7 +430,10 @@ function renderCalDayDetails(tradesByDate) {
   calDayDetailsEl.innerHTML = `
     <div class="cal-details-header">
       <div class="cal-details-title">
-        <span>📅 ${formattedDate}</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          ${formattedDate}
+        </span>
         <span class="cal-details-badge ${pnlClass}" style="background: var(--color-ink);">
           ${dayTrades.length} ${getTradeCountWord(dayTrades.length)} · ${pnlPrefix}${totalR.toFixed(1)} R
         </span>
@@ -590,14 +596,14 @@ function renderPresetManager(type) {
     return `
       <span class="preset-manage-chip">
         <span class="preset-chip-text">${escapedItem}</span>
-        <button type="button" class="preset-chip-del" onclick="deletePresetItem('${type}', '${itemArg}')" title="Удалить из списка">✕</button>
+        <button type="button" class="preset-chip-del" onclick="deletePresetItem('${type}', '${itemArg}')" title="Удалить из списка"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
       </span>
     `;
   }).join('');
 
   panel.innerHTML = `
     <div class="preset-manager-header">
-      <span class="preset-mgr-title">Настройка списка (нажмите ✕ для удаления):</span>
+      <span class="preset-mgr-title">Настройка списка (нажмите на крестик для удаления):</span>
       <button type="button" class="preset-mgr-reset" onclick="resetCustomPresets('${type}')">Сброс</button>
     </div>
     <div class="preset-chips-cloud">
@@ -797,7 +803,7 @@ function renderTickerPills(containerId, inputId) {
     return `
       <span class="preset-chip ${isActive ? 'active' : ''}" data-ticker="${escapeHtml(t)}">
         <span onclick="selectTicker('${escapeHtml(t)}', '${inputId}', '${containerId}')">${escapeHtml(t)}</span>
-        <span class="preset-chip-del" onclick="event.stopPropagation(); handleDeleteTicker('${escapeHtml(t)}')">✕</span>
+        <span class="preset-chip-del" onclick="event.stopPropagation(); handleDeleteTicker('${escapeHtml(t)}')"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></span>
       </span>
     `;
   }).join('');
@@ -841,7 +847,7 @@ function renderSetupPillsForForm(containerId, inputId) {
     return `
       <span class="preset-chip ${isActive ? 'active' : ''}" data-setup="${escapeHtml(s)}">
         <span onclick="selectSetup('${escapeHtml(s)}', '${inputId}', '${containerId}')">${escapeHtml(s)}</span>
-        <span class="preset-chip-del" onclick="event.stopPropagation(); handleDeleteSetup('${escapeHtml(s)}')">✕</span>
+        <span class="preset-chip-del" onclick="event.stopPropagation(); handleDeleteSetup('${escapeHtml(s)}')"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></span>
       </span>
     `;
   }).join('');
@@ -885,7 +891,7 @@ function renderTimeframePillsForForm(containerId, hiddenInputId) {
     return `
       <span class="preset-chip ${isActive ? 'active' : ''}" data-tf="${escapeHtml(tf)}">
         <span onclick="selectTimeframe('${escapeHtml(tf)}', '${hiddenInputId}', '${containerId}')">${escapeHtml(tf)}</span>
-        <span class="preset-chip-del" onclick="event.stopPropagation(); handleDeleteTimeframe('${escapeHtml(tf)}')">✕</span>
+        <span class="preset-chip-del" onclick="event.stopPropagation(); handleDeleteTimeframe('${escapeHtml(tf)}')"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></span>
       </span>
     `;
   }).join('');
@@ -1145,7 +1151,7 @@ function toggleTradesFilterPanel() {
   const isHidden = panel.style.display === 'none' || !panel.style.display;
   panel.style.display = isHidden ? 'block' : 'none';
   if (label) {
-    label.innerHTML = isHidden ? '⚙️ Скрыть фильтры ▴' : '⚙️ Фильтры и сортировка ▾';
+    label.innerHTML = isHidden ? 'Скрыть фильтры ▴' : 'Фильтры и сортировка ▾';
   }
 }
 window.toggleTradesFilterPanel = toggleTradesFilterPanel;
@@ -1219,7 +1225,7 @@ function renderTradesFeed() {
     } else if (currentGroupBy === 'setup') {
       key = t.setup || 'Без сетапа';
     } else if (currentGroupBy === 'timeframe') {
-      key = t.timeframe || 'Без таймфрейма';
+      key = t.timeframe || 'Без тайфрейма';
     } else if (currentGroupBy === 'all') {
       key = 'Все сделки';
     }
@@ -1236,17 +1242,17 @@ function renderTradesFeed() {
   groupKeys.forEach((key) => {
     const groupTrades = groups[key];
     let groupTitle = key;
-    let groupIcon = '📋';
+    let groupIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>';
 
     if (currentGroupBy === 'month') {
       groupTitle = formatMonthName(key);
-      groupIcon = '📅';
+      groupIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>';
     } else if (currentGroupBy === 'setup') {
       groupTitle = `Сетап: ${key}`;
-      groupIcon = '🎯';
+      groupIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="2" r="2"></circle></svg>';
     } else if (currentGroupBy === 'timeframe') {
       groupTitle = `Таймфрейм: ${key}`;
-      groupIcon = '⏱';
+      groupIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>';
     }
 
     let gWins = 0;
@@ -1266,7 +1272,7 @@ function renderTradesFeed() {
       <div class="month-group">
         <div class="month-group-header">
           <div class="month-header-left">
-            <span style="font-size: 1.05rem; line-height: 1;">${groupIcon}</span>
+            <span style="display: inline-flex; align-items: center; line-height: 1; color: var(--text-muted);">${groupIcon}</span>
             <span class="month-title">${escapeHtml(groupTitle)}</span>
             <span class="pill-badge">${groupTrades.length} сделок</span>
           </div>
@@ -1327,7 +1333,7 @@ function renderTradeCard(t) {
   }
 
   const priceBadgeHtml = t.entryPrice
-    ? `<span class="card-entry-pill" title="Цена входа">📍 Вход: ${escapeHtml(t.entryPrice)}</span>`
+    ? `<span class="card-entry-pill" title="Цена входа"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>Вход: ${escapeHtml(t.entryPrice)}</span>`
     : '';
 
   return `
@@ -1336,8 +1342,8 @@ function renderTradeCard(t) {
         <div class="trade-asset-info">
           <span class="trade-symbol">${escapeHtml(t.symbol || 'ASSET')}</span>
           <span class="direction-badge ${dirClass}">${escapeHtml(t.direction || 'LONG')}</span>
-          <span class="tf-badge">⏱ ${escapeHtml(t.timeframe || '15m')}</span>
-          <span class="setup-badge">🎯 ${escapeHtml(t.setup || 'Без сетапа')}</span>
+          <span class="tf-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${escapeHtml(t.timeframe || '15m')}</span>
+          <span class="setup-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="2" r="2"></circle></svg>${escapeHtml(t.setup || 'Без сетапа')}</span>
           ${priceBadgeHtml}
         </div>
 
@@ -1650,7 +1656,7 @@ function renderImagePreviews(previewContainerId, images, onDeleteCallback) {
   container.innerHTML = images.map((img, idx) => `
     <div class="preview-item">
       <img src="${img.dataUrl}" alt="Превью ${idx + 1}">
-      <button type="button" class="preview-delete-btn" data-del-idx="${idx}" title="Удалить">✕</button>
+      <button type="button" class="preview-delete-btn" data-del-idx="${idx}" title="Удалить"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
     </div>
   `).join('');
 

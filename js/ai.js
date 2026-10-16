@@ -99,7 +99,7 @@ function initAiChatHistory() {
   aiChatHistory = [
     {
       role: 'assistant',
-      content: 'Привет! Я твой торговый ИИ-ассистент на базе **gpt-5.6-terra** с голосом **Дмитрия**.\n\nТы можешь нажать на микрофон 🎙 и сказать голосом:\n- *«Добавь сделку: лонг по BTC/USDT на 15m, сетап пробой уровня, вход 68500, выход 70000, профит +2.5R»*\n- *«Проанализируй мои последние сделки и винрейт»*\n- *«Какой сетап приносит больше всего прибыли?»*\n\nЯ сразу распознаю голос, занесу сделку в дневник и отвечу голосом Дмитрия!',
+      content: 'Привет! Я твой торговый ИИ-ассистент на базе **gpt-5.6-terra** с голосом **Дмитрия**.\n\nТы можешь нажать на микрофон и сказать голосом:\n- *«Добавь сделку: лонг по BTC/USDT на 15m, сетап пробой уровня, вход 68500, выход 70000, профит +2.5R»*\n- *«Проанализируй мои последние сделки и винрейт»*\n- *«Какой сетап приносит больше всего прибыли?»*\n\nЯ сразу распознаю голос, занесу сделку в дневник и отвечу голосом Дмитрия!',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ];
@@ -276,7 +276,7 @@ function speakWithDmitry(text, msgIdx = null) {
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/#+\s+/g, '')
     .replace(/https?:\/\/\S+/g, '')
-    .replace(/[🎯✨⚡📊🧠⚙️👁✏️✕🔴🎙🔊✓]/g, '')
+    .replace(/[\u2600-\u27BF]|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDE4F\uDE80-\uDEFF]|\uD83E[\uDD00-\uDDFF]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -416,7 +416,7 @@ function initSpeechRecognition() {
   recognition.onstart = () => {
     isListening = true;
     updateMicButtonUI(true);
-    showToast('🎙 Слушаю вас... Говорите', 'info');
+    showToast('Слушаю вас... Говорите', 'info');
   };
 
   recognition.onresult = (event) => {
@@ -547,7 +547,7 @@ function updateMicButtonUI(listening) {
 
   if (inputEl) {
     if (listening) {
-      inputEl.placeholder = '🔴 Слушаю вас...';
+      inputEl.placeholder = 'Слушаю вас...';
     } else {
       inputEl.placeholder = '';
     }
@@ -629,11 +629,13 @@ function renderAiChat() {
             <span class="ai-trade-pnl ${outcomeClass}">${escapeHtml(t.pnl || '')}</span>
           </div>
           <div class="ai-trade-actions">
-            <button class="btn btn-secondary btn-sm" onclick="viewTradeInJournal(${t.id})">
-              👁 Открыть в Дневнике
+            <button class="btn btn-secondary btn-sm" onclick="viewTradeInJournal(${t.id})" style="display: inline-flex; align-items: center; gap: 5px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <span>Открыть в Дневнике</span>
             </button>
-            <button class="btn btn-secondary btn-sm" onclick="editTrade(${t.id})">
-              ✏ Редактировать
+            <button class="btn btn-secondary btn-sm" onclick="editTrade(${t.id})" style="display: inline-flex; align-items: center; gap: 5px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+              <span>Редактировать</span>
             </button>
           </div>
         </div>
@@ -653,7 +655,7 @@ function renderAiChat() {
 
     return `
       <div class="ai-msg-row ${roleClass}">
-        ${!isUser ? '<div class="ai-avatar">✨</div>' : ''}
+        ${!isUser ? '<div class="ai-avatar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6363" stroke-width="2.5"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path></svg></div>' : ''}
         <div class="ai-msg-bubble">
           <div class="ai-msg-text">${contentHtml}</div>
           ${tradeCardHtml}
@@ -669,7 +671,7 @@ function renderAiChat() {
   if (isAiGenerating) {
     container.innerHTML += `
       <div class="ai-msg-row ai-msg-assistant">
-        <div class="ai-avatar">✨</div>
+        <div class="ai-avatar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6363" stroke-width="2.5"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path></svg></div>
         <div class="ai-msg-bubble ai-typing-bubble">
           <span class="ai-typing-dot"></span>
           <span class="ai-typing-dot"></span>
@@ -1048,9 +1050,9 @@ async function handleAutonomousAiResponse(userText) {
   // 1. GREETINGS & INTRODUCTIONS
   if (/^(привет|здравствуй|хай|хей|салам|добрый день|добрый вечер|доброе утро|start|\/start|hello|hi)\b/i.test(lower) || 
       lower === 'привет' || lower === 'здравствуйте' || lower === 'кто ты' || lower === 'что ты умеешь' || lower === 'помощь') {
-    const greetingText = `Привет! Я твой торговый ИИ-ассистент в TradeLog с голосом **Дмитрия** 🎙\n\n` +
+    const greetingText = `Привет! Я твой торговый ИИ-ассистент в TradeLog с голосом **Дмитрия**\n\n` +
       `Я готов помогать тебе вести дневник и повышать торговую дисциплину:\n\n` +
-      `1. **Запись сделок голосом:** Нажми микрофон 🎙 и продиктуй:\n` +
+      `1. **Запись сделок голосом:** Нажми микрофон и продиктуй:\n` +
       `   *«Добавь сделку: лонг BTC на 15m, сетап пробой уровня, вход 68500 выход 70000, профит +2.5R»*\n\n` +
       `2. **Анализ дневника и винрейта:** Спроси:\n` +
       `   *«Какой у меня винрейт?»* или *«Какой сетап самый прибыльный?»*\n\n` +
@@ -1073,10 +1075,10 @@ async function handleAutonomousAiResponse(userText) {
     const total = (typeof allTrades !== 'undefined' && Array.isArray(allTrades)) ? allTrades.length : 0;
     
     if (total === 0) {
-      const emptyMsg = `📊 **Анализ торгового дневника:**\n\n` +
+      const emptyMsg = `**Анализ торгового дневника:**\n\n` +
         `В вашем дневнике пока нет сохранённых сделок.\n\n` +
         `Чтобы начать анализ, добавьте свою первую сделку:\n` +
-        `- Нажмите на микрофон 🎙 и скажите: *«Добавь сделку: лонг по BTC на 15m, сетап пробой, тейк +2.5R»*\n` +
+        `- Нажмите на микрофон и скажите: *«Добавь сделку: лонг по BTC на 15m, сетап пробой, тейк +2.5R»*\n` +
         `- Или перейдите во вкладку «Новая сделка» внизу экрана.`;
       
       const speechText = 'В вашем дневнике пока нет сохранённых сделок. Нажмите на микрофон и продиктуйте первую сделку, и я сразу начну вести статистику.';
@@ -1132,20 +1134,20 @@ async function handleAutonomousAiResponse(userText) {
     const bestSetup = setupList[0];
     const worstSetup = setupList.length > 1 ? setupList[setupList.length - 1] : null;
 
-    let analyticsReport = `📊 **Анализ торгового дневника:**\n\n` +
-      `- **Всего сделок:** **${total}** (🏆 Побед: ${wins} | ❌ Убытков: ${losses} | ⚪ Б/У: ${bes})\n` +
+    let analyticsReport = `**Анализ торгового дневника:**\n\n` +
+      `- **Всего сделок:** **${total}** (Побед: ${wins} | Убытков: ${losses} | Б/У: ${bes})\n` +
       `- **Общий винрейт:** **${winrate}%**\n` +
       `- **Накопленный PnL:** **${totalR >= 0 ? '+' : ''}${totalR.toFixed(1)}R**\n` +
       `- **Лонги:** ${longCount} сделок (Винрейт: ${longWr}%)\n` +
       `- **Шорты:** ${shortCount} сделок (Винрейт: ${shortWr}%)\n\n`;
 
     if (bestSetup) {
-      analyticsReport += `🎯 **Лучший сетап:** «**${bestSetup.name}**»\n` +
+      analyticsReport += `**Лучший сетап:** «**${bestSetup.name}**»\n` +
         `• Сделок: ${bestSetup.count} | Винрейт: ${bestSetup.wr}% | Профит: ${bestSetup.r >= 0 ? '+' : ''}${bestSetup.r.toFixed(1)}R\n\n`;
     }
 
     if (worstSetup && worstSetup.r < 0) {
-      analyticsReport += `⚠️ **Требует внимания:** «**${worstSetup.name}**»\n` +
+      analyticsReport += `**Требует внимания:** «**${worstSetup.name}**»\n` +
         `• Убыток: ${worstSetup.r.toFixed(1)}R (${worstSetup.count} сделок). Рекомендуется разобрать ошибки или временно исключить.\n\n`;
     }
 
@@ -1157,7 +1159,7 @@ async function handleAutonomousAiResponse(userText) {
       advice = 'Винрейт ниже 40%. Сфокусируйтесь на идеальном исполнении только одного сетапа с RR от 1:3 и строгим стопом.';
     }
 
-    analyticsReport += `🧠 **Совет риск-менеджера:**\n*${advice}*`;
+    analyticsReport += `**Совет риск-менеджера:**\n*${advice}*`;
 
     const speechText = `Анализ вашего дневника: всего сделок ${total}, общий винрейт ${winrate} процентов, накопленный результат ${totalR >= 0 ? '+' : ''}${totalR.toFixed(1)}R. ` +
       (bestSetup ? `Самый прибыльный сетап — ${bestSetup.name} с результатом ${bestSetup.r.toFixed(1)}R. ` : '') + advice;
@@ -1172,7 +1174,7 @@ async function handleAutonomousAiResponse(userText) {
                             lower.includes('риск') || lower.includes('ошибк') || lower.includes('страх');
 
   if (isPsychologyQuery && !lower.includes('добав') && !lower.includes('запиш') && !lower.includes('купил') && !lower.includes('продал')) {
-    const psychReport = `🧠 **Золотые правила торговой дисциплины и психологии:**\n\n` +
+    const psychReport = `**Золотые правила торговой дисциплины и психологии:**\n\n` +
       `1. **Правило 1% риска:** Рискуйте строго фиксированной суммой (1-2% депозита) в каждой сделке. Ни один отдельный трейд не должен выбивать вас из колеи.\n` +
       `2. **Правило двух стопов:** Получили 2 системных стоп-лосса подряд за день — немедленно закройте графики до следующего торгового дня. Желание «отыграться» — это 100% тильт.\n` +
       `3. **Никогда не двигайте стоп-лосс назад:** Если рынок пошел против идеи, примите плановый убыток. Надежда — худшая торговая стратегия.\n` +
@@ -1186,7 +1188,7 @@ async function handleAutonomousAiResponse(userText) {
 
   // 4. SMC / TRADING CONCEPTS & EDUCATION
   if (lower.includes('ордерблок') || lower.includes('ордер блок') || lower.includes('order block')) {
-    const obText = `📦 **Order Block (Ордерблок, OB):**\n\n` +
+    const obText = `**Order Block (Ордерблок, OB):**\n\n` +
       `Это последняя противоположная свеча перед сильным импульсным движением, приведшим к снятию ликвидности или слому структуры (BOS/CHoCH).\n\n` +
       `- **Бычий OB:** Последняя медвежья свеча перед мощным ростом вверх. Зона потенциального входа в Лонг.\n` +
       `- **Медвежий OB:** Последняя бычья свеча перед резким падением. Зона входа в Шорт.\n` +
@@ -1196,7 +1198,7 @@ async function handleAutonomousAiResponse(userText) {
   }
 
   if (lower.includes('fvg') || lower.includes('имбаланс') || lower.includes('дисбаланс') || lower.includes('imbalance')) {
-    const fvgText = `⚡ **FVG (Fair Value Gap / Имбаланс):**\n\n` +
+    const fvgText = `**FVG (Fair Value Gap / Имбаланс):**\n\n` +
       `Это трехсвечная формация с ценовым разрывом между фитилем 1-й свечи и фитилем 3-й свечи.\n\n` +
       `- Возникает при агрессивном рыночном дисбалансе покупателей или продавцов.\n` +
       `- Рынок стремится вернуться в зону FVG для ребалансировки цены и заполнения ликвидности.\n` +
@@ -1206,7 +1208,7 @@ async function handleAutonomousAiResponse(userText) {
   }
 
   if (lower.includes('свип') || lower.includes('ликвидн') || lower.includes('sweep')) {
-    const sweepText = `🎯 **Liquidity Sweep (Снятие ликвидности / Свип):**\n\n` +
+    const sweepText = `**Liquidity Sweep (Снятие ликвидности / Свип):**\n\n` +
       `Крупные участники рынка используют скопления стоп-лоссов розничных трейдеров за ключевыми уровнями максимумов и минимумов.\n\n` +
       `- **Свип ликвидности:** Ложный пробой уровня тенью свечи с быстрым возвратом обратно в диапазон.\n` +
       `- Часто сигнализирует о развороте цены в противоположную сторону.`;
@@ -1215,7 +1217,7 @@ async function handleAutonomousAiResponse(userText) {
   }
 
   if (lower.includes('choch') || lower.includes('чоч') || lower.includes('слом') || lower.includes('bos')) {
-    const chochText = `🔄 **CHoCH (Change of Character) & BOS:**\n\n` +
+    const chochText = `**CHoCH (Change of Character) & BOS:**\n\n` +
       `- **BOS (Break of Structure):** Пробой ключевого экстремума по тренду — подтверждение продолжения движения.\n` +
       `- **CHoCH (Слом структуры):** Пробой последнего свинга, давшего новый экстремум против тренда. Первый ранний признак смены тренда.\n` +
       `- Вход осуществляется после слома структуры на откате к Order Block или FVG.`;
@@ -1224,7 +1226,7 @@ async function handleAutonomousAiResponse(userText) {
   }
 
   if (lower.includes('риск реворд') || lower.includes('r:r') || lower.includes('рр') || lower.includes('r multiple') || lower.includes('r-multiple')) {
-    const rrText = `📐 **Risk-to-Reward (R:R, R-Multiple):**\n\n` +
+    const rrText = `**Risk-to-Reward (R:R, R-Multiple):**\n\n` +
       `Соотношение потенциальной прибыли к принимаемому риску (1R = 1 риск-юнит).\n\n` +
       `- Если риск в сделке $100 (1R), а тейк принес $300 — это **+3.0R**.\n` +
       `- При соотношении 1:3 вам достаточно всего 30% винрейта, чтобы оставаться в стабильном плюсе!`;
@@ -1251,8 +1253,8 @@ async function handleAutonomousAiResponse(userText) {
       .trim();
 
     if (cleanAddTest.length === 0) {
-      const guideMsg = `🎯 **С удовольствием помогу записать сделку!**\n\n` +
-        `Назови параметры сделки голосом в микрофон 🎙 или напиши текстом:\n` +
+      const guideMsg = `**С удовольствием помогу записать сделку!**\n\n` +
+        `Назови параметры сделки голосом в микрофон или напиши текстом:\n` +
         `- **Тикер** (например, BTC, ETH, SOL, XAU)\n` +
         `- **Направление** (лонг или шорт)\n` +
         `- **Таймфрейм** (например: 15m, 1h, 4h)\n` +
@@ -1270,7 +1272,7 @@ async function handleAutonomousAiResponse(userText) {
     if (extracted && extracted.symbol) {
       const createdTrade = await executeAddTradeFromAi(extracted);
 
-      const successMsg = `🎯 **Сделка успешно добавлена в дневник!**\n\n` +
+      const successMsg = `**Сделка успешно добавлена в дневник!**\n\n` +
         `Параметры зафиксированы в базе:\n` +
         `- **Тикер:** **${createdTrade.symbol}**\n` +
         `- **Направление:** **${createdTrade.direction}**\n` +
@@ -1288,12 +1290,12 @@ async function handleAutonomousAiResponse(userText) {
   }
 
   // 6. IF EXTERNAL LLM (GPT-5.6-TERRA) WAS BLOCKED BY BROWSER CORS
-  const corsNotice = `⚠️ **Браузер заблокировал сетевой запрос к модели \`${getAiModel()}\` (Tooken Club).**\n\n` +
+  const corsNotice = `**Браузер заблокировал сетевой запрос к модели \`${getAiModel()}\` (Tooken Club).**\n\n` +
     `Сервер Tooken Club (\`https://tooken.club/v1\`) не отправляет браузерный CORS-заголовок (\`Access-Control-Allow-Origin\`), поэтому браузер запрещает прямое обращение с веб-страницы.\n\n` +
     `**Как включить реальный ChatGPT прямо сейчас:**\n\n` +
-    `1. 👉 **[Разрешить доступ через CORS Demo](https://cors-anywhere.herokuapp.com/corsdemo)** — перейдите по ссылке и нажмите кнопку **«Request temporary access to the demo server»** (это моментально откроет доступ к модели прямо в текущем браузере на несколько часов).\n\n` +
+    `1. **[Разрешить доступ через CORS Demo](https://cors-anywhere.herokuapp.com/corsdemo)** — перейдите по ссылке и нажмите кнопку **«Request temporary access to the demo server»** (это моментально откроет доступ к модели прямо в текущем браузере на несколько часов).\n\n` +
     `2. **Развертывание в Vercel (без CORS):** Мы уже добавили в проект серверный файл \`api/chat.js\`. При публикации проекта на Vercel все запросы к Tooken Club идут через сервер без браузерных блокировок!\n\n` +
-    `3. **Свой прокси:** В шапке ассистента нажмите шестерёнку ⚙️ и укажите свой URL CORS-прокси.\n\n` +
+    `3. **Свой прокси:** В шапке ассистента нажмите иконку настроек и укажите свой URL CORS-прокси.\n\n` +
     `*Примечание: Добавление сделок голосом и текстом работает всегда моментально (например, скажите в микрофон «Добавь сделку: лонг BTC на 15m...»)!*`;
 
   const speechNotice = 'Запрос к языковой модели заблокирован политикой безопасности браузера. Для прямого общения с ChatGPT разрешите доступ по ссылке в чате.';

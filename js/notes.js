@@ -106,7 +106,7 @@ async function startThoughtAudioRecording() {
 
     updateThoughtRecordUI(true);
     thoughtRecordTimerInterval = setInterval(updateThoughtRecordTimer, 500);
-    showToast('🎙 Запись голоса началась...', 'info');
+    showToast('Запись голоса началась...', 'info');
 
   } catch (err) {
     console.error('Audio recording failed:', err);
@@ -161,7 +161,7 @@ function updateThoughtRecordUI(recording) {
           <line x1="12" y1="19" x2="12" y2="23"></line>
           <line x1="8" y1="23" x2="16" y2="23"></line>
         </svg>
-        <span>🎙 Записать голосовую мысль</span>
+        <span>Записать голосовую мысль</span>
       `;
     }
   }
@@ -179,14 +179,19 @@ function renderThoughtAudioPreview() {
     container.innerHTML = `
       <div class="audio-note-preview-card">
         <div class="audio-note-left">
-          <span class="audio-note-icon">🎙</span>
+          <span class="audio-note-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+          </span>
           <div class="audio-note-info">
             <span class="audio-note-title">Голосовая запись готова</span>
             <span class="audio-note-meta">${currentRecordedAudioDuration} сек</span>
           </div>
         </div>
         <audio controls src="${currentRecordedAudioDataUrl}" class="thought-native-audio"></audio>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="clearCurrentThoughtAudio()" title="Удалить запись">✕ Удалить</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="clearCurrentThoughtAudio()" title="Удалить запись" style="display: inline-flex; align-items: center; gap: 4px;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          <span>Удалить</span>
+        </button>
       </div>
     `;
     container.style.display = 'block';
@@ -213,7 +218,7 @@ async function handleSaveJournalThought(e) {
   const tagSelect = document.getElementById('journalThoughtTag');
 
   const text = textInput ? textInput.value.trim() : '';
-  const tag = tagSelect ? tagSelect.value : '💭 Мысли';
+  const tag = tagSelect ? tagSelect.value : 'Мысли';
 
   if (!text && !currentRecordedAudioDataUrl) {
     showToast('Введите текст или запишите голосовую мысль', 'warning');
@@ -262,7 +267,12 @@ async function renderJournalThoughtsFeed() {
     if (!thoughts || thoughts.length === 0) {
       container.innerHTML = `
         <div class="empty-state-card" style="padding: 32px 20px; text-align: center;">
-          <div style="font-size: 2.2rem; margin-bottom: 10px;">📖</div>
+          <div style="display: flex; justify-content: center; margin-bottom: 12px; color: var(--text-muted);">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+            </svg>
+          </div>
           <h3 style="font-size: 1.05rem; font-weight: 600; color: #fff; margin-bottom: 6px;">Ваш дневник мыслей пуст</h3>
           <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 360px; margin: 0 auto;">
             Здесь хранятся ваши личные размышления, эмоции, психология и голосовые заметки без сделок.
@@ -287,7 +297,10 @@ async function renderJournalThoughtsFeed() {
       const audioPlayerHtml = t.audioData ? `
         <div class="thought-card-audio">
           <div class="thought-card-audio-header">
-            <span>🎙 Голосовая заметка</span>
+            <span style="display: inline-flex; align-items: center; gap: 5px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+              Голосовая заметка
+            </span>
             <span class="thought-audio-duration">${t.audioDuration ? t.audioDuration + ' сек' : ''}</span>
           </div>
           <audio controls src="${t.audioData}" class="thought-native-audio"></audio>
@@ -297,7 +310,7 @@ async function renderJournalThoughtsFeed() {
       return `
         <div class="thought-card">
           <div class="thought-card-header">
-            <div class="thought-tag-badge">${escapeHtml(t.tag || '💭 Мысли')}</div>
+            <div class="thought-tag-badge">${escapeHtml(t.tag || 'Мысли')}</div>
             <div class="thought-date-wrap">
               <span class="thought-date">${formattedDate} · ${formattedTime}</span>
               <button type="button" class="btn-icon-danger btn-sm" onclick="handleDeleteThought(${t.id})" title="Удалить запись">
