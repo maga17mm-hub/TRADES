@@ -42,10 +42,22 @@
           </div>
         </div>
         <span class="header-caption">Дневник осознанной торговли</span>
-        <button type="button" class="header-assistant" onclick="openAiAssistant()" aria-label="Открыть ИИ-ассистента">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg>
-          <span>Ассистент</span>
-        </button>
+        <div class="header-actions">
+          <button type="button" class="header-assistant" onclick="openAiAssistant()" aria-label="Открыть ИИ-ассистента">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg>
+            <span>Ассистент</span>
+          </button>
+          <button type="button" id="headerProfileBtn" class="header-profile-btn" onclick="openProfileModal()" aria-label="Профиль пользователя">
+            <span id="headerProfileAvatar" class="profile-avatar-circle">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </span>
+            <span id="headerProfileLabel">Войти</span>
+            <span id="headerProfileSyncDot" class="profile-sync-indicator" style="display: none;"></span>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -384,6 +396,27 @@
           <p class="journal-feed-subtitle">Всё, чтобы журнал был вашим.</p>
         </div>
       </div>
+
+      <!-- User Profile & Cloud Sync Card -->
+      <section class="settings-section-card" id="settingsProfileCard">
+        <h3 class="settings-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span id="settingsProfileTitle">Профиль и облачная синхронизация</span>
+        </h3>
+        <p class="settings-section-subtitle" id="settingsProfileDesc">
+          Войдите или зарегистрируйтесь, чтобы сделки и мысли сохранялись и открывались на телефоне и компьютере.
+        </p>
+        <button type="button" class="btn btn-secondary btn-md" id="settingsProfileBtn" onclick="openProfileModal()" style="width: 100%; justify-content: center; gap: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span>Войти или зарегистрироваться</span>
+        </button>
+      </section>
 
       <!-- Theme Switcher Card -->
       <section class="settings-section-card">
@@ -994,11 +1027,214 @@
   <!-- Floating AI Assistant Button (Accessible anywhere) -->
 
 
+  <!-- ==========================================================================
+       MODAL: Profile & Cloud Sync
+       ========================================================================== -->
+  <div id="profileModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+    <div class="modal-content profile-modal-content">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="profile-modal-icon-badge">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <div>
+            <h2 id="profileModalTitle" class="modal-title">Профиль и синхронизация</h2>
+            <div class="profile-modal-subtitle">Синхронизация телефона и компьютера</div>
+          </div>
+        </div>
+        <button type="button" class="close-btn" onclick="closeProfileModal()" aria-label="Закрыть окно профиля">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Guest Container (Login / Register) -->
+      <div id="authGuestContainer" class="auth-guest-view">
+        <div class="auth-tabs-nav">
+          <button type="button" id="authTabLoginBtn" class="auth-tab-btn active" onclick="switchAuthTab('login')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+              <polyline points="10 17 15 12 10 7"></polyline>
+              <line x1="15" y1="12" x2="3" y2="12"></line>
+            </svg>
+            <span>Войти по коду</span>
+          </button>
+          <button type="button" id="authTabRegBtn" class="auth-tab-btn" onclick="switchAuthTab('register')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="8.5" cy="7" r="4"></circle>
+              <line x1="20" y1="8" x2="20" y2="14"></line>
+              <line x1="23" y1="11" x2="17" y2="11"></line>
+            </svg>
+            <span>Создать профиль</span>
+          </button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="authLoginForm" class="auth-form" onsubmit="handleLoginSubmit(event)">
+          <div class="auth-info-banner">
+            <div class="auth-info-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+            </div>
+            <div class="auth-info-text">
+              Если вы уже создали профиль на телефоне или компьютере, скопируйте оттуда <strong>Код профиля</strong>, вставьте сюда и введите пароль. Все ваши сделки и мысли моментально загрузятся!
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="loginSyncKey">Код профиля (Sync Key)</label>
+            <input type="text" id="loginSyncKey" class="form-input sync-key-input" placeholder="например ff80818196..." autocomplete="off" required>
+            <span class="form-helper">Код отображается в настройках профиля на вашем основном устройстве</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="loginPassword">Пароль от профиля</label>
+            <input type="password" id="loginPassword" class="form-input" placeholder="Введите ваш пароль..." autocomplete="current-password" required>
+          </div>
+
+          <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; gap: 8px; margin-top: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+              <polyline points="10 17 15 12 10 7"></polyline>
+              <line x1="15" y1="12" x2="3" y2="12"></line>
+            </svg>
+            <span>Войти в профиль и загрузить данные</span>
+          </button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="authRegForm" class="auth-form" onsubmit="handleRegisterSubmit(event)" style="display: none;">
+          <div class="auth-info-banner">
+            <div class="auth-info-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+            </div>
+            <div class="auth-info-text">
+              Зарегистрируйте личный профиль. Все уже сохраненные на этом устройстве сделки и мысли автоматически загрузятся в защищенное облако, и вы получите персональный Код синхронизации для входа на компьютере!
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regName">Ваше имя / Никнейм</label>
+            <input type="text" id="regName" class="form-input" placeholder="например Александр" autocomplete="name" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regEmail">Email</label>
+            <input type="email" id="regEmail" class="form-input" placeholder="trader@example.com" autocomplete="email" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regPassword">Придумайте пароль</label>
+            <input type="password" id="regPassword" class="form-input" placeholder="Минимум 4 символа..." autocomplete="new-password" required>
+          </div>
+
+          <button type="submit" id="regSubmitBtn" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; gap: 8px; margin-top: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <line x1="12" y1="11" x2="12" y2="17"></line>
+              <line x1="9" y1="14" x2="15" y2="14"></line>
+            </svg>
+            <span>Создать профиль и синхронизировать</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Logged-in Profile Container -->
+      <div id="authProfileContainer" class="auth-profile-view" style="display: none;">
+        <!-- User Header Card -->
+        <div class="profile-card-header">
+          <div class="profile-card-avatar">
+            <span id="profModalAvatarInitial">T</span>
+          </div>
+          <div class="profile-card-meta">
+            <div id="profModalName" class="profile-card-name">Трейдер</div>
+            <div id="profModalEmail" class="profile-card-email">trader@example.com</div>
+            <div id="profModalStats" class="profile-card-stats">0 сделок · 0 записей в дневнике</div>
+          </div>
+        </div>
+
+        <!-- Sync Key Box for Cross-Device Login -->
+        <div class="sync-key-box">
+          <div class="sync-key-header">
+            <div class="sync-key-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+              </svg>
+              <span>Ваш код профиля для входа на компьютере</span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copySyncKeyToClipboard()" style="padding: 4px 10px; font-size: 0.76rem;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Копировать</span>
+            </button>
+          </div>
+          <div id="profModalSyncKey" class="sync-key-val" onclick="copySyncKeyToClipboard()" title="Нажмите, чтобы скопировать">
+            —
+          </div>
+          <p class="sync-key-hint">
+            Скопируйте этот код и откройте сайт на компьютере. Нажмите «Войти по коду», вставьте код и введите свой пароль — все ваши сделки и дневник мыслей откроются на компьютере!
+          </p>
+        </div>
+
+        <!-- Live Sync Status Row -->
+        <div class="profile-sync-status-row">
+          <div class="profile-sync-badge">
+            <span class="profile-sync-indicator synced"></span>
+            <span>Облако активно</span>
+          </div>
+          <div class="profile-sync-time">
+            Синхронизировано: <strong id="profModalLastSync">—</strong>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="profile-actions-row">
+          <button type="button" id="profManualSyncBtn" class="btn btn-primary btn-md" onclick="triggerManualSync()" style="flex: 1; justify-content: center; gap: 8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+            <span>Синхронизировать сейчас</span>
+          </button>
+          <button type="button" class="btn btn-secondary btn-md" onclick="handleUserLogout()" style="color: var(--loss); border-color: rgba(244,63,94,0.25);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span>Выйти</span>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
   <script src="./js/db.js"></script>
+  <script src="./js/auth.js"></script>
   <script src="./js/notes.js"></script>
   <script src="./js/app.js"></script>
   <script src="./js/ai.js"></script>

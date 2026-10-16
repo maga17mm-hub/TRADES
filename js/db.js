@@ -110,6 +110,7 @@ async function addTrade(trade) {
     }
     trade.createdAt = trade.createdAt || new Date().toISOString();
     trade.updatedAt = new Date().toISOString();
+    trade.uuid = trade.uuid || ('tr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8));
 
     const request = store.add(trade);
     request.onsuccess = async () => {
@@ -401,6 +402,7 @@ async function addJournalThought(thought) {
 
     thought.createdAt = thought.createdAt || new Date().toISOString();
     thought.updatedAt = new Date().toISOString();
+    thought.uuid = thought.uuid || ('th_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8));
 
     const request = store.add(thought);
     request.onsuccess = () => resolve(request.result);
@@ -457,4 +459,108 @@ async function getJournalThought(id) {
     request.onerror = (e) => reject(e.target.error);
   });
 }
+
+/**
+ * ============================================================================
+ * CLOUD SYNCHRONIZATION DATA MERGE HELPERS
+ * ============================================================================
+ */
+
+/**
+ * Two-way merge of cloud trades into local IndexedDB
+ */
+async function mergeCloudTrades(cloudTrades) {
+  if (!Array.isArray(cloudTrades) || cloudTrades.length === 0) return 0;
+  const localTrades = await getAllTradesRaw();
+
+  function getTradeSig(t) {
+    if (t.uuid) return 'uuid:' + t.uuid;
+    return `${(t.symbol || '').toUpperCase()}|${t.entryTime || ''}|${t.direction || ''}|${t.entryPrice || ''}`;
+  }
+
+  const localMap = new Map();
+  localTrades.forEach(lt => {
+    localMap.set(getTradeSig(lt), lt);
+  });
+
+  let mergedCount = 0;
+
+  for (const ct of cloudTrades) {
+    if (!ct || typeof ct !== 'object') continue;
+    const sig = getTradeSig(ct);
+    const existing = localMap.get(sig);
+
+    if (existing) {
+      const cloudTime = ct.updatedAt ? new Date(ct.updatedAt).getTime() : 0;
+      const localTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+      if (cloudTime > localTime) {
+        const updated = { ...ct, id: existing.id };
+        await updateTrade(updated);
+        mergedCount++;
+      }
+    } else {
+      const newTrade = { ...ct };
+      delete newTrade.id;
+      if (!newTrade.uuid) {
+        newTrade.uuid = 'tr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+      }
+      await addTrade(newTrade);
+      mergedCount++;
+    }
+  }
+
+  return mergedCount;
+}
+window.mergeCloudTrades = mergeCloudTrades;
+
+/**
+ * Two-way merge of cloud journal thoughts into local IndexedDB
+ */
+async function mergeCloudThoughts(cloudThoughts) {
+  if (!Array.isArray(cloudThoughts) || cloudThoughts.length === 0) return 0;
+  const localThoughts = await getAllJournalThoughts();
+
+  function getThoughtSig(t) {
+    if (t.uuid) return 'uuid:' + t.uuid;
+    const dateKey = (t.createdAt || '').substring(0, 19);
+    const titleKey = (t.title || '').trim();
+    const textSnippet = (t.text || '').substring(0, 30);
+    return `${dateKey}|${titleKey}|${textSnippet}`;
+  }
+
+  const localMap = new Map();
+  localThoughts.forEach(lt => {
+    localMap.set(getThoughtSig(lt), lt);
+  });
+
+  let mergedCount = 0;
+
+  for (const ct of cloudThoughts) {
+    if (!ct || typeof ct !== 'object') continue;
+    const sig = getThoughtSig(ct);
+    const existing = localMap.get(sig);
+
+    if (existing) {
+      const cloudTime = ct.updatedAt ? new Date(ct.updatedAt).getTime() : 0;
+      const localTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+      if (cloudTime > localTime) {
+        const updated = { ...ct, id: existing.id };
+        await updateJournalThought(updated);
+        mergedCount++;
+      }
+    } else {
+      const newThought = { ...ct };
+      delete newThought.id;
+      if (!newThought.uuid) {
+        newThought.uuid = 'th_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+      }
+      await addJournalThought(newThought);
+      mergedCount++;
+    }
+  }
+
+  return mergedCount;
+}
+window.mergeCloudThoughts = mergeCloudThoughts;
+
 

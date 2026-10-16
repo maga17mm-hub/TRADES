@@ -3761,3 +3761,324 @@ main.app-container {
     box-shadow: none !important;
   }
 }
+
+/* ============================================================================
+   USER PROFILE & CLOUD SYNCHRONIZATION
+   ============================================================================ */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  min-height: 42px;
+  border: 1px solid var(--border-subtle, var(--border-medium));
+  border-radius: 24px;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 550;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.header-profile-btn:hover {
+  background: var(--bg-card-hover, var(--bg-input));
+  border-color: var(--border-medium);
+}
+
+.profile-avatar-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.profile-avatar-circle.avatar-logged-in {
+  background: var(--brand);
+  color: #ffffff;
+}
+
+.avatar-initial {
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.profile-sync-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.profile-sync-indicator.synced {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+}
+
+.profile-sync-indicator.syncing {
+  background: #38bdf8;
+  animation: pulse-sync 1s infinite alternate;
+}
+
+.profile-sync-indicator.error {
+  background: #ef4444;
+}
+
+@keyframes pulse-sync {
+  0% { opacity: 0.35; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1.15); }
+}
+
+/* Profile Modal Content */
+.profile-modal-content {
+  max-width: 500px;
+  width: 100%;
+}
+
+.profile-modal-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--paper-accent-soft, rgba(255, 99, 99, 0.1));
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-modal-subtitle {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Auth Tabs Navigation */
+.auth-tabs-nav {
+  display: flex;
+  gap: 6px;
+  background: var(--bg-input);
+  padding: 4px;
+  border-radius: var(--radius-sm, 12px);
+  margin-bottom: 18px;
+}
+
+.auth-tab-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.auth-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.auth-tab-btn.active {
+  background: var(--bg-card);
+  color: var(--brand);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.auth-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--paper-accent-soft, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle, var(--border-medium));
+  border-radius: var(--radius-sm, 12px);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.auth-info-icon {
+  color: var(--brand);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.auth-info-text {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.sync-key-input {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+}
+
+/* User Card in Modal */
+.profile-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm, 14px);
+  margin-bottom: 16px;
+}
+
+.profile-card-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.profile-card-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-card-name {
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.profile-card-email {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.profile-card-stats {
+  font-size: 0.74rem;
+  color: var(--brand);
+  margin-top: 4px;
+  font-weight: 550;
+}
+
+/* Sync Key Box */
+.sync-key-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle, var(--border-medium));
+  border-radius: var(--radius-sm, 14px);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.sync-key-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.sync-key-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sync-key-val {
+  background: var(--bg-input);
+  border: 1px dashed var(--border-medium);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--brand);
+  word-break: break-all;
+  user-select: all;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.sync-key-val:hover {
+  border-color: var(--brand);
+}
+
+.sync-key-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
+
+.profile-sync-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm, 10px);
+  margin-bottom: 16px;
+  font-size: 0.78rem;
+}
+
+.profile-sync-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 550;
+  color: var(--text-primary);
+}
+
+.profile-sync-time {
+  color: var(--text-muted);
+}
+
+.profile-actions-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+

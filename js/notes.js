@@ -591,6 +591,7 @@ async function saveCurrentThought() {
 
       // Refresh cache
       await loadAndRenderJournal();
+      if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
 
       // Return to view mode with updated thought
       const refreshed = allJournalThoughts.find(t => t.id === Number(currentOpenThoughtId)) || updated;
@@ -613,6 +614,7 @@ async function saveCurrentThought() {
 
       // Return to list screen so user sees the newly added thought at the top
       backToJournalList();
+      if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
     }
 
   } catch (err) {
@@ -635,6 +637,7 @@ async function handleCurrentThoughtDelete() {
       }
       showToast('Мысль удалена', 'info');
       backToJournalList();
+      if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
     } catch (err) {
       console.error('Failed to delete thought:', err);
       showToast('Не удалось удалить мысль', 'error');

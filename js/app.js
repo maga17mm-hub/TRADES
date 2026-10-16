@@ -1807,6 +1807,7 @@ async function handleRecordTradeSubmit(e) {
 
     // Refresh trades data and switch to journal to see the result
     await refreshTrades();
+    if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
     switchTab('journal');
   } catch (err) {
     console.error('Failed to save trade:', err);
@@ -2100,6 +2101,7 @@ async function handleModalTradeSubmit(e) {
 
     closeTradeModal();
     await refreshTrades();
+    if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
   } catch (err) {
     console.error('Failed to save trade in modal:', err);
     showToast('Ошибка при сохранении сделки', 'error');
@@ -2299,6 +2301,7 @@ async function confirmDeleteTrade(id) {
       await deleteTrade(id);
       showToast(`Сделка #${id} удалена`, 'info');
       await refreshTrades();
+      if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
     } catch (err) {
       console.error('Failed to delete trade:', err);
       showToast('Ошибка при удалении', 'error');
