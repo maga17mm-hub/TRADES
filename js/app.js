@@ -25,9 +25,11 @@ let deferredInstallPrompt = null;
 const tabHomeView = document.getElementById('tabHomeView');
 const tabRecordView = document.getElementById('tabRecordView');
 const tabJournalView = document.getElementById('tabJournalView');
+const tabSettingsView = document.getElementById('tabSettingsView');
 const navBtnHome = document.getElementById('navBtnHome');
 const navBtnRecord = document.getElementById('navBtnRecord');
 const navBtnJournal = document.getElementById('navBtnJournal');
+const navBtnSettings = document.getElementById('navBtnSettings');
 
 // DOM Elements - Calendar
 const calMonthTitleEl = document.getElementById('calMonthTitle');
@@ -77,6 +79,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Setup Clipboard Paste for images (Ctrl+V)
   setupClipboardPaste();
 
+  // Initialize App Theme
+  initAppTheme();
+
   // Setup PWA install banner
   setupPwaInstall();
 
@@ -85,10 +90,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Restore active tab (default to 'home' or saved tab)
   const savedTab = localStorage.getItem('tradelog_active_tab');
-  if (savedTab === 'record') {
-    switchTab('record');
-  } else if (savedTab === 'journal') {
+  if (savedTab === 'journal') {
     switchTab('journal');
+  } else if (savedTab === 'settings') {
+    switchTab('settings');
   } else {
     switchTab('home');
   }
@@ -108,47 +113,69 @@ function registerServiceWorker() {
 }
 
 /**
- * Tab Navigation (Домой <-> Сделка <-> Дневник)
+ * Tab Navigation (Домой <-> Дневник <-> Настройки)
  */
 function switchTab(tabName) {
-  if (tabName === 'record') {
-    if (tabHomeView) tabHomeView.style.display = 'none';
-    if (tabRecordView) tabRecordView.style.display = 'block';
-    if (tabJournalView) tabJournalView.style.display = 'none';
-    if (navBtnHome) navBtnHome.classList.remove('active');
-    if (navBtnRecord) navBtnRecord.classList.add('active');
-    if (navBtnJournal) navBtnJournal.classList.remove('active');
-    localStorage.setItem('tradelog_active_tab', 'record');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    renderAllPresetPills();
-  } else if (tabName === 'journal') {
+  const tabHomeView = document.getElementById('tabHomeView');
+  const tabRecordView = document.getElementById('tabRecordView');
+  const tabJournalView = document.getElementById('tabJournalView');
+  const tabSettingsView = document.getElementById('tabSettingsView');
+
+  const navBtnHome = document.getElementById('navBtnHome');
+  const navBtnJournal = document.getElementById('navBtnJournal');
+  const navBtnSettings = document.getElementById('navBtnSettings');
+
+  if (tabName === 'journal') {
     if (tabHomeView) tabHomeView.style.display = 'none';
     if (tabRecordView) tabRecordView.style.display = 'none';
     if (tabJournalView) tabJournalView.style.display = 'block';
+    if (tabSettingsView) tabSettingsView.style.display = 'none';
+
     if (navBtnHome) navBtnHome.classList.remove('active');
-    if (navBtnRecord) navBtnRecord.classList.remove('active');
     if (navBtnJournal) navBtnJournal.classList.add('active');
+    if (navBtnSettings) navBtnSettings.classList.remove('active');
+
     localStorage.setItem('tradelog_active_tab', 'journal');
-    renderMonthPills();
-    renderSetupPills();
-    renderTradesFeed();
+    if (typeof renderJournalThoughtsFeed === 'function') {
+      renderJournalThoughtsFeed();
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  } else if (tabName === 'settings') {
+    if (tabHomeView) tabHomeView.style.display = 'none';
+    if (tabRecordView) tabRecordView.style.display = 'none';
+    if (tabJournalView) tabJournalView.style.display = 'none';
+    if (tabSettingsView) tabSettingsView.style.display = 'block';
+
+    if (navBtnHome) navBtnHome.classList.remove('active');
+    if (navBtnJournal) navBtnJournal.classList.remove('active');
+    if (navBtnSettings) navBtnSettings.classList.add('active');
+
+    localStorage.setItem('tradelog_active_tab', 'settings');
+    populateSettingsVoiceList();
+    updateThemeCardsUI();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
   } else {
     // 'home' tab
     if (tabHomeView) tabHomeView.style.display = 'block';
     if (tabRecordView) tabRecordView.style.display = 'none';
     if (tabJournalView) tabJournalView.style.display = 'none';
+    if (tabSettingsView) tabSettingsView.style.display = 'none';
+
     if (navBtnHome) navBtnHome.classList.add('active');
-    if (navBtnRecord) navBtnRecord.classList.remove('active');
     if (navBtnJournal) navBtnJournal.classList.remove('active');
+    if (navBtnSettings) navBtnSettings.classList.remove('active');
+
     localStorage.setItem('tradelog_active_tab', 'home');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     updateAnalytics();
     renderCalendar();
+    renderMonthPills();
+    renderSetupPills();
+    renderTradesFeed();
   }
 }
-
-// Global exposure for onclick
 window.switchTab = switchTab;
 
 /**
@@ -1127,7 +1154,8 @@ function setNowForInput(inputId) {
 window.setNowForInput = setNowForInput;
 
 function setRecDirection(dir) {
-  document.getElementById('recTradeDirection').value = dir;
+  const el = document.getElementById('recTradeDirection');
+  if (el) el.value = dir;
   document.querySelectorAll('#recordTradeForm .seg-btn[data-dir]').forEach((b) => {
     b.classList.toggle('active', b.dataset.dir === dir);
   });
@@ -1135,22 +1163,25 @@ function setRecDirection(dir) {
 window.setRecDirection = setRecDirection;
 
 function setRecOutcome(outcome) {
-  document.getElementById('recTradeOutcome').value = outcome;
+  const el = document.getElementById('recTradeOutcome');
+  if (el) el.value = outcome;
   document.querySelectorAll('#recordTradeForm .seg-btn[data-outcome]').forEach((b) => {
     b.classList.toggle('active', b.dataset.outcome === outcome);
   });
 
   const pnlInput = document.getElementById('recTradePnl');
   const rInput = document.getElementById('recTradeRMultiple');
-  if (outcome === 'WIN' && !pnlInput.value) {
-    pnlInput.value = '+2.0R';
-    rInput.value = '2.0';
-  } else if (outcome === 'LOSS' && !pnlInput.value) {
-    pnlInput.value = '-1.0R';
-    rInput.value = '-1.0';
-  } else if (outcome === 'BE' && !pnlInput.value) {
-    pnlInput.value = '0.0R';
-    rInput.value = '0.0';
+  if (pnlInput && rInput) {
+    if (outcome === 'WIN' && !pnlInput.value) {
+      pnlInput.value = '+2.0R';
+      rInput.value = '2.0';
+    } else if (outcome === 'LOSS' && !pnlInput.value) {
+      pnlInput.value = '-1.0R';
+      rInput.value = '-1.0';
+    } else if (outcome === 'BE' && !pnlInput.value) {
+      pnlInput.value = '0.0R';
+      rInput.value = '0.0';
+    }
   }
 }
 window.setRecOutcome = setRecOutcome;
@@ -1224,17 +1255,25 @@ function setupEventListeners() {
   });
 
   // PnL Auto R parsing
-  document.getElementById('recTradePnl').addEventListener('input', (e) => {
-    const match = e.target.value.match(/([+-]?\d+(?:\.\d+)?)/);
-    if (match) document.getElementById('recTradeRMultiple').value = match[1];
-  });
+  const recTradePnlEl = document.getElementById('recTradePnl');
+  if (recTradePnlEl) {
+    recTradePnlEl.addEventListener('input', (e) => {
+      const match = e.target.value.match(/([+-]?\d+(?:\.\d+)?)/);
+      const recTradeRMultipleEl = document.getElementById('recTradeRMultiple');
+      if (match && recTradeRMultipleEl) recTradeRMultipleEl.value = match[1];
+    });
+  }
 
-  document.getElementById('tradePnl').addEventListener('input', (e) => {
-    const match = e.target.value.match(/([+-]?\d+(?:\.\d+)?)/);
-    if (match) document.getElementById('tradeRMultiple').value = match[1];
-  });
+  const tradePnlEl = document.getElementById('tradePnl');
+  if (tradePnlEl) {
+    tradePnlEl.addEventListener('input', (e) => {
+      const match = e.target.value.match(/([+-]?\d+(?:\.\d+)?)/);
+      const tradeRMultipleEl = document.getElementById('tradeRMultiple');
+      if (match && tradeRMultipleEl) tradeRMultipleEl.value = match[1];
+    });
+  }
 
-  // Images for Record Tab
+  // Images for Record Tab (if present)
   setupImageUpload(
     'recTradeImageInput',
     'recImageUploadZone',
@@ -1253,8 +1292,12 @@ function setupEventListeners() {
   );
 
   // Forms submit
-  recordTradeFormEl.addEventListener('submit', handleRecordTradeSubmit);
-  tradeFormEl.addEventListener('submit', handleModalTradeSubmit);
+  if (recordTradeFormEl) {
+    recordTradeFormEl.addEventListener('submit', handleRecordTradeSubmit);
+  }
+  if (tradeFormEl) {
+    tradeFormEl.addEventListener('submit', handleModalTradeSubmit);
+  }
 
   // Close modals on escape key
   document.addEventListener('keydown', (e) => {
@@ -1354,8 +1397,8 @@ function renderImagePreviews(previewContainerId, images, onDeleteCallback) {
  */
 function setupClipboardPaste() {
   window.addEventListener('paste', async (e) => {
-    const isModalActive = tradeModalEl.classList.contains('active');
-    const isRecordTabActive = tabRecordView.style.display !== 'none';
+    const isModalActive = tradeModalEl && tradeModalEl.classList.contains('active');
+    const isRecordTabActive = tabRecordView && tabRecordView.style && tabRecordView.style.display !== 'none';
 
     if (!isModalActive && !isRecordTabActive) return;
 
@@ -1471,48 +1514,106 @@ async function handleRecordTradeSubmit(e) {
  * MODAL EDIT & SUBMIT
  * ============================================================================
  */
-async function editTrade(id) {
-  const trade = allTrades.find((t) => t.id === Number(id));
-  if (!trade) return;
+/**
+ * ============================================================================
+ * MODAL TRADE ADD & EDIT (Select Dropdowns)
+ * ============================================================================
+ */
+function openTradeModal(trade = null) {
+  editingTradeId = trade ? trade.id : null;
+  if (modalTitleEl) {
+    modalTitleEl.textContent = trade ? `Редактирование сделки #${trade.id}` : 'Новая сделка';
+  }
 
-  editingTradeId = trade.id;
-  modalTitleEl.textContent = `Редактирование сделки #${trade.id}`;
+  const symbolSelect = document.getElementById('tradeSymbol');
+  const symbolCustom = document.getElementById('tradeSymbolCustom');
+  const setupSelect = document.getElementById('tradeSetup');
+  const setupCustom = document.getElementById('tradeSetupCustom');
+  const timeframeSelect = document.getElementById('tradeTimeframe');
+  const directionSelect = document.getElementById('tradeDirection');
+  const outcomeSelect = document.getElementById('tradeOutcome');
 
-  document.getElementById('tradeSymbol').value = trade.symbol || '';
-  document.getElementById('tradeSetup').value = trade.setup || '';
-  document.getElementById('tradeTimeframe').value = trade.timeframe || '15m';
-  document.getElementById('tradeDirection').value = trade.direction || 'LONG';
-  document.getElementById('tradeOutcome').value = trade.outcome || 'WIN';
-  document.getElementById('tradeEntryTime').value = trade.entryTime || '';
-  document.getElementById('tradeExitTime').value = trade.exitTime || '';
-  document.getElementById('tradeEntryPrice').value = trade.entryPrice || '';
-  document.getElementById('tradeExitPrice').value = trade.exitPrice || '';
-  document.getElementById('tradePnl').value = trade.pnl || '';
-  document.getElementById('tradeRMultiple').value = trade.rMultiple || '';
-  document.getElementById('tradeNotes').value = trade.notes || '';
+  const now = new Date();
+  const currentIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  // Update direction buttons
-  document.querySelectorAll('#tradeForm .seg-btn[data-dir]').forEach((b) => {
-    b.classList.toggle('active', b.dataset.dir === (trade.direction || 'LONG'));
-  });
+  if (symbolCustom) { symbolCustom.style.display = 'none'; symbolCustom.value = ''; }
+  if (setupCustom) { setupCustom.style.display = 'none'; setupCustom.value = ''; }
 
-  // Update outcome buttons
-  document.querySelectorAll('#tradeForm .seg-btn[data-outcome]').forEach((b) => {
-    b.classList.toggle('active', b.dataset.outcome === (trade.outcome || 'WIN'));
-  });
+  if (trade) {
+    // Populate existing trade
+    if (symbolSelect) {
+      const match = Array.from(symbolSelect.options).find(o => o.value === trade.symbol);
+      if (match) {
+        symbolSelect.value = trade.symbol;
+      } else {
+        symbolSelect.value = '__custom__';
+        if (symbolCustom) {
+          symbolCustom.style.display = 'block';
+          symbolCustom.value = trade.symbol || '';
+        }
+      }
+    }
 
-  // Images
-  modalTradeImages = [...(trade.images || [])];
+    if (directionSelect) directionSelect.value = trade.direction || 'LONG';
+
+    if (setupSelect) {
+      const match = Array.from(setupSelect.options).find(o => o.value === trade.setup);
+      if (match) {
+        setupSelect.value = trade.setup;
+      } else {
+        setupSelect.value = '__custom__';
+        if (setupCustom) {
+          setupCustom.style.display = 'block';
+          setupCustom.value = trade.setup || '';
+        }
+      }
+    }
+
+    if (timeframeSelect) timeframeSelect.value = trade.timeframe || '15m';
+    if (outcomeSelect) outcomeSelect.value = trade.outcome || 'WIN';
+
+    document.getElementById('tradeEntryTime').value = trade.entryTime || currentIso;
+    document.getElementById('tradeExitTime').value = trade.exitTime || currentIso;
+    document.getElementById('tradeEntryPrice').value = trade.entryPrice || '';
+    document.getElementById('tradeExitPrice').value = trade.exitPrice || '';
+    document.getElementById('tradePnl').value = trade.pnl || '';
+    document.getElementById('tradeRMultiple').value = trade.rMultiple || '';
+    document.getElementById('tradeNotes').value = trade.notes || '';
+    modalTradeImages = [...(trade.images || [])];
+
+  } else {
+    // Fresh trade
+    if (symbolSelect) symbolSelect.value = 'BTC/USDT';
+    if (directionSelect) directionSelect.value = 'LONG';
+    if (setupSelect) setupSelect.value = 'Breakout / Пробой';
+    if (timeframeSelect) timeframeSelect.value = '15m';
+    if (outcomeSelect) outcomeSelect.value = 'WIN';
+
+    document.getElementById('tradeEntryTime').value = currentIso;
+    document.getElementById('tradeExitTime').value = currentIso;
+    document.getElementById('tradeEntryPrice').value = '';
+    document.getElementById('tradeExitPrice').value = '';
+    document.getElementById('tradePnl').value = '+2.0R';
+    document.getElementById('tradeRMultiple').value = '2.0';
+    document.getElementById('tradeNotes').value = '';
+    modalTradeImages = [];
+  }
+
   renderImagePreviews('formImagePreviews', modalTradeImages, (idx) => {
     modalTradeImages.splice(idx, 1);
     renderImagePreviews('formImagePreviews', modalTradeImages, null);
   });
 
-  // Render presets
-  renderAllPresetPills();
-
   tradeModalEl.classList.add('active');
   document.body.style.overflow = 'hidden';
+}
+window.openTradeModal = openTradeModal;
+
+async function editTrade(id) {
+  const trade = allTrades.find((t) => t.id === Number(id));
+  if (trade) {
+    openTradeModal(trade);
+  }
 }
 window.editTrade = editTrade;
 
@@ -1522,16 +1623,55 @@ function closeTradeModal() {
 }
 window.closeTradeModal = closeTradeModal;
 
+function handleSelectCustomToggle(selectEl, customInputId) {
+  const customEl = document.getElementById(customInputId);
+  if (!customEl) return;
+  if (selectEl.value === '__custom__') {
+    customEl.style.display = 'block';
+    customEl.focus();
+  } else {
+    customEl.style.display = 'none';
+  }
+}
+window.handleSelectCustomToggle = handleSelectCustomToggle;
+
+function handleOutcomeSelectChange(selectEl, pnlInputId, rHiddenId) {
+  const pnlInput = document.getElementById(pnlInputId);
+  const rHidden = document.getElementById(rHiddenId);
+  if (selectEl.value === 'WIN') {
+    if (pnlInput) pnlInput.value = '+2.0R';
+    if (rHidden) rHidden.value = '2.0';
+  } else if (selectEl.value === 'LOSS') {
+    if (pnlInput) pnlInput.value = '-1.0R';
+    if (rHidden) rHidden.value = '-1.0';
+  } else {
+    if (pnlInput) pnlInput.value = '0.0R';
+    if (rHidden) rHidden.value = '0.0';
+  }
+}
+window.handleOutcomeSelectChange = handleOutcomeSelectChange;
+
 async function handleModalTradeSubmit(e) {
   e.preventDefault();
 
-  const symbol = document.getElementById('tradeSymbol').value.trim().toUpperCase();
+  const symbolSelect = document.getElementById('tradeSymbol');
+  const symbolCustom = document.getElementById('tradeSymbolCustom');
+  let symbol = symbolSelect.value;
+  if (symbol === '__custom__') {
+    symbol = symbolCustom ? symbolCustom.value.trim().toUpperCase() : '';
+  }
   if (!symbol) {
-    showToast('Введите тикер (например BTC/USDT)', 'error');
+    showToast('Выберите или введите тикер', 'error');
     return;
   }
 
-  const setup = document.getElementById('tradeSetup').value.trim();
+  const setupSelect = document.getElementById('tradeSetup');
+  const setupCustom = document.getElementById('tradeSetupCustom');
+  let setup = setupSelect.value;
+  if (setup === '__custom__') {
+    setup = setupCustom ? setupCustom.value.trim() : 'Свой сетап';
+  }
+
   const direction = document.getElementById('tradeDirection').value;
   const timeframe = document.getElementById('tradeTimeframe').value;
   const outcome = document.getElementById('tradeOutcome').value;
@@ -1539,8 +1679,14 @@ async function handleModalTradeSubmit(e) {
   const exitTime = document.getElementById('tradeExitTime').value;
   const entryPrice = document.getElementById('tradeEntryPrice').value.trim();
   const exitPrice = document.getElementById('tradeExitPrice').value.trim();
-  const pnl = document.getElementById('tradePnl').value.trim();
-  const rMultiple = parseFloat(document.getElementById('tradeRMultiple').value || 0);
+  let pnl = document.getElementById('tradePnl').value.trim();
+  let rMultiple = parseFloat(document.getElementById('tradeRMultiple').value || 0);
+
+  if (!pnl) {
+    pnl = outcome === 'WIN' ? '+2.0R' : outcome === 'LOSS' ? '-1.0R' : '0.0R';
+    rMultiple = outcome === 'WIN' ? 2.0 : outcome === 'LOSS' ? -1.0 : 0.0;
+  }
+
   const notes = document.getElementById('tradeNotes').value.trim();
 
   // Save presets
@@ -1581,6 +1727,185 @@ async function handleModalTradeSubmit(e) {
     showToast('Ошибка при сохранении сделки', 'error');
   }
 }
+
+/**
+ * ============================================================================
+ * THEME SYSTEM & SETTINGS ACTIONS
+ * ============================================================================
+ */
+function applyAppTheme(themeName) {
+  document.documentElement.setAttribute('data-theme', themeName);
+  localStorage.setItem('tradelog_theme', themeName);
+  updateThemeCardsUI(themeName);
+  showToast(`Тема «${getThemeDisplayName(themeName)}» установлена`, 'info');
+}
+window.applyAppTheme = applyAppTheme;
+
+function initAppTheme() {
+  const saved = localStorage.getItem('tradelog_theme') || 'midnight';
+  document.documentElement.setAttribute('data-theme', saved);
+  updateThemeCardsUI(saved);
+}
+window.initAppTheme = initAppTheme;
+
+function updateThemeCardsUI(activeTheme = null) {
+  const current = activeTheme || localStorage.getItem('tradelog_theme') || 'midnight';
+  document.querySelectorAll('.theme-card').forEach(card => {
+    card.classList.toggle('active', card.dataset.themeName === current);
+  });
+}
+
+function getThemeDisplayName(theme) {
+  const names = {
+    midnight: 'Raycast Midnight',
+    cyberpunk: 'Cyberpunk Neon',
+    emerald: 'Emerald Forest',
+    nordic: 'Nordic Slate',
+    oled: 'OLED Pure Black',
+    amber: 'Warm Amber'
+  };
+  return names[theme] || theme;
+}
+
+function populateSettingsVoiceList() {
+  const select = document.getElementById('settingsVoiceSelect');
+  if (!select || !('speechSynthesis' in window)) return;
+
+  const voices = typeof getAvailableRussianVoices === 'function' ? getAvailableRussianVoices() : [];
+  const selectedVoice = localStorage.getItem('tradelog_selected_voice') || '';
+
+  select.innerHTML = '<option value="">Автовыбор (Дмитрий / Приоритетный русский голос)</option>';
+
+  voices.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.name;
+    opt.textContent = `${v.name} (${v.lang})`;
+    if (v.name === selectedVoice) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+window.populateSettingsVoiceList = populateSettingsVoiceList;
+
+function handleVoiceSelectChange(selectEl) {
+  if (selectEl.value) {
+    localStorage.setItem('tradelog_selected_voice', selectEl.value);
+    showToast(`Выбран голос: ${selectEl.value}`, 'success');
+  } else {
+    localStorage.removeItem('tradelog_selected_voice');
+    showToast('Включен автовыбор голоса', 'info');
+  }
+}
+window.handleVoiceSelectChange = handleVoiceSelectChange;
+
+function testDmitryVoice() {
+  if (typeof speakWithDmitry === 'function') {
+    speakWithDmitry('Привет! Голос Дмитрия готов к работе. Я озвучиваю ответы и фиксирую сделки в вашем дневнике.');
+  }
+}
+window.testDmitryVoice = testDmitryVoice;
+
+async function forceAppCacheReset() {
+  if (confirm('Сбросить весь кэш приложения и загрузить актуальную версию? Ваши сделки и мысли сохранятся в базе данных.')) {
+    try {
+      // 1. Send CLEAR_CACHE to active Service Worker
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ action: 'CLEAR_CACHE' });
+      }
+
+      // 2. Clear CacheStorage
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+
+      // 3. Unregister all service workers
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.unregister();
+        }
+      }
+
+      // 4. Clear temporary session cache
+      sessionStorage.clear();
+
+      showToast('Кэш очищен! Перезагрузка приложения...', 'success');
+      setTimeout(() => {
+        window.location.href = window.location.origin + window.location.pathname + '?v=' + Date.now();
+      }, 400);
+
+    } catch (e) {
+      console.warn('Cache clear error:', e);
+      window.location.reload();
+    }
+  }
+}
+window.forceAppCacheReset = forceAppCacheReset;
+
+async function exportDataJson() {
+  try {
+    const trades = allTrades || [];
+    const thoughts = typeof getAllJournalThoughts === 'function' ? await getAllJournalThoughts() : [];
+    const exportObj = {
+      app: 'TradeLog Raycast',
+      version: '2.4.0',
+      exportDate: new Date().toISOString(),
+      trades: trades,
+      thoughts: thoughts
+    };
+
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tradelog-backup-${new Date().toISOString().substring(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('Резервная копия успешно экспортирована!', 'success');
+  } catch (err) {
+    console.error('Export failed:', err);
+    showToast('Ошибка при экспорте данных', 'error');
+  }
+}
+window.exportDataJson = exportDataJson;
+
+async function handleImportDataFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (evt) => {
+    try {
+      const data = JSON.parse(evt.target.result);
+      if (data.trades && Array.isArray(data.trades)) {
+        for (const t of data.trades) {
+          delete t.id;
+          await addTrade(t);
+        }
+      }
+      if (data.thoughts && Array.isArray(data.thoughts)) {
+        for (const th of data.thoughts) {
+          delete th.id;
+          await addJournalThought(th);
+        }
+      }
+
+      showToast('Данные успешно импортированы!', 'success');
+      await refreshTrades();
+      if (typeof renderJournalThoughtsFeed === 'function') {
+        await renderJournalThoughtsFeed();
+      }
+    } catch (err) {
+      console.error('Import failed:', err);
+      showToast('Ошибка чтения файла резервной копии', 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+window.handleImportDataFile = handleImportDataFile;
 
 async function confirmDeleteTrade(id) {
   if (confirm(`Вы уверены, что хотите удалить сделку #${id}?`)) {

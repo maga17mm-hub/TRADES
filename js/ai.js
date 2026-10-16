@@ -125,34 +125,63 @@ function getDmitryVoice() {
   const voices = window.speechSynthesis.getVoices();
   if (!voices || voices.length === 0) return null;
 
+  // 0. User-selected preferred voice from Settings
+  const preferredVoiceName = localStorage.getItem('tradelog_selected_voice');
+  if (preferredVoiceName) {
+    const userVoice = voices.find(v => v.name === preferredVoiceName);
+    if (userVoice) return userVoice;
+  }
+
   // 1. Direct match for Dmitry / Дмитрий / ru-RU-DmitryNeural
   let voice = voices.find(v => {
     const n = v.name.toLowerCase();
+    const l = (v.lang || '').toLowerCase();
     return (n.includes('dmitry') || n.includes('дмитрий')) && 
-           (v.lang.startsWith('ru') || v.lang.includes('RU'));
+           (l.startsWith('ru') || l.includes('ru'));
   });
   if (voice) return voice;
 
   // 2. Microsoft Natural Russian male voice (Edge / Windows Online Natural)
   voice = voices.find(v => {
     const n = v.name.toLowerCase();
-    return v.lang.startsWith('ru') && 
+    const l = (v.lang || '').toLowerCase();
+    return (l.startsWith('ru') || l.includes('ru')) && 
            (n.includes('natural') || n.includes('online')) && 
            !n.includes('svetlana') && !n.includes('irina') && !n.includes('female');
   });
   if (voice) return voice;
 
-  // 3. Fallback Russian male voice (e.g. Pavel / Павел)
+  // 3. Any Russian male voice (Pavel / Юрий / Александр)
   voice = voices.find(v => {
     const n = v.name.toLowerCase();
-    return v.lang.startsWith('ru') && (n.includes('pavel') || n.includes('павел') || n.includes('male'));
+    const l = (v.lang || '').toLowerCase();
+    return (l.startsWith('ru') || l.includes('ru')) && 
+           (n.includes('pavel') || n.includes('павел') || n.includes('yuri') || n.includes('юрий') || n.includes('male'));
   });
   if (voice) return voice;
 
-  // 4. Any Russian voice
-  voice = voices.find(v => v.lang.startsWith('ru') || v.lang.includes('RU'));
-  return voice || voices[0];
+  // 4. Any Russian voice (Google русский, Milena, Katya, ru-RU)
+  voice = voices.find(v => {
+    const l = (v.lang || '').toLowerCase();
+    const n = v.name.toLowerCase();
+    return l.startsWith('ru') || l.includes('ru') || n.includes('russian') || n.includes('русский');
+  });
+  if (voice) return voice;
+
+  // NEVER return voices[0] if it's not Russian! Return null so the OS uses its native Russian TTS.
+  return null;
 }
+
+function getAvailableRussianVoices() {
+  if (!('speechSynthesis' in window)) return [];
+  const voices = window.speechSynthesis.getVoices() || [];
+  return voices.filter(v => {
+    const l = (v.lang || '').toLowerCase();
+    const n = (v.name || '').toLowerCase();
+    return l.startsWith('ru') || l.includes('ru') || n.includes('russian') || n.includes('русский') || n.includes('dmitry');
+  });
+}
+window.getAvailableRussianVoices = getAvailableRussianVoices;
 
 function speakWithDmitry(text, msgIdx = null) {
   if (!isVoiceEnabled || !('speechSynthesis' in window)) return;
@@ -177,11 +206,13 @@ function speakWithDmitry(text, msgIdx = null) {
   const utterance = new SpeechSynthesisUtterance(cleanText);
   utterance.lang = 'ru-RU';
   utterance.rate = 1.0;
-  utterance.pitch = 0.94; // slightly masculine neural timbre for Dmitry
+  utterance.pitch = 0.95; // masculine timbre for Dmitry
 
   const dmitryVoice = getDmitryVoice();
   if (dmitryVoice) {
     utterance.voice = dmitryVoice;
+  } else {
+    utterance.lang = 'ru-RU';
   }
 
   currentlySpeakingIdx = msgIdx;
@@ -282,63 +313,76 @@ function updateSpeechButtonsUI() {
  * VOICE INPUT: Распознавание речи (STT - Speech-to-Text)
  * ============================================================================
  */
+let recognitionSilenceTimer = null;
+
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) return null;
 
   const recognition = new SpeechRecognition();
   recognition.lang = 'ru-RU';
-  recognition.continuous = false;
+  recognition.continuous = true; // DO NOT disconnect on brief pause!
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
   recognition.onstart = () => {
     isListening = true;
     updateMicButtonUI(true);
-    showToast('🎙 Слушаю вас... Назовите сделку или команду', 'info');
+    showToast('🎙 Слушаю вас... Говорите', 'info');
   };
 
   recognition.onresult = (event) => {
     let interimTranscript = '';
     let finalTranscript = '';
 
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
+    for (let i = 0; i < event.results.length; ++i) {
       if (event.results[i].isFinal) {
-        finalTranscript += event.results[i][0].transcript;
+        finalTranscript += event.results[i][0].transcript + ' ';
       } else {
         interimTranscript += event.results[i][0].transcript;
       }
     }
 
+    const fullText = (finalTranscript + interimTranscript).trim();
     const inputEl = document.getElementById('aiChatInput');
-    if (inputEl) {
-      inputEl.value = finalTranscript || interimTranscript;
+    if (inputEl && fullText) {
+      inputEl.value = fullText;
     }
-  };
 
-  recognition.onspeechend = () => {
-    stopListening();
-
-    // Auto-submit when user finishes speaking
-    const inputEl = document.getElementById('aiChatInput');
-    if (inputEl && inputEl.value.trim().length > 1) {
-      setTimeout(() => {
-        handleAiSubmit();
-      }, 350);
-    }
+    // Reset silence timer: wait 2.5 seconds of silence before auto-submitting
+    clearTimeout(recognitionSilenceTimer);
+    recognitionSilenceTimer = setTimeout(() => {
+      const el = document.getElementById('aiChatInput');
+      if (el && el.value.trim().length > 1 && isListening) {
+        stopListening();
+        setTimeout(() => handleAiSubmit(), 150);
+      }
+    }, 2500);
   };
 
   recognition.onerror = (event) => {
+    if (event.error === 'no-speech') {
+      // User paused, do not disconnect!
+      return;
+    }
     stopListening();
     if (event.error === 'not-allowed') {
       showToast('Доступ к микрофону заблокирован. Разрешите микрофон в браузере.', 'error');
-    } else if (event.error !== 'no-speech') {
-      console.warn('Speech recognition error:', event.error);
+    } else {
+      console.warn('Speech recognition notice:', event.error);
     }
   };
 
   recognition.onend = () => {
-    stopListening();
+    if (isListening) {
+      const inputEl = document.getElementById('aiChatInput');
+      stopListening();
+      if (inputEl && inputEl.value.trim().length > 1) {
+        setTimeout(() => handleAiSubmit(), 200);
+      }
+    } else {
+      stopListening();
+    }
   };
 
   return recognition;
@@ -352,7 +396,12 @@ function toggleVoiceRecording() {
   }
 
   if (isListening) {
+    clearTimeout(recognitionSilenceTimer);
     stopListening();
+    const inputEl = document.getElementById('aiChatInput');
+    if (inputEl && inputEl.value.trim().length > 1) {
+      setTimeout(() => handleAiSubmit(), 150);
+    }
   } else {
     startListening();
   }
@@ -361,6 +410,7 @@ window.toggleVoiceRecording = toggleVoiceRecording;
 
 function startListening() {
   stopSpeaking(); // don't listen to Dmitry's own voice
+  clearTimeout(recognitionSilenceTimer);
 
   if (!speechRecognizer) {
     speechRecognizer = initSpeechRecognition();
@@ -370,12 +420,19 @@ function startListening() {
   try {
     speechRecognizer.start();
   } catch (err) {
-    console.warn('Could not start recognition:', err);
-    stopListening();
+    console.warn('Recognition start state reset:', err);
+    try {
+      speechRecognizer.abort();
+      speechRecognizer = initSpeechRecognition();
+      speechRecognizer.start();
+    } catch (e) {
+      stopListening();
+    }
   }
 }
 
 function stopListening() {
+  clearTimeout(recognitionSilenceTimer);
   isListening = false;
   updateMicButtonUI(false);
   if (speechRecognizer) {

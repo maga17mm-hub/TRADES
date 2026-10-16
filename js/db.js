@@ -5,8 +5,9 @@
  */
 
 const DB_NAME = 'TradeLogDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'trades';
+const THOUGHTS_STORE = 'journal_thoughts';
 const LS_BACKUP_KEY = 'tradelog_trades_store';
 
 let dbInstance = null;
@@ -34,6 +35,12 @@ function getDB() {
         store.createIndex('outcome', 'outcome', { unique: false });
         store.createIndex('direction', 'direction', { unique: false });
         store.createIndex('entryTime', 'entryTime', { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(THOUGHTS_STORE)) {
+        const thoughtStore = db.createObjectStore(THOUGHTS_STORE, { keyPath: 'id', autoIncrement: true });
+        thoughtStore.createIndex('createdAt', 'createdAt', { unique: false });
+        thoughtStore.createIndex('tag', 'tag', { unique: false });
       }
     };
 
@@ -379,4 +386,63 @@ function compressImage(file, maxWidth = 1920, maxHeight = 1080, quality = 0.85) 
  */
 async function loadDemoTradesIfEmpty() {
   return false;
+}
+
+/**
+ * ============================================================================
+ * JOURNAL THOUGHTS & VOICE RECORDINGS STORAGE
+ * ============================================================================
+ */
+async function addJournalThought(thought) {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([THOUGHTS_STORE], 'readwrite');
+    const store = tx.objectStore(THOUGHTS_STORE);
+
+    thought.createdAt = thought.createdAt || new Date().toISOString();
+    thought.updatedAt = new Date().toISOString();
+
+    const request = store.add(thought);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function getAllJournalThoughts() {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([THOUGHTS_STORE], 'readonly');
+    const store = tx.objectStore(THOUGHTS_STORE);
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const items = request.result || [];
+      // Sort newest first
+      items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      resolve(items);
+    };
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function deleteJournalThought(id) {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([THOUGHTS_STORE], 'readwrite');
+    const store = tx.objectStore(THOUGHTS_STORE);
+    const request = store.delete(Number(id));
+    request.onsuccess = () => resolve(true);
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function updateJournalThought(thought) {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([THOUGHTS_STORE], 'readwrite');
+    const store = tx.objectStore(THOUGHTS_STORE);
+    thought.updatedAt = new Date().toISOString();
+    const request = store.put(thought);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = (e) => reject(e.target.error);
+  });
 }

@@ -1,16 +1,30 @@
-const CACHE_NAME = 'tradelog-v3';
+const CACHE_NAME = 'tradelog-v4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './css/style.css',
   './js/db.js',
   './js/app.js',
+  './js/ai.js',
+  './js/notes.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon.svg',
   './icons/favicon.png'
 ];
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.action === 'CLEAR_CACHE') {
+    caches.keys().then((keys) => {
+      return Promise.all(keys.map(k => caches.delete(k)));
+    }).then(() => {
+      if (event.ports && event.ports[0]) {
+        event.ports[0].postMessage({ cleared: true });
+      }
+    });
+  }
+});
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
