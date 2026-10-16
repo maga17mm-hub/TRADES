@@ -3351,13 +3351,13 @@ html.lightbox-open {
   align-items: center;
   gap: 8px;
   padding: 11px 18px;
-  background: #13151b;
-  border: 1px solid rgba(255, 99, 99, 0.45);
+  background: var(--brand);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 9999px;
-  color: #ffffff;
+  color: #ffffff !important;
   font-size: 0.88rem;
   font-weight: 600;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.7), 0 0 14px rgba(255, 99, 99, 0.22);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.7), 0 0 14px var(--brand-glow);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
@@ -3369,15 +3369,21 @@ html.lightbox-open {
 }
 
 .journal-add-fab svg {
-  stroke: var(--color-coral-pulse);
+  stroke: currentColor !important;
+  color: inherit !important;
   transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.journal-add-fab svg line {
+  stroke: currentColor !important;
 }
 
 .journal-add-fab:hover {
-  background: #1b1e26;
-  border-color: var(--color-coral-pulse);
+  background: var(--brand-hover);
+  border-color: rgba(255, 255, 255, 0.4);
   transform: translateY(-2px);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 99, 99, 0.35);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.8), 0 0 20px var(--brand-glow);
 }
 
 .journal-add-fab:hover svg {
@@ -3386,6 +3392,18 @@ html.lightbox-open {
 
 .journal-add-fab:active {
   transform: scale(0.97);
+}
+
+[data-theme="oled"] .journal-add-fab {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+[data-theme="oled"] .journal-add-fab svg,
+[data-theme="oled"] .journal-add-fab svg line {
+  stroke: #000000 !important;
+  color: #000000 !important;
 }
 
 /* Empty State */

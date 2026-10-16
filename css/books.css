@@ -283,7 +283,7 @@ main.app-container { padding-top: 43px; }
   border: 1px solid var(--border-medium);
   border-radius: 9999px;
   background: var(--brand);
-  color: #fff;
+  color: #fff !important;
   font-size: 13px;
   font-weight: 600;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
@@ -300,7 +300,12 @@ main.app-container { padding-top: 43px; }
   transform: translateY(-2px);
 }
 .journal-add-fab svg {
-  color: #fff;
+  stroke: currentColor !important;
+  color: inherit !important;
+  flex-shrink: 0;
+}
+.journal-add-fab svg line {
+  stroke: currentColor !important;
 }
 .ios-notes-empty-state { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 24px; padding: 55px 24px; }
 .ios-notes-empty-icon { color: var(--brand); opacity: 1; margin-bottom: 20px; }
