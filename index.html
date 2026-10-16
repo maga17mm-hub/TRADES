@@ -248,67 +248,22 @@
     </div>
 
     <!-- ======================================================================
-         TAB 2: ДНЕВНИК МЫСЛЕЙ И ГОЛОСОВЫХ ЗАМЕТОК
+         TAB 2: ДНЕВНИК МЫСЛЕЙ (Apple Notes / iOS Style)
          ====================================================================== -->
     <div id="tabJournalView" class="tab-view" style="display: none;">
       
-      <!-- Journal Feed Header -->
-      <div class="journal-feed-header">
-        <div>
-          <h2 class="journal-feed-title">Дневник мыслей</h2>
-          <p class="journal-feed-subtitle">Личные размышления, выводы по рынку, психология и голосовые заметки</p>
-        </div>
-      </div>
-
-      <!-- Journal Sub-tabs Navigation -->
-      <div class="journal-subnav-bar">
-        <button type="button" id="journalSubtabComposeBtn" class="journal-subnav-pill active" onclick="switchJournalSubTab('compose')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 20h9"></path>
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-          </svg>
-          <span>Записать мысль или голос</span>
-        </button>
-        <button type="button" id="journalSubtabFeedBtn" class="journal-subnav-pill" onclick="switchJournalSubTab('feed')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-          </svg>
-          <span>Все записи и аудио</span>
-          <span id="journalCountBadge" class="journal-count-badge">0</span>
-        </button>
-      </div>
-
-      <!-- Sub-view 1: Compose New Thought Box -->
-      <section id="journalComposeSection" class="thought-compose-card">
-        <form onsubmit="handleSaveJournalThought(event)">
-          <div class="form-group" style="margin-bottom: 16px;">
-            <div class="field-label-row">
-              <label class="form-label" for="journalThoughtText">Мысли, эмоции и выводы</label>
-              <span class="field-hint">Текст или аудиозапись</span>
+      <!-- SUB-VIEW 1: Notes List (Главный список заметок) -->
+      <div id="journalListView" class="ios-notes-list-view">
+        
+        <div class="ios-notes-header">
+          <div class="ios-notes-header-top">
+            <div>
+              <h2 class="ios-notes-title">Дневник</h2>
+              <span id="journalCountBadge" class="ios-notes-count-badge">0 мыслей</span>
             </div>
-            <textarea id="journalThoughtText" class="form-textarea" rows="4" placeholder="Напишите свои мысли по рынку" style="margin-bottom: 6px;"></textarea>
-          </div>
-
-          <!-- Voice Memo Recording Button & Waveform -->
-          <div class="thought-voice-row" style="margin-bottom: 16px; margin-top: 6px;">
-            <button type="button" id="thoughtRecordBtn" class="thought-audio-btn" onclick="toggleThoughtAudioRecording()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                <line x1="12" y1="19" x2="12" y2="23"></line>
-                <line x1="8" y1="23" x2="16" y2="23"></line>
-              </svg>
-              <span>Записать голосовую мысль</span>
-            </button>
-            <div id="thoughtAudioPreviewBox" style="display: none; margin-top: 10px;"></div>
-          </div>
-
-          <!-- Perfectly Aligned Actions Grid -->
-          <div class="thought-actions-grid">
-            <div class="thought-tag-col">
-              <label class="form-label" for="journalThoughtTag" style="font-size: 0.78rem;">Категория записи</label>
-              <select id="journalThoughtTag" class="form-select">
+            <div class="ios-notes-filter-wrap">
+              <select id="journalFilterTag" class="form-select form-select-sm" onchange="filterJournalThoughts(this.value)">
+                <option value="all">Все категории</option>
                 <option value="Мысли">Мысли и выводы</option>
                 <option value="Психология">Психология и эмоции</option>
                 <option value="Анализ рынка">Анализ рынка</option>
@@ -316,24 +271,78 @@
                 <option value="Ошибки">Ошибки и дисциплина</option>
               </select>
             </div>
-            <div class="thought-submit-col">
-              <button type="submit" class="btn btn-primary thought-save-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span>Сохранить в дневник</span>
-              </button>
-            </div>
           </div>
-        </form>
-      </section>
 
-      <!-- Sub-view 2: Feed of Saved Thoughts -->
-      <section id="journalFeedSection" style="display: none;">
-        <div id="journalThoughtsFeed" class="thoughts-feed">
-          <!-- Dynamically rendered from IndexedDB -->
+          <!-- Apple Notes Search Bar -->
+          <div class="ios-notes-search-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="journalSearchInput" class="ios-notes-search-input" placeholder="Поиск по мыслям..." oninput="handleJournalSearch(this.value)">
+            <button type="button" id="journalSearchClearBtn" class="ios-notes-search-clear" onclick="clearJournalSearch()" style="display: none;" title="Очистить поиск">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
         </div>
-      </section>
+
+        <!-- Notes Feed / History List -->
+        <div id="journalThoughtsFeed" class="ios-notes-feed">
+          <!-- Dynamically populated from IndexedDB -->
+        </div>
+
+        <!-- Bottom-Left Add Button (+) -->
+        <button type="button" id="journalAddFabBtn" class="journal-add-fab" onclick="openNewThoughtComposer()" title="Добавить мысль или голос">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Добавить мысль</span>
+        </button>
+
+      </div>
+
+      <!-- SUB-VIEW 2: Note Detail & Edit Screen (Просмотр и редактирование мысли) -->
+      <div id="journalDetailView" class="ios-note-detail-view" style="display: none;">
+        
+        <!-- Top Action Bar -->
+        <div class="ios-note-detail-topbar">
+          <button type="button" class="ios-note-back-btn" onclick="backToJournalList()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>Назад</span>
+          </button>
+
+          <div class="ios-note-detail-top-actions">
+            <!-- Edit / Save Button -->
+            <button type="button" id="journalEditToggleBtn" class="btn btn-secondary btn-sm ios-note-edit-btn" onclick="toggleThoughtEditMode()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              <span id="journalEditToggleLabel">Править</span>
+            </button>
+
+            <!-- Delete Thought Button -->
+            <button type="button" id="journalDeleteBtn" class="btn-icon-danger btn-sm" onclick="handleCurrentThoughtDelete()" title="Удалить мысль">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Detail / Edit Content Body -->
+        <div id="journalDetailContent" class="ios-note-detail-content">
+          <!-- Dynamically rendered -->
+        </div>
+
+      </div>
 
     </div>
 

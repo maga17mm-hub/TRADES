@@ -446,3 +446,15 @@ async function updateJournalThought(thought) {
     request.onerror = (e) => reject(e.target.error);
   });
 }
+
+async function getJournalThought(id) {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([THOUGHTS_STORE], 'readonly');
+    const store = tx.objectStore(THOUGHTS_STORE);
+    const request = store.get(Number(id));
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
