@@ -19,8 +19,8 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
   <!-- Fonts & Styles -->
-  <link rel="stylesheet" href="./css/style.css?v=19">
-  <link rel="stylesheet" href="./css/books.css?v=19">
+  <link rel="stylesheet" href="./css/style.css?v=20">
+  <link rel="stylesheet" href="./css/books.css?v=20">
   <script>
     // Apply the saved appearance before paint; existing theme choices are retained.
     try { document.documentElement.dataset.theme = localStorage.getItem("tradelog_theme") || "books"; }
@@ -868,13 +868,19 @@
   <!-- ==========================================================================
        MODAL: Screenshot Lightbox Viewer
        ========================================================================== -->
-  <div id="lightboxModal" class="lightbox-modal" onclick="closeLightbox()">
-    <div class="lightbox-content" onclick="event.stopPropagation()">
-      <button class="lightbox-close" onclick="closeLightbox()" title="Закрыть (Esc)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-      </button>
-      <img id="lightboxImg" class="lightbox-img" src="" alt="Скриншот графика">
+  <div id="lightboxModal" class="lightbox-modal" role="dialog" aria-modal="true" onclick="closeLightbox()">
+    <div class="lightbox-top-bar" onclick="event.stopPropagation()">
       <div id="lightboxCaption" class="lightbox-caption"></div>
+      <button type="button" class="lightbox-exit-btn" onclick="closeLightbox()" title="Закрыть фото">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        <span>Закрыть</span>
+      </button>
+    </div>
+    <div class="lightbox-content" onclick="event.stopPropagation()">
+      <img id="lightboxImg" class="lightbox-img" src="" alt="Скриншот сделки">
     </div>
   </div>
 
@@ -1314,10 +1320,10 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="./js/db.js?v=19"></script>
-  <script src="./js/auth.js?v=19"></script>
-  <script src="./js/notes.js?v=19"></script>
-  <script src="./js/app.js?v=19"></script>
-  <script src="./js/ai.js?v=19"></script>
+  <script src="./js/db.js?v=20"></script>
+  <script src="./js/auth.js?v=20"></script>
+  <script src="./js/notes.js?v=20"></script>
+  <script src="./js/app.js?v=20"></script>
+  <script src="./js/ai.js?v=20"></script>
 </body>
 </html>

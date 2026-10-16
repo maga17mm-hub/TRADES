@@ -1,14 +1,21 @@
-const CACHE_NAME = 'tradelog-v19';
+const CACHE_NAME = 'tradelog-v20';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './css/style.css',
+  './css/style.css?v=20',
   './css/books.css',
+  './css/books.css?v=20',
   './js/db.js',
+  './js/db.js?v=20',
   './js/auth.js',
+  './js/auth.js?v=20',
   './js/app.js',
+  './js/app.js?v=20',
   './js/ai.js',
+  './js/ai.js?v=20',
   './js/notes.js',
+  './js/notes.js?v=20',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -30,8 +37,21 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // Force fetching fresh assets from server bypassing HTTP disk cache
+      await Promise.all(
+        ASSETS_TO_CACHE.map(async (url) => {
+          try {
+            const req = new Request(url, { cache: 'reload' });
+            const res = await fetch(req);
+            if (res && res.status === 200) {
+              await cache.put(url, res);
+            }
+          } catch (err) {
+            console.warn('Precache failed for asset:', url, err);
+          }
+        })
+      );
     }).then(() => self.skipWaiting())
   );
 });
@@ -54,9 +74,30 @@ self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
-  // Network-First with cache fallback for instant fresh updates
+  // Handle HTML navigation (entering or reloading the app)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-cache' })
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put('./index.html', copy.clone());
+              cache.put('./', copy);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match('./index.html', { ignoreSearch: true });
+        })
+    );
+    return;
+  }
+
+  // Handle assets (CSS, JS, images): Network-First with cache fallback
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-cache' })
       .then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
@@ -67,12 +108,13 @@ self.addEventListener('fetch', (event) => {
         return networkResponse;
       })
       .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) return cachedResponse;
-          if (event.request.mode === 'navigate') {
-            return caches.match('./index.html');
-          }
-        });
+        return caches.match(event.request, { ignoreSearch: true })
+          .then((cachedResponse) => {
+            if (cachedResponse) return cachedResponse;
+            if (event.request.destination === 'document') {
+              return caches.match('./index.html', { ignoreSearch: true });
+            }
+          });
       })
   );
 });

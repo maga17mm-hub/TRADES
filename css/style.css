@@ -189,7 +189,7 @@ body {
   background-attachment: fixed;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(90px + var(--safe-bottom));
+  padding-bottom: 0;
 }
 
 /* Layout Container */
@@ -1576,61 +1576,95 @@ body.modal-open .bottom-nav {
 .lightbox-modal {
   position: fixed;
   inset: 0;
-  z-index: 120;
-  background: rgba(0, 0, 0, 0.94);
-  backdrop-filter: blur(12px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-  padding: 16px;
-}
-
-.lightbox-modal.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.lightbox-content {
-  position: relative;
-  max-width: 95vw;
-  max-height: 90vh;
+  z-index: 3000 !important;
+  background: rgba(4, 5, 6, 0.98) !important;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  padding: 16px;
+  overscroll-behavior: contain !important;
+}
+
+.lightbox-modal.active {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.lightbox-top-bar {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top, 16px));
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 3010;
+}
+
+.lightbox-caption {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 65%;
+}
+
+.lightbox-exit-btn {
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0 16px !important;
+  font-size: 0.84rem !important;
+  font-weight: 600 !important;
+  border-radius: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-exit-btn:hover {
+  background: rgba(255, 255, 255, 0.26) !important;
+}
+
+.lightbox-content {
+  position: relative;
+  max-width: 96vw;
+  max-height: 84vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 36px;
 }
 
 .lightbox-img {
   max-width: 100%;
-  max-height: 85vh;
+  max-height: 78vh;
   object-fit: contain;
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.9);
 }
 
-.lightbox-close {
-  position: absolute;
-  top: -44px;
-  right: 0;
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: #fff;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+body.lightbox-open .bottom-nav,
+body.modal-open .bottom-nav {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 
-.lightbox-caption {
-  margin-top: 10px;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+body.lightbox-open,
+html.lightbox-open {
+  overflow: hidden !important;
 }
 
 /* Install PWA Prompt Banner */
@@ -3993,7 +4027,7 @@ body.modal-open {
 
 /* Main content layout bottom padding for flush bottom-nav */
 main.app-container {
-  padding-bottom: calc(85px + env(safe-area-inset-bottom, 14px)) !important;
+  padding-bottom: calc(68px + env(safe-area-inset-bottom, 10px)) !important;
 }
 
 @media (max-width: 640px) {

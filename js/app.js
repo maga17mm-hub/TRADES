@@ -62,8 +62,34 @@ const lightboxCaptionEl = document.getElementById('lightboxCaption');
 // DOM Elements - Record Tab Form
 const recordTradeFormEl = document.getElementById('recordTradeForm');
 
+// App Build Version for auto cache invalidation
+const CURRENT_APP_BUILD = 'v20';
+
+function checkAppBuildVersion() {
+  try {
+    const savedBuild = localStorage.getItem('tradelog_app_build');
+    if (savedBuild !== CURRENT_APP_BUILD) {
+      localStorage.setItem('tradelog_app_build', CURRENT_APP_BUILD);
+      if ('caches' in window) {
+        caches.keys().then((keys) => {
+          return Promise.all(
+            keys.map((k) => {
+              if (k !== 'tradelog-' + CURRENT_APP_BUILD) {
+                return caches.delete(k);
+              }
+            })
+          );
+        }).catch(() => {});
+      }
+    }
+  } catch (_) {}
+}
+
 // Initialize Application
 document.addEventListener('DOMContentLoaded', async () => {
+  // Check build version
+  checkAppBuildVersion();
+
   // Register Service Worker for PWA
   registerServiceWorker();
 
@@ -105,9 +131,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
+      navigator.serviceWorker.register('./sw.js?v=20', { updateViaCache: 'none' })
         .then((reg) => {
-          console.log('Service Worker active:', reg.scope);
           try { reg.update(); } catch (_) {}
         })
         .catch((err) => console.log('Service Worker failed:', err));
@@ -127,8 +152,13 @@ function registerServiceWorker() {
  * Tab Navigation (Домой <-> Дневник <-> Настройки)
  */
 function switchTab(tabName) {
-  // If a modal is open, do not switch tabs in background
-  if (document.body.classList.contains('modal-open')) {
+  // If a modal or lightbox is open, do not switch tabs in background
+  if (
+    document.body.classList.contains('modal-open') ||
+    document.body.classList.contains('lightbox-open') ||
+    document.documentElement.classList.contains('lightbox-open') ||
+    (lightboxModalEl && lightboxModalEl.classList.contains('active'))
+  ) {
     return;
   }
 
@@ -1687,9 +1717,12 @@ function setupEventListeners() {
   // Close modals on escape key
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      if (lightboxModalEl && lightboxModalEl.classList.contains('active')) {
+        closeLightbox();
+        return;
+      }
       closeTradeModal();
       closeBackupModal();
-      closeLightbox();
     }
   });
 }
@@ -1762,11 +1795,21 @@ function renderImagePreviews(previewContainerId, images, onDeleteCallback) {
   }
 
   container.innerHTML = images.map((img, idx) => `
-    <div class="preview-item">
-      <img src="${img.dataUrl}" alt="Превью ${idx + 1}">
+    <div class="preview-item" data-preview-idx="${idx}" style="cursor: pointer;" title="Нажмите, чтобы открыть фото">
+      <img src="${img.dataUrl}" alt="Превью ${idx + 1}" loading="lazy">
       <button type="button" class="preview-delete-btn" data-del-idx="${idx}" title="Удалить"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
     </div>
   `).join('');
+
+  container.querySelectorAll('.preview-item').forEach((item) => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.preview-delete-btn')) return;
+      const idx = Number(item.dataset.previewIdx);
+      if (images[idx] && images[idx].dataUrl) {
+        openLightbox(images[idx].dataUrl, `Скриншот #${idx + 1}`);
+      }
+    });
+  });
 
   container.querySelectorAll('.preview-delete-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
@@ -2328,13 +2371,14 @@ async function forceAppCacheReset() {
         }
       }
 
-      // 4. Clear temporary session cache
+      // 4. Clear temporary session cache and set build version
       sessionStorage.clear();
+      localStorage.setItem('tradelog_app_build', CURRENT_APP_BUILD);
 
       showToast('Кэш очищен! Перезагрузка приложения...', 'success');
       setTimeout(() => {
-        window.location.href = window.location.origin + window.location.pathname + '?v=' + Date.now();
-      }, 400);
+        window.location.replace(window.location.origin + window.location.pathname);
+      }, 350);
 
     } catch (e) {
       console.warn('Cache clear error:', e);
@@ -2430,16 +2474,31 @@ window.confirmDeleteTrade = confirmDeleteTrade;
  * ============================================================================
  */
 function openLightbox(imgSrc, caption = '') {
+  if (!lightboxImgEl || !lightboxModalEl) return;
   lightboxImgEl.src = imgSrc;
-  lightboxCaptionEl.textContent = caption;
+  if (lightboxCaptionEl) {
+    lightboxCaptionEl.textContent = caption || 'Скриншот';
+  }
   lightboxModalEl.classList.add('active');
-  document.body.style.overflow = 'hidden';
+  document.body.classList.add('lightbox-open');
+  document.documentElement.classList.add('lightbox-open');
+  document.body.classList.add('modal-open');
 }
 window.openLightbox = openLightbox;
 
 function closeLightbox() {
+  if (!lightboxModalEl) return;
   lightboxModalEl.classList.remove('active');
-  document.body.style.overflow = '';
+  document.body.classList.remove('lightbox-open');
+  document.documentElement.classList.remove('lightbox-open');
+
+  // Only remove modal-open if no other modal is currently active
+  const otherActiveModal = document.querySelector('.modal-overlay.active, .ai-modal-overlay.active');
+  if (!otherActiveModal) {
+    document.body.classList.remove('modal-open');
+    document.documentElement.classList.remove('modal-open');
+    document.body.style.overflow = '';
+  }
 }
 window.closeLightbox = closeLightbox;
 

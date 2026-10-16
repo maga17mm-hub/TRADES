@@ -56,8 +56,8 @@ html:not([data-theme]), [data-theme="books"] {
 }
 html[data-theme]:not([data-theme="books"]) { color-scheme: dark; --text-muted: #a0a19f; --text-secondary: #b6b7b4; --color-smoke: #a0a19f; --color-ash: #b6b7b4; }
 
-html, body { background: var(--bg-primary); color: var(--text-primary); font-size: 15px; }
-body { background-image: none; padding-bottom: calc(128px + var(--safe-bottom)); }
+html, body { background: var(--bg-primary); color: var(--text-primary); font-size: 15px; overscroll-behavior-y: none; }
+body { background-image: none; padding-bottom: 0 !important; }
 button, input, textarea, select { font: inherit; }
 button, a, input, select, textarea { touch-action: manipulation; }
 button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
@@ -325,7 +325,7 @@ main.app-container { padding-top: 43px; }
 
 /* Settings use grouped iOS-style surfaces, preserving all theme and data tools. */
 .journal-feed-header { margin-bottom: 30px !important; }
-#tabSettingsView { max-width: 900px; margin-inline: auto; }
+#tabSettingsView { max-width: 900px; margin-inline: auto; padding-bottom: 16px; }
 .settings-section-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 24px; padding: 27px; margin-bottom: 18px; box-shadow: none; }
 .settings-section-title { font-family: var(--font-editorial); font-size: 23px; font-weight: 500; letter-spacing: -.4px; gap: 12px; align-items: flex-start; }
 .settings-section-title svg { color: var(--brand); margin-top: 4px; }
@@ -442,7 +442,7 @@ body.modal-open::-webkit-scrollbar,
 .upload-title { font-size: 13px; color: var(--text-primary); }
 .upload-subtitle { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
 .lightbox-modal { visibility: hidden; }
-.lightbox-modal.active { visibility: visible; }
+.lightbox-modal.active { visibility: visible !important; }
 .lightbox-caption { color: #fff; }
 .install-banner { background: var(--bg-card); border-color: var(--border-subtle); }
 .toast { background: var(--bg-card); color: var(--text-primary); border-color: var(--border-subtle); box-shadow: 0 6px 25px rgb(0 0 0 / 12%); }
