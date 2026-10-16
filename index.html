@@ -286,23 +286,16 @@
               <span id="journalCountBadge" class="ios-notes-count-badge">0 мыслей</span>
             </div>
             <div class="journal-header-actions">
-        <button type="button" id="journalAddFabBtn" class="journal-add-fab" onclick="openNewThoughtComposer()" title="Добавить мысль или голос">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          <span>Добавить мысль</span>
-        </button>
-            <div class="ios-notes-filter-wrap">
-              <select id="journalFilterTag" class="form-select form-select-sm" onchange="filterJournalThoughts(this.value)">
-                <option value="all">Все категории</option>
-                <option value="Мысли">Мысли и выводы</option>
-                <option value="Психология">Психология и эмоции</option>
-                <option value="Анализ рынка">Анализ рынка</option>
-                <option value="Торговый план">Торговый план</option>
-                <option value="Ошибки">Ошибки и дисциплина</option>
-              </select>
-            </div>
+              <div class="ios-notes-filter-wrap">
+                <select id="journalFilterTag" class="form-select form-select-sm" onchange="filterJournalThoughts(this.value)">
+                  <option value="all">Все категории</option>
+                  <option value="Мысли">Мысли и выводы</option>
+                  <option value="Психология">Психология и эмоции</option>
+                  <option value="Анализ рынка">Анализ рынка</option>
+                  <option value="Торговый план">Торговый план</option>
+                  <option value="Ошибки">Ошибки и дисциплина</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -327,8 +320,14 @@
           <!-- Dynamically populated from IndexedDB -->
         </div>
 
-        <!-- Note creation is available in the journal header. -->
-
+        <!-- Bottom-Left Add Button (+) -->
+        <button type="button" id="journalAddFabBtn" class="journal-add-fab" onclick="openNewThoughtComposer()" title="Добавить мысль или голос">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Добавить мысль</span>
+        </button>
 
       </div>
 
@@ -398,7 +397,7 @@
         <div class="theme-picker-grid">
           <button type="button" class="theme-card" data-theme-name="books" onclick="applyAppTheme('books')">
             <span class="theme-preview-palette"><span class="theme-swatch" style="background:#f7f5f0;"></span><span class="theme-swatch" style="background:#e6dfd3;"></span><span class="theme-swatch" style="background:#b95727;"></span></span>
-            <span class="theme-card-header-row"><span class="theme-card-name">Paper · Светлая</span><span class="theme-card-check">✓</span></span>
+            <span class="theme-card-header-row"><span class="theme-card-name">Paper · Светлая</span><span class="theme-card-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></span></span>
           </button>
           <!-- Midnight (Default) -->
           <button type="button" class="theme-card active" data-theme-name="midnight" onclick="applyAppTheme('midnight')">

@@ -212,7 +212,19 @@ main.app-container { padding-top: 43px; }
 .empty-desc { font-size: 12px; line-height: 1.7; max-width: 270px; margin-bottom: 20px; }
 
 /* The three original tabs and their bottom position are retained. */
-.bottom-nav { background: linear-gradient(to top, var(--bg-primary) 22%, transparent); padding-top: 18px; }
+.bottom-nav {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 999 !important;
+  background: linear-gradient(to top, var(--bg-primary) 30%, transparent) !important;
+  padding-top: 18px;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
 .bottom-nav-inner { background: color-mix(in srgb, var(--bg-card) 90%, transparent); border-color: var(--border-subtle); box-shadow: 0 6px 26px rgb(0 0 0 / 8%); }
 .bottom-nav-item { color: var(--text-secondary); }
 .bottom-nav-item.active { color: var(--text-primary); background: var(--bg-input); box-shadow: none; }
@@ -223,7 +235,7 @@ main.app-container { padding-top: 43px; }
 .ai-fab-btn:hover { border-color: var(--brand); box-shadow: 0 4px 16px rgb(0 0 0 / 10%); }
 
 /* Journal: the same reading rhythm in the library, composer and audio tools. */
-.ios-notes-list-view { position: relative; padding-bottom: 0; }
+.ios-notes-list-view { position: relative; padding-bottom: calc(80px + env(safe-area-inset-bottom, 14px)); }
 .ios-notes-header { margin-bottom: 27px; }
 .ios-notes-header-top { align-items: flex-start; gap: 24px; margin-bottom: 25px; }
 .ios-notes-title { margin-top: 8px; }
@@ -246,9 +258,39 @@ main.app-container { padding-top: 43px; }
 .ios-note-card-snippet { color: var(--text-secondary); }
 .ios-note-tag-chip { border: 0; color: var(--text-secondary); background: var(--bg-input); border-radius: 8px; font-size: 10px; padding: 5px 9px; }
 .ios-note-audio-chip { color: var(--brand); border: 0; background: var(--paper-accent-soft); }
-.journal-add-fab { position: static; display: flex; width: fit-content; margin: 0; min-height: 48px; padding: 12px 22px; border: 0; border-radius: 26px; background: var(--brand); color: #fff; box-shadow: none; font-size: 13px; }
-.journal-add-fab:hover { background: var(--brand-hover); box-shadow: none; transform: none; }
-.journal-add-fab svg { color: #fff; }
+.journal-add-fab {
+  position: fixed !important;
+  bottom: calc(72px + env(safe-area-inset-bottom, 10px)) !important;
+  left: 20px !important;
+  z-index: 998 !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 44px;
+  padding: 11px 20px;
+  border: 1px solid var(--border-medium);
+  border-radius: 9999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.journal-add-fab:hover {
+  background: var(--brand-hover);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  transform: translateY(-2px);
+}
+.journal-add-fab svg {
+  color: #fff;
+}
 .ios-notes-empty-state { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 24px; padding: 55px 24px; }
 .ios-notes-empty-icon { color: var(--brand); opacity: 1; margin-bottom: 20px; }
 .ios-notes-empty-icon svg { width: 42px; height: 42px; stroke-width: 1.1; }
@@ -436,7 +478,6 @@ main.app-container { padding-top: 43px; }
   .ios-notes-header-top { flex-wrap: wrap; gap: 18px; margin-bottom: 16px; }
   .journal-header-actions { width: 100%; flex-direction: row; align-items: center; gap: 9px; padding-top: 0; }
   .ios-notes-filter-wrap { padding-top: 0; width: 100%; min-width: 0; flex: 1; }
-  .journal-header-actions .journal-add-fab { flex-shrink: 0; padding-inline: 15px; min-height: 46px; font-size: 11px; gap: 5px; }
   .ios-notes-filter-wrap .form-select { width: 100%; min-width: 0; font-size: 11px; }
   .ios-notes-count-badge { margin-top: 10px; }
   .ios-notes-header { margin-bottom: 20px; }
