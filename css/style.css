@@ -1515,3 +1515,316 @@ body {
   display: none !important;
 }
 
+/* ==========================================================================
+   Trading Calendar (Raycast Style)
+   ========================================================================== */
+.calendar-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 24px;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.calendar-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.calendar-month-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--color-pure-white);
+  letter-spacing: -0.01em;
+}
+
+.cal-month-badge {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  background: var(--color-obsidian);
+  color: var(--color-ash);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+}
+
+.calendar-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-nav-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.cal-today-btn {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin: 14px 0 8px 0;
+  text-align: center;
+}
+
+.calendar-weekdays span {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-smoke);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.cal-day {
+  min-height: 58px;
+  background: var(--color-obsidian);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.cal-day:hover {
+  background: var(--color-graphite);
+  border-color: var(--border-medium);
+}
+
+.cal-day.empty {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+}
+
+.cal-day.today {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.cal-day.selected {
+  outline: 2px solid var(--color-pure-white);
+  outline-offset: -1px;
+}
+
+.cal-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cal-day-number {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-ash);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-day.today .cal-day-number {
+  color: var(--color-pure-white);
+  font-weight: 700;
+}
+
+/* Day with Trades Indicator */
+.cal-day.has-trades {
+  background: #121417;
+  border-color: var(--border-medium);
+}
+
+.cal-day.has-trades.outcome-win {
+  border-color: rgba(89, 212, 153, 0.45);
+  box-shadow: 0 0 10px rgba(89, 212, 153, 0.06) inset;
+}
+
+.cal-day.has-trades.outcome-loss {
+  border-color: rgba(255, 99, 99, 0.45);
+  box-shadow: 0 0 10px rgba(255, 99, 99, 0.06) inset;
+}
+
+.cal-day.has-trades.outcome-mixed {
+  border-color: rgba(99, 161, 255, 0.45);
+  box-shadow: 0 0 10px rgba(99, 161, 255, 0.06) inset;
+}
+
+.cal-day-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 4px;
+  margin-top: 2px;
+}
+
+.cal-day-pill.win {
+  color: var(--win);
+  background: rgba(89, 212, 153, 0.14);
+}
+
+.cal-day-pill.loss {
+  color: var(--loss);
+  background: rgba(255, 99, 99, 0.14);
+}
+
+.cal-day-pill.mixed {
+  color: #63a1ff;
+  background: rgba(99, 161, 255, 0.14);
+}
+
+.cal-day-pill.be {
+  color: var(--be);
+  background: rgba(156, 156, 157, 0.14);
+}
+
+.cal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.cal-dot.win { background: var(--win); }
+.cal-dot.loss { background: var(--loss); }
+.cal-dot.mixed { background: #63a1ff; }
+.cal-dot.be { background: var(--be); }
+
+/* Selected Day Trades Detail Card */
+.cal-day-details {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: var(--color-obsidian);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  animation: tabFadeIn 0.2s ease;
+}
+
+.cal-details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.cal-details-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-pure-white);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-details-badge {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.cal-trades-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cal-trade-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--color-ink);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cal-trade-item:hover {
+  background: var(--color-graphite);
+  border-color: var(--border-medium);
+}
+
+.cal-trade-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cal-trade-symbol {
+  font-weight: 600;
+  color: var(--color-pure-white);
+  font-size: 0.85rem;
+}
+
+.cal-trade-meta {
+  font-size: 0.75rem;
+  color: var(--color-ash);
+}
+
+.cal-trade-pnl {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Journal Header */
+.journal-feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  margin-bottom: 16px;
+}
+
+.journal-feed-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-pure-white);
+  letter-spacing: -0.01em;
+}
+
+.journal-feed-subtitle {
+  font-size: 0.8rem;
+  color: var(--color-ash);
+  margin-top: 2px;
+}
+

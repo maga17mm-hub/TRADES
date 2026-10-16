@@ -69,9 +69,113 @@
   <main class="app-container">
 
     <!-- ======================================================================
-         TAB 1: ЗАПИСЬ ТРЕЙДОВ
+         TAB 1: ДОМОЙ (HOME: Аналитика & Календарь сделок)
          ====================================================================== -->
-    <div id="tabRecordView" class="tab-view">
+    <div id="tabHomeView" class="tab-view">
+      
+      <!-- Top Analytics Summary Cards (Raycast Key Cards) -->
+      <section class="analytics-section">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Винрейт</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            </div>
+            <div id="statWinrate" class="stat-value">0%</div>
+            <div class="stat-subtext">По всем сделкам</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Итог (PnL / R)</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+            </div>
+            <div id="statPnl" class="stat-value">0.0 R</div>
+            <div class="stat-subtext">Накопленная прибыль</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Всего трейдов</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+            </div>
+            <div id="statTotal" class="stat-value">0</div>
+            <div class="stat-subtext">Зафиксировано в базе</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Лучший сетап</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+            </div>
+            <div id="statBestSetup" class="stat-value" style="font-size: 1.05rem;">—</div>
+            <div class="stat-subtext">Максимальный винрейт</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Trading Calendar Section (Raycast Style) -->
+      <section class="calendar-card">
+        <div class="calendar-header">
+          <div class="calendar-title-wrap">
+            <h2 id="calMonthTitle" class="calendar-month-title">Октябрь 2026</h2>
+            <span id="calMonthTradesSummary" class="cal-month-badge">0 сделок</span>
+          </div>
+          <div class="calendar-controls">
+            <button type="button" class="btn btn-secondary btn-sm cal-nav-btn" onclick="prevCalMonth()" title="Предыдущий месяц">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm cal-today-btn" onclick="resetCalToday()">Сегодня</button>
+            <button type="button" class="btn btn-secondary btn-sm cal-nav-btn" onclick="nextCalMonth()" title="Следующий месяц">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Weekdays Header -->
+        <div class="calendar-weekdays">
+          <span>ПН</span>
+          <span>ВТ</span>
+          <span>СР</span>
+          <span>ЧТ</span>
+          <span>ПТ</span>
+          <span>СБ</span>
+          <span>ВС</span>
+        </div>
+
+        <!-- Days Grid -->
+        <div id="calDaysGrid" class="calendar-grid">
+          <!-- Dynamically populated -->
+        </div>
+
+        <!-- Selected Day Trades Detail Card -->
+        <div id="calDayDetails" class="cal-day-details" style="display: none;">
+          <!-- Dynamically populated on day click -->
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ======================================================================
+         TAB 2: ЗАПИСЬ ТРЕЙДОВ
+         ====================================================================== -->
+    <div id="tabRecordView" class="tab-view" style="display: none;">
       <div class="record-card">
         <div class="record-card-header">
           <div>
@@ -229,103 +333,27 @@
     </div>
 
     <!-- ======================================================================
-         TAB 2: ДНЕВНИК СДЕЛОК
+         TAB 3: ДНЕВНИК СДЕЛОК
          ====================================================================== -->
     <div id="tabJournalView" class="tab-view" style="display: none;">
       
-      <!-- Top Analytics Summary Cards (Polar.sh / Refero Style) -->
-      <section class="analytics-section">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-label">
-              <span>Винрейт</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-            </div>
-            <div id="statWinrate" class="stat-value">0%</div>
-            <div class="stat-subtext">По выбранным сделкам</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-label">
-              <span>Итог (PnL / R)</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="1" x2="12" y2="23"></line>
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-              </svg>
-            </div>
-            <div id="statPnl" class="stat-value">0.0 R</div>
-            <div class="stat-subtext">Накопленная прибыль</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-label">
-              <span>Всего трейдов</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="20" x2="18" y2="10"></line>
-                <line x1="12" y1="20" x2="12" y2="4"></line>
-                <line x1="6" y1="20" x2="6" y2="14"></line>
-              </svg>
-            </div>
-            <div id="statTotal" class="stat-value">0</div>
-            <div class="stat-subtext">Сделок в выборке</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-label">
-              <span>Лучший сетап</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-              </svg>
-            </div>
-            <div id="statBestSetup" class="stat-value" style="font-size: 1.05rem;">—</div>
-            <div class="stat-subtext">Максимальный винрейт</div>
-          </div>
+      <!-- Journal Feed Header -->
+      <div class="journal-feed-header">
+        <div>
+          <h2 class="journal-feed-title">Дневник сделок</h2>
+          <p class="journal-feed-subtitle">Записи трейдов и торговая история</p>
         </div>
-      </section>
+        <button type="button" class="btn btn-primary btn-sm" onclick="switchTab('record')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>+ Записать трейд</span>
+        </button>
+      </div>
 
-      <!-- Structuring & Filter Card (Month, Setup, TF, Search) -->
-      <section class="controls-card">
-        
-        <!-- Top Filters row: Search & Quick dropdowns -->
-        <div class="controls-row-top">
-          <div class="search-box">
-            <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" id="searchInput" class="search-input" placeholder="Поиск по активу (BTC, XAU...) или заметкам">
-          </div>
-
-          <select id="filterTfSelect" class="filter-select">
-            <option value="all">Все ТФ</option>
-            <option value="1m">1m</option>
-            <option value="3m">3m</option>
-            <option value="5m">5m</option>
-            <option value="15m">15m</option>
-            <option value="30m">30m</option>
-            <option value="1h">1h</option>
-            <option value="4h">4h</option>
-            <option value="1D">1D</option>
-          </select>
-
-          <select id="filterOutcomeSelect" class="filter-select">
-            <option value="all">Любой результат</option>
-            <option value="WIN">Только Win (Тейк)</option>
-            <option value="LOSS">Только Loss (Стоп)</option>
-            <option value="BE">Безубыток (BE)</option>
-          </select>
-
-          <select id="filterDirectionSelect" class="filter-select">
-            <option value="all">Long & Short</option>
-            <option value="LONG">Только LONG</option>
-            <option value="SHORT">Только SHORT</option>
-          </select>
-        </div>
-
-        <!-- Structuring by Month (Scrollable Pills) -->
+      <!-- Structuring by Month & Setup (Filter Pills) -->
+      <section class="controls-card" style="margin-bottom: 16px;">
         <div class="filter-pills-wrapper">
           <div class="pills-label-row">
             <span>Структурирование по месяцам</span>
@@ -335,16 +363,14 @@
           </div>
         </div>
 
-        <!-- Structuring by Setup (Scrollable Pills) -->
         <div class="filter-pills-wrapper">
           <div class="pills-label-row">
-            <span>Структурирование по сетапам</span>
+            <span>Сетапы</span>
           </div>
           <div id="setupPills" class="pills-scroll-row">
             <!-- Dynamically populated -->
           </div>
         </div>
-
       </section>
 
       <!-- Trades Feed (List grouped by Month) -->

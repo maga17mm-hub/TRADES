@@ -22,11 +22,18 @@ let editingTradeId = null;
 let deferredInstallPrompt = null;
 
 // DOM Elements - Tabs & Nav
+const tabHomeView = document.getElementById('tabHomeView');
 const tabRecordView = document.getElementById('tabRecordView');
 const tabJournalView = document.getElementById('tabJournalView');
 const navBtnHome = document.getElementById('navBtnHome');
 const navBtnRecord = document.getElementById('navBtnRecord');
 const navBtnJournal = document.getElementById('navBtnJournal');
+
+// DOM Elements - Calendar
+const calMonthTitleEl = document.getElementById('calMonthTitle');
+const calMonthTradesSummaryEl = document.getElementById('calMonthTradesSummary');
+const calDaysGridEl = document.getElementById('calDaysGrid');
+const calDayDetailsEl = document.getElementById('calDayDetails');
 
 // DOM Elements - Journal Feed & Analytics
 const tradesFeedEl = document.getElementById('tradesFeed');
@@ -105,8 +112,9 @@ function registerServiceWorker() {
  */
 function switchTab(tabName) {
   if (tabName === 'record') {
-    tabRecordView.style.display = 'block';
-    tabJournalView.style.display = 'none';
+    if (tabHomeView) tabHomeView.style.display = 'none';
+    if (tabRecordView) tabRecordView.style.display = 'block';
+    if (tabJournalView) tabJournalView.style.display = 'none';
     if (navBtnHome) navBtnHome.classList.remove('active');
     if (navBtnRecord) navBtnRecord.classList.add('active');
     if (navBtnJournal) navBtnJournal.classList.remove('active');
@@ -114,38 +122,318 @@ function switchTab(tabName) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     renderAllPresetPills();
   } else if (tabName === 'journal') {
-    tabRecordView.style.display = 'none';
-    tabJournalView.style.display = 'block';
+    if (tabHomeView) tabHomeView.style.display = 'none';
+    if (tabRecordView) tabRecordView.style.display = 'none';
+    if (tabJournalView) tabJournalView.style.display = 'block';
     if (navBtnHome) navBtnHome.classList.remove('active');
     if (navBtnRecord) navBtnRecord.classList.remove('active');
     if (navBtnJournal) navBtnJournal.classList.add('active');
     localStorage.setItem('tradelog_active_tab', 'journal');
-    updateAnalytics();
     renderMonthPills();
     renderSetupPills();
     renderTradesFeed();
-    const feed = document.getElementById('tradesFeed');
-    if (feed) {
-      feed.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } else {
     // 'home' tab
-    tabRecordView.style.display = 'none';
-    tabJournalView.style.display = 'block';
+    if (tabHomeView) tabHomeView.style.display = 'block';
+    if (tabRecordView) tabRecordView.style.display = 'none';
+    if (tabJournalView) tabJournalView.style.display = 'none';
     if (navBtnHome) navBtnHome.classList.add('active');
     if (navBtnRecord) navBtnRecord.classList.remove('active');
     if (navBtnJournal) navBtnJournal.classList.remove('active');
     localStorage.setItem('tradelog_active_tab', 'home');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     updateAnalytics();
-    renderMonthPills();
-    renderSetupPills();
-    renderTradesFeed();
+    renderCalendar();
   }
 }
 
 // Global exposure for onclick
 window.switchTab = switchTab;
+
+/**
+ * ============================================================================
+ * TRADING CALENDAR ENGINE (Raycast Midnight Theme)
+ * Shows calendar month view with indicators on days where trades were taken.
+ * ============================================================================
+ */
+let calCurrentYear = new Date().getFullYear();
+let calCurrentMonth = new Date().getMonth(); // 0-indexed
+let calSelectedDate = null; // 'YYYY-MM-DD'
+
+const MONTH_NAMES_RU = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+];
+
+function getTradesByDateKey() {
+  const map = {};
+  allTrades.forEach((t) => {
+    if (!t.entryTime) return;
+    const dateKey = t.entryTime.substring(0, 10); // 'YYYY-MM-DD'
+    if (!map[dateKey]) map[dateKey] = [];
+    map[dateKey].push(t);
+  });
+  return map;
+}
+
+function renderCalendar() {
+  if (!calDaysGridEl) return;
+
+  const currentYear = calCurrentYear;
+  const currentMonth = calCurrentMonth;
+  const monthKeyPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+
+  // Update header month & year
+  if (calMonthTitleEl) {
+    calMonthTitleEl.textContent = `${MONTH_NAMES_RU[currentMonth]} ${currentYear}`;
+  }
+
+  // Count trades for this month
+  const tradesByDate = getTradesByDateKey();
+  let monthTradesCount = 0;
+  let monthPnlR = 0;
+
+  allTrades.forEach((t) => {
+    if (t.entryTime && t.entryTime.startsWith(monthKeyPrefix)) {
+      monthTradesCount++;
+      monthPnlR += parseFloat(t.rMultiple || 0);
+    }
+  });
+
+  if (calMonthTradesSummaryEl) {
+    const pnlPrefix = monthPnlR > 0 ? '+' : '';
+    const pnlSuffix = monthTradesCount > 0 ? ` · ${pnlPrefix}${monthPnlR.toFixed(1)}R` : '';
+    calMonthTradesSummaryEl.textContent = `${monthTradesCount} ${getTradeCountWord(monthTradesCount)}${pnlSuffix}`;
+  }
+
+  // Calendar calculations
+  // Days in current month
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  // First day index (Monday = 0, Sunday = 6)
+  const firstDayIndex = (new Date(currentYear, currentMonth, 1).getDay() + 6) % 7;
+
+  // Today key
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  let html = '';
+
+  // Leading empty cells
+  for (let i = 0; i < firstDayIndex; i++) {
+    html += '<div class="cal-day empty"></div>';
+  }
+
+  // Days of month
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dayTrades = tradesByDate[dateKey] || [];
+    const isToday = dateKey === todayKey;
+    const isSelected = dateKey === calSelectedDate;
+
+    let dayClasses = ['cal-day'];
+    if (isToday) dayClasses.push('today');
+    if (isSelected) dayClasses.push('selected');
+
+    let badgeHtml = '';
+
+    if (dayTrades.length > 0) {
+      dayClasses.push('has-trades');
+
+      let wins = 0;
+      let losses = 0;
+      let bes = 0;
+      let dayR = 0;
+
+      dayTrades.forEach((t) => {
+        dayR += parseFloat(t.rMultiple || 0);
+        if (t.outcome === 'WIN') wins++;
+        else if (t.outcome === 'LOSS') losses++;
+        else bes++;
+      });
+
+      let outcomeType = 'mixed';
+      if (wins > 0 && losses === 0) outcomeType = 'win';
+      else if (losses > 0 && wins === 0) outcomeType = 'loss';
+      else if (bes > 0 && wins === 0 && losses === 0) outcomeType = 'be';
+
+      dayClasses.push(`outcome-${outcomeType}`);
+
+      const pnlPrefix = dayR > 0 ? '+' : '';
+      const rText = `${pnlPrefix}${dayR.toFixed(1)}R`;
+
+      badgeHtml = `
+        <div class="cal-day-pill ${outcomeType}" title="${dayTrades.length} ${getTradeCountWord(dayTrades.length)} (${wins}W / ${losses}L / ${bes}BE)">
+          <span class="cal-dot ${outcomeType}"></span>
+          <span>${rText}</span>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="${dayClasses.join(' ')}" onclick="selectCalDay('${dateKey}')">
+        <div class="cal-day-header">
+          <span class="cal-day-number">${day}</span>
+        </div>
+        ${badgeHtml}
+      </div>
+    `;
+  }
+
+  calDaysGridEl.innerHTML = html;
+
+  // Render selected day details if any
+  renderCalDayDetails(tradesByDate);
+}
+
+function selectCalDay(dateKey) {
+  if (calSelectedDate === dateKey) {
+    calSelectedDate = null; // toggle off
+  } else {
+    calSelectedDate = dateKey;
+  }
+  renderCalendar();
+}
+window.selectCalDay = selectCalDay;
+
+function prevCalMonth() {
+  calCurrentMonth--;
+  if (calCurrentMonth < 0) {
+    calCurrentMonth = 11;
+    calCurrentYear--;
+  }
+  renderCalendar();
+}
+window.prevCalMonth = prevCalMonth;
+
+function nextCalMonth() {
+  calCurrentMonth++;
+  if (calCurrentMonth > 11) {
+    calCurrentMonth = 0;
+    calCurrentYear++;
+  }
+  renderCalendar();
+}
+window.nextCalMonth = nextCalMonth;
+
+function resetCalToday() {
+  const now = new Date();
+  calCurrentYear = now.getFullYear();
+  calCurrentMonth = now.getMonth();
+  calSelectedDate = `${calCurrentYear}-${String(calCurrentMonth + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  renderCalendar();
+}
+window.resetCalToday = resetCalToday;
+
+function renderCalDayDetails(tradesByDate) {
+  if (!calDayDetailsEl) return;
+
+  if (!calSelectedDate) {
+    calDayDetailsEl.style.display = 'none';
+    calDayDetailsEl.innerHTML = '';
+    return;
+  }
+
+  const dayTrades = tradesByDate[calSelectedDate] || [];
+  const dateParts = calSelectedDate.split('-');
+  const formattedDate = `${parseInt(dateParts[2], 10)} ${MONTH_NAMES_RU[parseInt(dateParts[1], 10) - 1]} ${dateParts[0]}`;
+
+  calDayDetailsEl.style.display = 'block';
+
+  if (dayTrades.length === 0) {
+    calDayDetailsEl.innerHTML = `
+      <div class="cal-details-header">
+        <div class="cal-details-title">
+          <span>📅 ${formattedDate}</span>
+          <span class="cal-details-badge" style="background: var(--color-ink); color: var(--color-smoke);">Нет сделок</span>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openNewTradeForDate('${calSelectedDate}')">
+          + Записать трейд на этот день
+        </button>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--color-smoke); margin: 0;">В этот день сделок не зафиксировано.</p>
+    `;
+    return;
+  }
+
+  let totalR = 0;
+  let wins = 0;
+  let losses = 0;
+  dayTrades.forEach((t) => {
+    totalR += parseFloat(t.rMultiple || 0);
+    if (t.outcome === 'WIN') wins++;
+    else if (t.outcome === 'LOSS') losses++;
+  });
+
+  const pnlPrefix = totalR > 0 ? '+' : '';
+  const pnlClass = totalR > 0 ? 'stat-win' : totalR < 0 ? 'stat-loss' : '';
+
+  let tradesHtml = dayTrades.map((t) => {
+    const outcomeBadge = t.outcome === 'WIN' 
+      ? '<span class="pill-badge" style="background: rgba(89,212,153,0.15); color: var(--win);">WIN</span>'
+      : t.outcome === 'LOSS'
+      ? '<span class="pill-badge" style="background: rgba(255,99,99,0.15); color: var(--loss);">LOSS</span>'
+      : '<span class="pill-badge" style="background: rgba(156,156,157,0.15); color: var(--be);">BE</span>';
+
+    const dirBadge = t.direction === 'LONG'
+      ? '<span style="color: var(--win); font-weight: 600;">LONG</span>'
+      : '<span style="color: var(--loss); font-weight: 600;">SHORT</span>';
+
+    const rVal = parseFloat(t.rMultiple || 0);
+    const rPrefix = rVal > 0 ? '+' : '';
+    const rClass = rVal > 0 ? 'stat-win' : rVal < 0 ? 'stat-loss' : '';
+
+    return `
+      <div class="cal-trade-item" onclick="editTrade(${t.id})">
+        <div class="cal-trade-main">
+          ${outcomeBadge}
+          <span class="cal-trade-symbol">${escapeHtml(t.symbol)}</span>
+          <span class="cal-trade-meta">${dirBadge} · ${escapeHtml(t.timeframe || '')} · ${escapeHtml(t.setup || 'Без сетапа')}</span>
+        </div>
+        <div class="cal-trade-pnl ${rClass}">
+          ${rPrefix}${rVal.toFixed(1)} R
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  calDayDetailsEl.innerHTML = `
+    <div class="cal-details-header">
+      <div class="cal-details-title">
+        <span>📅 ${formattedDate}</span>
+        <span class="cal-details-badge ${pnlClass}" style="background: var(--color-ink);">
+          ${dayTrades.length} ${getTradeCountWord(dayTrades.length)} · ${pnlPrefix}${totalR.toFixed(1)} R
+        </span>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="openNewTradeForDate('${calSelectedDate}')">
+        + Добавить сделку
+      </button>
+    </div>
+    <div class="cal-trades-list">
+      ${tradesHtml}
+    </div>
+  `;
+}
+
+function openNewTradeForDate(dateStr) {
+  switchTab('record');
+  const dateInput = document.getElementById('recTradeEntryTime');
+  if (dateInput) {
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    dateInput.value = `${dateStr}T${timeStr}`;
+  }
+}
+window.openNewTradeForDate = openNewTradeForDate;
+
+function getTradeCountWord(n) {
+  const abs = Math.abs(n) % 100;
+  const num = abs % 10;
+  if (abs > 10 && abs < 20) return 'сделок';
+  if (num > 1 && num < 5) return 'сделки';
+  if (num === 1) return 'сделка';
+  return 'сделок';
+}
 
 /**
  * ============================================================================
@@ -423,6 +711,7 @@ async function refreshTrades() {
   try {
     allTrades = await getAllTrades();
     updateAnalytics();
+    renderCalendar();
     renderMonthPills();
     renderSetupPills();
     renderTradesFeed();
@@ -433,16 +722,19 @@ async function refreshTrades() {
 }
 
 function updateAnalytics() {
-  const filtered = getFilteredTrades();
-  const total = filtered.length;
+  const total = allTrades.length;
 
   if (total === 0) {
-    statWinrateEl.textContent = '0%';
-    statWinrateEl.className = 'stat-value';
-    statPnlEl.textContent = '0.0 R';
-    statPnlEl.className = 'stat-value';
-    statTotalEl.textContent = '0';
-    statBestSetupEl.textContent = '—';
+    if (statWinrateEl) {
+      statWinrateEl.textContent = '0%';
+      statWinrateEl.className = 'stat-value';
+    }
+    if (statPnlEl) {
+      statPnlEl.textContent = '0.0 R';
+      statPnlEl.className = 'stat-value';
+    }
+    if (statTotalEl) statTotalEl.textContent = '0';
+    if (statBestSetupEl) statBestSetupEl.textContent = '—';
     return;
   }
 
@@ -452,7 +744,7 @@ function updateAnalytics() {
   let totalR = 0;
   const setupStats = {};
 
-  filtered.forEach((t) => {
+  allTrades.forEach((t) => {
     const rVal = parseFloat(t.rMultiple || 0);
     totalR += rVal;
 
@@ -484,15 +776,24 @@ function updateAnalytics() {
     }
   }
 
-  statWinrateEl.textContent = `${winrate}%`;
-  statWinrateEl.className = `stat-value ${winrate >= 50 ? 'stat-win' : 'stat-loss'}`;
+  if (statWinrateEl) {
+    statWinrateEl.textContent = `${winrate}%`;
+    statWinrateEl.className = `stat-value ${winrate >= 50 ? 'stat-win' : 'stat-loss'}`;
+  }
 
-  const pnlPrefix = totalR > 0 ? '+' : '';
-  statPnlEl.textContent = `${pnlPrefix}${totalR.toFixed(1)} R`;
-  statPnlEl.className = `stat-value ${totalR > 0 ? 'stat-win' : totalR < 0 ? 'stat-loss' : ''}`;
+  if (statPnlEl) {
+    const pnlPrefix = totalR > 0 ? '+' : '';
+    statPnlEl.textContent = `${pnlPrefix}${totalR.toFixed(1)} R`;
+    statPnlEl.className = `stat-value ${totalR > 0 ? 'stat-win' : totalR < 0 ? 'stat-loss' : ''}`;
+  }
 
-  statTotalEl.innerHTML = `${total} <span class="stat-subtext" style="display:inline-flex;margin:0;">(<span class="stat-win">${wins}W</span> / <span class="stat-loss">${losses}L</span> / ${be}BE)</span>`;
-  statBestSetupEl.textContent = bestSetupName;
+  if (statTotalEl) {
+    statTotalEl.innerHTML = `${total} <span class="stat-subtext" style="display:inline-flex;margin:0;">(<span class="stat-win">${wins}W</span> / <span class="stat-loss">${losses}L</span> / ${be}BE)</span>`;
+  }
+
+  if (statBestSetupEl) {
+    statBestSetupEl.textContent = bestSetupName;
+  }
 }
 
 function getFilteredTrades() {
@@ -858,30 +1159,38 @@ window.setRecOutcome = setRecOutcome;
  * Setup Event Listeners
  */
 function setupEventListeners() {
-  // Journal Search & Filters
-  searchInputEl.addEventListener('input', (e) => {
-    currentFilter.searchQuery = e.target.value;
-    updateAnalytics();
-    renderTradesFeed();
-  });
+  // Journal Search & Filters (if present)
+  if (searchInputEl) {
+    searchInputEl.addEventListener('input', (e) => {
+      currentFilter.searchQuery = e.target.value;
+      updateAnalytics();
+      renderTradesFeed();
+    });
+  }
 
-  filterTfSelectEl.addEventListener('change', (e) => {
-    currentFilter.timeframe = e.target.value;
-    updateAnalytics();
-    renderTradesFeed();
-  });
+  if (filterTfSelectEl) {
+    filterTfSelectEl.addEventListener('change', (e) => {
+      currentFilter.timeframe = e.target.value;
+      updateAnalytics();
+      renderTradesFeed();
+    });
+  }
 
-  filterOutcomeSelectEl.addEventListener('change', (e) => {
-    currentFilter.outcome = e.target.value;
-    updateAnalytics();
-    renderTradesFeed();
-  });
+  if (filterOutcomeSelectEl) {
+    filterOutcomeSelectEl.addEventListener('change', (e) => {
+      currentFilter.outcome = e.target.value;
+      updateAnalytics();
+      renderTradesFeed();
+    });
+  }
 
-  filterDirectionSelectEl.addEventListener('change', (e) => {
-    currentFilter.direction = e.target.value;
-    updateAnalytics();
-    renderTradesFeed();
-  });
+  if (filterDirectionSelectEl) {
+    filterDirectionSelectEl.addEventListener('change', (e) => {
+      currentFilter.direction = e.target.value;
+      updateAnalytics();
+      renderTradesFeed();
+    });
+  }
 
   // Modal Direction Buttons
   document.querySelectorAll('#tradeForm .seg-btn[data-dir]').forEach((btn) => {
