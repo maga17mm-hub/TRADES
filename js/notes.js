@@ -385,8 +385,17 @@ function renderThoughtViewMode(thought) {
   const tag = (thought.tag && thought.tag !== 'Мысли') ? thought.tag : 'Запись';
 
   const audioHtml = thought.audioData ? `
-    <div class="ios-note-audio-box" style="margin-top: 14px; padding: 0; background: transparent; border: 0;">
-      <audio controls src="${thought.audioData}" class="thought-native-audio" style="width: 100%; height: 38px;"></audio>
+    <div class="ios-note-audio-box" style="margin-top: 16px; padding: 12px 14px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: 14px; width: 100%;">
+      <div style="font-size: 0.74rem; font-weight: 600; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+        <span>Голосовая мысль</span>
+      </div>
+      <audio controls src="${thought.audioData}" class="thought-native-audio" style="width: 100% !important; min-width: 100% !important; height: 44px !important; outline: none; display: block;"></audio>
     </div>
   ` : '';
 
@@ -436,9 +445,9 @@ function renderThoughtComposerMode(existingThought) {
   container.innerHTML = `
     <div class="ios-note-edit-card">
       
-      <!-- Category Tag Row (Compact, Right-aligned) -->
-      <div style="display: flex; align-items: center; justify-content: flex-end; margin-bottom: 10px;">
-        <select id="iosNoteEditTag" class="form-select form-select-sm" style="width: auto; min-width: 130px; max-width: 165px; height: 30px; min-height: 30px; padding: 2px 22px 2px 10px; font-size: 0.76rem; border-radius: 14px;">
+      <!-- Category Tag Row (Left-aligned) -->
+      <div style="display: flex; align-items: center; justify-content: flex-start; margin-bottom: 12px;">
+        <select id="iosNoteEditTag" class="form-select form-select-sm" style="width: auto; min-width: 130px; max-width: 165px; height: 32px; min-height: 32px; padding: 2px 22px 2px 10px; font-size: 0.76rem; border-radius: 14px;">
           <option value="Запись" ${(initialTag === 'Запись' || initialTag === 'Мысли') ? 'selected' : ''}>Запись</option>
           <option value="Психология" ${initialTag === 'Психология' ? 'selected' : ''}>Психология</option>
           <option value="Анализ рынка" ${initialTag === 'Анализ рынка' ? 'selected' : ''}>Анализ рынка</option>
@@ -465,13 +474,20 @@ function renderThoughtComposerMode(existingThought) {
             <span id="thoughtRecordBtnText">Записать голосовую мысль</span>
           </button>
 
-          <!-- Animated Recording Waves -->
+          <!-- Animated Recording Waves & Live Timer -->
           <div id="thoughtRecordWave" class="record-wave-container" style="display: none;">
-            <div class="wave-bar"></div>
-            <div class="wave-bar"></div>
-            <div class="wave-bar"></div>
-            <div class="wave-bar"></div>
-            <div class="wave-bar"></div>
+            <span class="record-pulse-dot" style="margin-right: 4px;"></span>
+            <span style="font-size: 0.72rem; font-weight: 600; color: #ef4444; margin-right: 6px;">Идёт запись</span>
+            <div class="wave-bars-wrapper">
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+            </div>
+            <span id="thoughtRecordWaveTimer" style="font-family: var(--font-mono); font-size: 0.76rem; font-weight: 700; color: #ef4444; margin-left: 6px;">00:00</span>
           </div>
         </div>
 
@@ -707,7 +723,11 @@ function updateThoughtRecordTimer() {
   const secs = String(elapsedSec % 60).padStart(2, '0');
   const btnText = document.getElementById('thoughtRecordBtnText');
   if (btnText) {
-    btnText.textContent = `Остановить запись (${mins}:${secs})`;
+    btnText.textContent = `Остановить (${mins}:${secs})`;
+  }
+  const waveTimer = document.getElementById('thoughtRecordWaveTimer');
+  if (waveTimer) {
+    waveTimer.textContent = `${mins}:${secs}`;
   }
 }
 
@@ -720,7 +740,7 @@ function updateThoughtRecordUI(recording) {
       btn.classList.add('recording');
       btn.innerHTML = `
         <span class="record-pulse-dot"></span>
-        <span id="thoughtRecordBtnText">Остановить запись (00:00)</span>
+        <span id="thoughtRecordBtnText">Остановить (00:00)</span>
       `;
     } else {
       btn.classList.remove('recording');
@@ -737,22 +757,33 @@ function updateThoughtRecordUI(recording) {
   }
 
   if (wave) {
-    wave.style.display = recording ? 'flex' : 'none';
+    wave.style.display = recording ? 'inline-flex' : 'none';
   }
 }
 
 function renderAudioPreviewCardHtml(dataUrl, duration) {
   if (!dataUrl) return '';
   return `
-    <div class="audio-note-preview-card" style="display: flex; align-items: center; gap: 8px; padding: 6px 0; background: transparent; border: 0; box-shadow: none;">
-      <audio controls src="${dataUrl}" class="thought-native-audio" style="flex: 1; min-width: 0; height: 36px;"></audio>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="removeCurrentThoughtAudio()" title="Удалить аудиозапись" style="height: 32px; min-height: 32px; padding: 0 10px; font-size: 11px; border-radius: 16px; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-        <span>Удалить</span>
-      </button>
+    <div class="audio-note-preview-card" style="width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: 14px; margin-top: 10px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <span style="font-size: 0.74rem; font-weight: 600; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+          <span>Голосовая мысль</span>
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="removeCurrentThoughtAudio()" title="Удалить аудиозапись" style="height: 28px; min-height: 28px; padding: 0 10px; font-size: 0.72rem; border-radius: 14px; display: inline-flex; align-items: center; gap: 4px; color: var(--loss); border-color: rgba(244, 63, 94, 0.25);">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          <span>Удалить</span>
+        </button>
+      </div>
+      <audio controls src="${dataUrl}" class="thought-native-audio" style="width: 100% !important; min-width: 100% !important; height: 44px !important; outline: none; display: block;"></audio>
     </div>
   `;
 }

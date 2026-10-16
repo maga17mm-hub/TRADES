@@ -1325,93 +1325,174 @@ function renderTradeCard(t) {
   const outcomeClass = (t.outcome || 'be').toLowerCase();
   const dirClass = (t.direction || 'long').toLowerCase();
   const outcomeLabel = t.outcome === 'WIN' ? 'Тейк-профит' : t.outcome === 'LOSS' ? 'Стоп-лосс' : 'Безубыток';
+  const pnlDisplay = escapeHtml(t.pnl || '0R');
 
-  const entryFormatted = formatDateTimeDisplay(t.entryTime);
+  return `
+    <div class="trade-card ${outcomeClass} trade-card-compact-row" id="trade-card-${t.id}" onclick="openTradeDetailModal(${t.id})" title="Нажмите, чтобы открыть подробности сделки">
+      <div class="trade-compact-main">
+        <span class="trade-symbol">${escapeHtml(t.symbol || 'ASSET')}</span>
+        <span class="direction-badge ${dirClass}">${escapeHtml(t.direction || 'LONG')}</span>
+        <span class="outcome-badge ${outcomeClass}">${outcomeLabel}</span>
+        <span class="trade-pnl-text ${outcomeClass}">${pnlDisplay}</span>
+      </div>
 
-  const images = t.images || [];
+      <div class="trade-compact-btn-wrap" onclick="event.stopPropagation()">
+        <button type="button" class="btn btn-secondary btn-sm btn-trade-detail-trigger" onclick="openTradeDetailModal(${t.id})" title="Подробнее о сделке">
+          <span>Подробнее</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function openTradeDetailModal(id) {
+  const trade = allTrades.find((t) => t.id === Number(id));
+  if (!trade) return;
+
+  const modal = document.getElementById('tradeDetailModal');
+  const body = document.getElementById('tradeDetailBody');
+  if (!modal || !body) return;
+
+  const outcomeClass = (trade.outcome || 'be').toLowerCase();
+  const dirClass = (trade.direction || 'long').toLowerCase();
+  const outcomeLabel = trade.outcome === 'WIN' ? 'Тейк-профит' : trade.outcome === 'LOSS' ? 'Стоп-лосс' : 'Безубыток';
+  const entryFormatted = formatDateTimeDisplay(trade.entryTime);
+  const exitFormatted = formatDateTimeDisplay(trade.exitTime);
+  const durationText = calculateDuration(trade.entryTime, trade.exitTime);
+  const pnlDisplay = escapeHtml(trade.pnl || '0R');
+
   let imagesHtml = '';
-  if (images.length > 0) {
+  if (trade.images && trade.images.length > 0) {
     imagesHtml = `
-      <div class="trade-thumbnails-grid">
-        ${images.map((img, idx) => `
-          <div class="thumbnail-box" data-trade-id="${t.id}" data-img-idx="${idx}">
-            <img src="${img.dataUrl}" alt="Скриншот сделки" loading="lazy">
-            <span class="thumbnail-tag">#${idx + 1}</span>
-          </div>
-        `).join('')}
+      <div style="margin-top: 16px;">
+        <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">
+          Скриншоты сделки (${trade.images.length})
+        </div>
+        <div class="trade-thumbnails-grid">
+          ${trade.images.map((img, idx) => `
+            <div class="thumbnail-box" data-trade-id="${trade.id}" data-img-idx="${idx}" onclick="openLightbox('${img.dataUrl}', '${escapeHtml(trade.symbol || '')} (${escapeHtml(trade.timeframe || '')})')">
+              <img src="${img.dataUrl}" alt="Скриншот сделки" loading="lazy">
+              <span class="thumbnail-tag">#${idx + 1}</span>
+            </div>
+          `).join('')}
+        </div>
       </div>
     `;
   }
 
   let notesHtml = '';
-  if (t.notes && t.notes.trim()) {
-    notesHtml = `<div class="trade-notes-preview">${escapeHtml(t.notes)}</div>`;
+  if (trade.notes && trade.notes.trim()) {
+    notesHtml = `
+      <div style="margin-top: 16px;">
+        <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">
+          Заметки по сделке
+        </div>
+        <div class="trade-detail-notes-box">
+          ${escapeHtml(trade.notes)}
+        </div>
+      </div>
+    `;
   }
 
-  const criteriaBadgeHtml = t.criteria
-    ? `<span class="criteria-badge" title="Критерии входа"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>${escapeHtml(t.criteria)}</span>`
-    : '';
-
-  const entryPriceDisplay = t.entryPrice ? escapeHtml(t.entryPrice) : '—';
-  const exitPriceDisplay = t.exitPrice ? escapeHtml(t.exitPrice) : '—';
-  const pnlDisplay = escapeHtml(t.pnl || '0R');
-
-  return `
-    <div class="trade-card ${outcomeClass}" id="trade-card-${t.id}">
-      <div class="trade-card-top">
-        <div class="trade-asset-info">
-          <span class="trade-symbol">${escapeHtml(t.symbol || 'ASSET')}</span>
-          <span class="direction-badge ${dirClass}">${escapeHtml(t.direction || 'LONG')}</span>
-          <span class="setup-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="2" r="2"></circle></svg>${escapeHtml(t.setup || 'Без сетапа')}</span>
-          <span class="tf-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${escapeHtml(t.timeframe || '15m')}</span>
+  body.innerHTML = `
+    <!-- Top Hero Banner -->
+    <div class="trade-detail-hero ${outcomeClass}">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span class="trade-detail-symbol">${escapeHtml(trade.symbol || 'ASSET')}</span>
+          <span class="direction-badge ${dirClass}">${escapeHtml(trade.direction || 'LONG')}</span>
         </div>
-
-        <div class="trade-outcome-wrapper">
+        <div style="display: flex; align-items: center; gap: 8px;">
           <span class="outcome-badge ${outcomeClass}">${outcomeLabel}</span>
-          <span class="trade-pnl-text ${outcomeClass}">${pnlDisplay}</span>
+          <span class="trade-pnl-text ${outcomeClass}" style="font-size: 1.15rem; margin: 0;">${pnlDisplay}</span>
         </div>
       </div>
+    </div>
 
-      <div class="trade-compact-meta-row">
-        <div class="trade-compact-prices">
-          <span class="compact-price-pill" title="Цена входа">
-            <span>Вход:</span>
-            <strong>${entryPriceDisplay}</strong>
-          </span>
-          <span class="compact-price-pill" title="Тейк-профит / Цена выхода">
-            <span>Тейк:</span>
-            <strong>${exitPriceDisplay}</strong>
-          </span>
-          <span class="compact-price-pill pnl-pill ${outcomeClass}" title="Результат сделки">
-            <span>RR:</span>
-            <strong>${pnlDisplay}</strong>
-          </span>
-          ${criteriaBadgeHtml}
-          ${entryFormatted ? `<span class="compact-trade-date" title="Дата входа">${entryFormatted}</span>` : ''}
-        </div>
-
-        <div class="trade-compact-actions">
-          <button class="btn btn-secondary btn-sm btn-compact-action" onclick="editTrade(${t.id})" title="Изменить сделку">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-            <span>Изменить</span>
-          </button>
-          <button class="btn btn-secondary btn-sm btn-compact-action btn-compact-delete" onclick="confirmDeleteTrade(${t.id})" title="Удалить сделку">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
-        </div>
+    <!-- Metrics Grid -->
+    <div class="trade-detail-grid">
+      <div class="trade-detail-item">
+        <span class="trade-detail-label">Сетап</span>
+        <span class="trade-detail-val">${escapeHtml(trade.setup || '—')}</span>
       </div>
+      <div class="trade-detail-item">
+        <span class="trade-detail-label">Таймфрейм</span>
+        <span class="trade-detail-val">${escapeHtml(trade.timeframe || '—')}</span>
+      </div>
+      <div class="trade-detail-item">
+        <span class="trade-detail-label">Цена входа</span>
+        <span class="trade-detail-val">${escapeHtml(trade.entryPrice || '—')}</span>
+      </div>
+      <div class="trade-detail-item">
+        <span class="trade-detail-label">Тейк / Выход</span>
+        <span class="trade-detail-val">${escapeHtml(trade.exitPrice || '—')}</span>
+      </div>
+      <div class="trade-detail-item">
+        <span class="trade-detail-label">Вход в сделку</span>
+        <span class="trade-detail-val">${entryFormatted || '—'}</span>
+      </div>
+      <div class="trade-detail-item">
+        <span class="trade-detail-label">Выход из сделки</span>
+        <span class="trade-detail-val">${exitFormatted || '—'}</span>
+      </div>
+      <div class="trade-detail-item">
+        <span class="trade-detail-label">Длительность</span>
+        <span class="trade-detail-val">${durationText || '—'}</span>
+      </div>
+      <div class="trade-detail-item">
+        <span class="trade-detail-label">Критерии входа</span>
+        <span class="trade-detail-val">${escapeHtml(trade.criteria || '—')}</span>
+      </div>
+    </div>
 
-      ${imagesHtml}
-      ${notesHtml}
+    ${notesHtml}
+    ${imagesHtml}
+
+    <!-- Modal Actions Footer (with Edit & Delete) -->
+    <div class="trade-detail-footer">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeTradeDetailModal(); confirmDeleteTrade(${trade.id})" style="color: var(--loss); border-color: rgba(244, 63, 94, 0.25);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        <span>Удалить сделку</span>
+      </button>
+
+      <div style="display: inline-flex; align-items: center; gap: 8px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeTradeDetailModal()">
+          Закрыть
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="closeTradeDetailModal(); editTrade(${trade.id})">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          <span>Изменить сделку</span>
+        </button>
+      </div>
     </div>
   `;
+
+  modal.classList.add('active');
+  document.body.classList.add('modal-open');
+  document.documentElement.classList.add('modal-open');
+  document.body.style.overflow = 'hidden';
 }
+window.openTradeDetailModal = openTradeDetailModal;
+
+function closeTradeDetailModal() {
+  const modal = document.getElementById('tradeDetailModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+  document.body.classList.remove('modal-open');
+  document.documentElement.classList.remove('modal-open');
+  document.body.style.overflow = '';
+}
+window.closeTradeDetailModal = closeTradeDetailModal;
 
 function attachCardActionListeners() {
   document.querySelectorAll('.thumbnail-box').forEach((box) => {

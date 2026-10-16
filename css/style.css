@@ -1001,6 +1001,147 @@ body {
   width: 100% !important;
 }
 
+/* Ultra-Compact Trade Card Row (Home & Log feed) */
+.trade-card.trade-card-compact-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 10px 14px !important;
+  gap: 12px !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease !important;
+}
+
+.trade-card.trade-card-compact-row:hover {
+  border-color: var(--border-medium) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+.trade-compact-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.trade-compact-btn-wrap {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.btn-trade-detail-trigger {
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 0.72rem !important;
+  border-radius: var(--radius-sm) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  color: var(--text-secondary) !important;
+}
+
+.btn-trade-detail-trigger:hover {
+  color: var(--text-primary) !important;
+  border-color: var(--brand) !important;
+}
+
+/* Trade Detail Modal Styles */
+.trade-detail-hero {
+  padding: 14px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.trade-detail-hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+}
+
+.trade-detail-hero.win::before { background: var(--win); }
+.trade-detail-hero.loss::before { background: var(--loss); }
+.trade-detail-hero.be::before { background: var(--be); }
+
+.trade-detail-symbol {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.trade-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 480px) {
+  .trade-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trade-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.trade-detail-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.trade-detail-val {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+
+.trade-detail-notes-box {
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.trade-detail-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
 /* Empty State */
 .empty-state {
   text-align: center;
@@ -2802,60 +2943,81 @@ body.modal-open .bottom-nav {
 .record-pulse-dot {
   width: 8px;
   height: 8px;
-  background-color: #ff4d4d;
+  background-color: #ef4444;
   border-radius: 50%;
   display: inline-block;
-  animation: blink 1s infinite alternate;
+  animation: blinkRecord 1s infinite alternate;
+  flex-shrink: 0;
 }
 
-@keyframes blink {
-  from { opacity: 0.3; }
-  to { opacity: 1; }
+@keyframes blinkRecord {
+  from { opacity: 0.3; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1.15); }
+}
+
+.record-wave-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 4px 12px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 16px;
+  animation: pulseRecordBox 2s infinite ease-in-out;
+}
+
+@keyframes pulseRecordBox {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.3); }
+  50% { border-color: rgba(239, 68, 68, 0.75); }
+}
+
+.wave-bars-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+}
+
+.wave-bar {
+  width: 3px;
+  background: #ef4444;
+  border-radius: 2px;
+  animation: waveBarAnim 1s ease-in-out infinite alternate;
+}
+
+.wave-bar:nth-child(1) { height: 8px; animation-delay: 0.0s; }
+.wave-bar:nth-child(2) { height: 16px; animation-delay: 0.2s; }
+.wave-bar:nth-child(3) { height: 12px; animation-delay: 0.4s; }
+.wave-bar:nth-child(4) { height: 18px; animation-delay: 0.1s; }
+.wave-bar:nth-child(5) { height: 14px; animation-delay: 0.3s; }
+.wave-bar:nth-child(6) { height: 17px; animation-delay: 0.5s; }
+.wave-bar:nth-child(7) { height: 10px; animation-delay: 0.25s; }
+
+@keyframes waveBarAnim {
+  0% { transform: scaleY(0.35); }
+  100% { transform: scaleY(1); }
 }
 
 .audio-note-preview-card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   padding: 10px 14px;
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  margin-top: 12px;
-}
-
-.audio-note-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.audio-note-icon {
-  font-size: 1.2rem;
-}
-
-.audio-note-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.audio-note-title {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.audio-note-meta {
-  font-size: 0.72rem;
-  color: var(--text-muted);
+  margin-top: 10px;
+  width: 100%;
 }
 
 .thought-native-audio {
-  height: 34px;
-  max-width: 240px;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 44px !important;
   outline: none;
+  display: block !important;
+  border-radius: 12px;
 }
 
 /* Thought Cards Feed */

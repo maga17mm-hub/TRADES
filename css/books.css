@@ -562,6 +562,9 @@ body.modal-open::-webkit-scrollbar,
   .history-controls-header { display: flex !important; flex-direction: row !important; justify-content: space-between !important; align-items: center !important; }
   .btn-trades-filter-toggle { font-size: 11px; min-height: 34px; padding: 0 10px; }
   .trade-card { padding: 10px 12px; gap: 7px; }
+  .trade-card.trade-card-compact-row { flex-direction: row !important; align-items: center !important; justify-content: space-between !important; padding: 9px 12px !important; gap: 8px !important; }
+  .trade-compact-main { gap: 6px !important; }
+  .btn-trade-detail-trigger { height: 26px !important; min-height: 26px !important; font-size: 10px !important; padding: 0 8px !important; }
   .empty-state { min-height: 290px; padding: 32px 22px; }
   .ios-notes-header-top { flex-wrap: wrap; gap: 18px; margin-bottom: 16px; }
   .journal-header-actions { width: 100%; flex-direction: row; align-items: center; gap: 9px; padding-top: 0; }
