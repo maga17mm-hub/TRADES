@@ -19,8 +19,8 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
   <!-- Fonts & Styles -->
-  <link rel="stylesheet" href="./css/style.css?v=20">
-  <link rel="stylesheet" href="./css/books.css?v=20">
+  <link rel="stylesheet" href="./css/style.css?v=21">
+  <link rel="stylesheet" href="./css/books.css?v=21">
   <script>
     // Apply the saved appearance before paint; existing theme choices are retained.
     try { document.documentElement.dataset.theme = localStorage.getItem("tradelog_theme") || "books"; }
@@ -289,7 +289,6 @@
         <div class="ios-notes-header">
           <div class="ios-notes-header-top">
             <div>
-              <p class="page-eyebrow">МЫСЛИ СТАНОВЯТСЯ ОПЫТОМ</p>
               <h2 class="ios-notes-title">Дневник</h2>
               <p class="page-description">Для идей, выводов и честных разговоров с собой.</p>
               <span id="journalCountBadge" class="ios-notes-count-badge">0 мыслей</span>
@@ -306,21 +305,6 @@
                 </select>
               </div>
             </div>
-          </div>
-
-          <!-- Apple Notes Search Bar -->
-          <div class="ios-notes-search-box">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" id="journalSearchInput" class="ios-notes-search-input" placeholder="Поиск по мыслям..." oninput="handleJournalSearch(this.value)">
-            <button type="button" id="journalSearchClearBtn" class="ios-notes-search-clear" onclick="clearJournalSearch()" style="display: none;" title="Очистить поиск">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -1320,10 +1304,10 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="./js/db.js?v=20"></script>
-  <script src="./js/auth.js?v=20"></script>
-  <script src="./js/notes.js?v=20"></script>
-  <script src="./js/app.js?v=20"></script>
-  <script src="./js/ai.js?v=20"></script>
+  <script src="./js/db.js?v=21"></script>
+  <script src="./js/auth.js?v=21"></script>
+  <script src="./js/notes.js?v=21"></script>
+  <script src="./js/app.js?v=21"></script>
+  <script src="./js/ai.js?v=21"></script>
 </body>
 </html>

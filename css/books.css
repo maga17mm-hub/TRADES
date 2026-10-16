@@ -247,8 +247,8 @@ main.app-container { padding-top: 43px; }
 
 /* Journal: the same reading rhythm in the library, composer and audio tools. */
 .ios-notes-list-view { position: relative; padding-bottom: calc(80px + env(safe-area-inset-bottom, 14px)); }
-.ios-notes-header { margin-bottom: 27px; }
-.ios-notes-header-top { align-items: flex-start; gap: 24px; margin-bottom: 25px; }
+.ios-notes-header { margin-bottom: 20px; }
+.ios-notes-header-top { align-items: flex-start; gap: 24px; margin-bottom: 0; }
 .ios-notes-title { margin-top: 8px; }
 .ios-notes-count-badge { color: var(--brand); font-size: 12px; margin-top: 12px; display: inline-block; }
 .journal-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; padding-top: 14px; }
@@ -566,7 +566,7 @@ body.modal-open::-webkit-scrollbar,
   .trade-compact-main { gap: 6px !important; }
   .btn-trade-detail-trigger { height: 26px !important; min-height: 26px !important; font-size: 10px !important; padding: 0 8px !important; }
   .empty-state { min-height: 290px; padding: 32px 22px; }
-  .ios-notes-header-top { flex-wrap: wrap; gap: 18px; margin-bottom: 16px; }
+  .ios-notes-header-top { flex-wrap: wrap; gap: 14px; margin-bottom: 0; }
   .journal-header-actions { width: 100%; flex-direction: row; align-items: center; gap: 9px; padding-top: 0; }
   .ios-notes-filter-wrap { padding-top: 0; width: 100%; min-width: 0; flex: 1; }
   .ios-notes-filter-wrap .form-select { width: 100%; min-width: 0; font-size: 11px; }
