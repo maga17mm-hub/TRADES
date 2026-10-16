@@ -24,6 +24,7 @@ let deferredInstallPrompt = null;
 // DOM Elements - Tabs & Nav
 const tabRecordView = document.getElementById('tabRecordView');
 const tabJournalView = document.getElementById('tabJournalView');
+const navBtnHome = document.getElementById('navBtnHome');
 const navBtnRecord = document.getElementById('navBtnRecord');
 const navBtnJournal = document.getElementById('navBtnJournal');
 
@@ -75,15 +76,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load trades from DB
   await refreshTrades();
 
-  // Restore active tab (default to 'record' if no trades yet, else last chosen)
+  // Restore active tab (default to 'home' or saved tab)
   const savedTab = localStorage.getItem('tradelog_active_tab');
-  if (savedTab === 'journal') {
-    switchTab('journal');
-  } else if (savedTab === 'record') {
+  if (savedTab === 'record') {
     switchTab('record');
+  } else if (savedTab === 'journal') {
+    switchTab('journal');
   } else {
-    // If user has trades, show journal; if brand new/empty, show record view
-    switchTab(allTrades.length > 0 ? 'journal' : 'record');
+    switchTab('home');
   }
 });
 
@@ -101,23 +101,41 @@ function registerServiceWorker() {
 }
 
 /**
- * Tab Navigation (Запись трейдов <-> Дневник)
+ * Tab Navigation (Домой <-> Сделка <-> Дневник)
  */
 function switchTab(tabName) {
   if (tabName === 'record') {
     tabRecordView.style.display = 'block';
     tabJournalView.style.display = 'none';
-    navBtnRecord.classList.add('active');
-    navBtnJournal.classList.remove('active');
+    if (navBtnHome) navBtnHome.classList.remove('active');
+    if (navBtnRecord) navBtnRecord.classList.add('active');
+    if (navBtnJournal) navBtnJournal.classList.remove('active');
     localStorage.setItem('tradelog_active_tab', 'record');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     renderAllPresetPills();
-  } else {
+  } else if (tabName === 'journal') {
     tabRecordView.style.display = 'none';
     tabJournalView.style.display = 'block';
-    navBtnRecord.classList.remove('active');
-    navBtnJournal.classList.add('active');
+    if (navBtnHome) navBtnHome.classList.remove('active');
+    if (navBtnRecord) navBtnRecord.classList.remove('active');
+    if (navBtnJournal) navBtnJournal.classList.add('active');
     localStorage.setItem('tradelog_active_tab', 'journal');
+    updateAnalytics();
+    renderMonthPills();
+    renderSetupPills();
+    renderTradesFeed();
+    const feed = document.getElementById('tradesFeed');
+    if (feed) {
+      feed.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  } else {
+    // 'home' tab
+    tabRecordView.style.display = 'none';
+    tabJournalView.style.display = 'block';
+    if (navBtnHome) navBtnHome.classList.add('active');
+    if (navBtnRecord) navBtnRecord.classList.remove('active');
+    if (navBtnJournal) navBtnJournal.classList.remove('active');
+    localStorage.setItem('tradelog_active_tab', 'home');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     updateAnalytics();
     renderMonthPills();

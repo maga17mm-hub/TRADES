@@ -1,53 +1,75 @@
 /* ==========================================================================
-   TradeLog - Polar.sh / Refero Design System
-   Modern dark-mode fintech trading journal
+   TradeLog - Raycast Style Design System
+   Midnight command center, coral neon (#ff6363 on #040506)
    ========================================================================== */
 
 :root {
-  --bg-primary: #090a0f;
-  --bg-secondary: #0f1118;
-  --bg-card: #141722;
-  --bg-card-hover: #191d2c;
-  --bg-input: #0c0e14;
-  --bg-modal: #121520;
+  /* Raycast Color Tokens */
+  --color-void-black: #040506;
+  --color-ink: #07080a;
+  --color-obsidian: #111214;
+  --color-graphite: #1b1c1e;
+  --color-smoke: #6a6b6c;
+  --color-ash: #9c9c9d;
+  --color-mist: #e6e6e6;
+  --color-iron: #454647;
+  --color-slate: #2f3031;
+  --color-pure-white: #ffffff;
+  --color-coral-pulse: #ff6363;
+  --color-ember-hush: #452324;
+  --color-electric-sky: #63a1ff;
+  --color-cobalt-edge: #143ca3;
+  --color-deep-space: #02193b;
+  --color-info-blue: #56c2ff;
+  --color-success-green: #59d499;
+
+  /* Semantic UI Mappings */
+  --bg-primary: var(--color-void-black);
+  --bg-secondary: var(--color-ink);
+  --bg-card: var(--color-ink);
+  --bg-card-hover: var(--color-obsidian);
+  --bg-input: var(--color-obsidian);
+  --bg-modal: var(--color-ink);
   
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-medium: rgba(255, 255, 255, 0.14);
-  --border-focus: #3b82f6;
+  --border-subtle: #202224;
+  --border-medium: #363739;
+  --border-focus: var(--color-coral-pulse);
 
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-inverse: #090a0f;
+  --text-primary: var(--color-pure-white);
+  --text-secondary: var(--color-ash);
+  --text-muted: var(--color-smoke);
+  --text-inverse: var(--color-void-black);
 
-  --brand: #3b82f6;
-  --brand-hover: #2563eb;
-  --brand-glow: rgba(59, 130, 246, 0.25);
+  --brand: var(--color-coral-pulse);
+  --brand-hover: #ff7a7a;
+  --brand-glow: rgba(255, 99, 99, 0.25);
 
-  --win: #10b981;
-  --win-bg: rgba(16, 185, 129, 0.1);
-  --win-border: rgba(16, 185, 129, 0.28);
-  --win-glow: rgba(16, 185, 129, 0.2);
+  --win: var(--color-success-green);
+  --win-bg: rgba(89, 212, 153, 0.1);
+  --win-border: rgba(89, 212, 153, 0.28);
+  --win-glow: rgba(89, 212, 153, 0.2);
 
-  --loss: #f43f5e;
-  --loss-bg: rgba(244, 63, 94, 0.1);
-  --loss-border: rgba(244, 63, 94, 0.28);
-  --loss-glow: rgba(244, 63, 94, 0.2);
+  --loss: var(--color-coral-pulse);
+  --loss-bg: rgba(255, 99, 99, 0.1);
+  --loss-border: rgba(255, 99, 99, 0.28);
+  --loss-glow: rgba(255, 99, 99, 0.2);
 
-  --be: #94a3b8;
-  --be-bg: rgba(148, 163, 184, 0.1);
-  --be-border: rgba(148, 163, 184, 0.25);
+  --be: var(--color-ash);
+  --be-bg: rgba(156, 156, 157, 0.1);
+  --be-border: rgba(156, 156, 157, 0.25);
 
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
   --radius-full: 9999px;
 
-  --font-main: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-  --font-mono: "SF Mono", "Fira Code", "Consolas", monospace;
+  --font-main: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'GeistMono', 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
 
-  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border-subtle);
-  --shadow-modal: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--border-medium);
+  --shadow-key: rgba(255, 255, 255, 0.05) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.2) 0px 0px 0px 1px, rgba(0, 0, 0, 0.2) 0px -1px 0px 0px inset;
+  --shadow-card: rgba(0, 0, 0, 0.4) 0px 4px 20px -2px, rgba(255, 255, 255, 0.04) 0px 1px 0px 0px inset;
+  --shadow-modal: rgba(0, 0, 0, 0.85) 0px 25px 60px -15px, 0 0 0 1px var(--border-medium);
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -63,7 +85,7 @@
 
 html, body {
   min-height: 100%;
-  background-color: var(--bg-primary);
+  background-color: var(--color-void-black);
   color: var(--text-primary);
   font-family: var(--font-main);
   font-size: 14px;
@@ -75,12 +97,12 @@ html, body {
 
 body {
   background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.12), transparent),
-    radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.05), transparent 40%);
+    radial-gradient(ellipse 90% 45% at 50% -10%, rgba(20, 60, 163, 0.16), transparent 70%),
+    radial-gradient(circle at 100% 100%, rgba(255, 99, 99, 0.03), transparent 45%);
   background-attachment: fixed;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(80px + var(--safe-bottom));
+  padding-bottom: calc(90px + var(--safe-bottom));
 }
 
 /* Layout Container */
@@ -96,10 +118,10 @@ body {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: rgba(9, 10, 15, 0.78);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(4, 5, 6, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-medium);
   padding-top: calc(12px + var(--safe-top));
   padding-bottom: 12px;
 }
@@ -122,7 +144,7 @@ body {
 .brand-icon-wrapper {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   overflow: hidden;
   box-shadow: 0 0 12px var(--brand-glow);
   display: flex;
@@ -140,22 +162,20 @@ body {
 
 .brand-text h1 {
   font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  background: linear-gradient(180deg, #ffffff 30%, #94a3b8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-pure-white);
 }
 
 .brand-badge {
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--brand);
-  background: rgba(59, 130, 246, 0.12);
+  color: var(--color-coral-pulse);
+  background: rgba(255, 99, 99, 0.1);
   padding: 2px 6px;
-  border-radius: var(--radius-full);
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 99, 99, 0.25);
   font-weight: 600;
 }
 
@@ -173,8 +193,8 @@ body {
   gap: 8px;
   padding: 8px 14px;
   font-size: 0.85rem;
-  font-weight: 600;
-  border-radius: var(--radius-md);
+  font-weight: 500;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.18s ease;
@@ -183,31 +203,34 @@ body {
 }
 
 .btn:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
+/* Raycast Neutral Filled Action (Mist #e6e6e6 fill, Iron #454647 text) */
 .btn-primary {
-  background: #3b82f6;
-  color: #ffffff;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--color-mist);
+  color: var(--color-iron);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), rgba(255, 255, 255, 0.15) 0px 1px 0px 0px inset;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: 600;
 }
 
 .btn-primary:hover {
-  background: #2563eb;
-  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.45);
+  background: var(--color-pure-white);
+  color: #1b1c1e;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
 }
 
 .btn-secondary {
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
+  background: var(--color-obsidian);
+  color: var(--color-ash);
+  border: 1px solid var(--border-medium);
 }
 
 .btn-secondary:hover {
-  background: var(--bg-card-hover);
-  color: var(--text-primary);
-  border-color: var(--border-medium);
+  background: var(--color-graphite);
+  color: var(--color-pure-white);
+  border-color: var(--color-smoke);
 }
 
 .btn-icon-only {
@@ -430,11 +453,11 @@ body {
 }
 
 .pill-item.active {
-  background: rgba(59, 130, 246, 0.15);
+  background: rgba(255, 99, 99, 0.12);
   color: #ffffff;
-  border-color: rgba(59, 130, 246, 0.45);
+  border-color: rgba(255, 99, 99, 0.4);
   font-weight: 600;
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 10px rgba(255, 99, 99, 0.15);
 }
 
 .pill-badge {
@@ -446,7 +469,7 @@ body {
 }
 
 .pill-item.active .pill-badge {
-  background: rgba(59, 130, 246, 0.35);
+  background: rgba(255, 99, 99, 0.3);
   color: #ffffff;
 }
 
@@ -797,11 +820,11 @@ body {
   width: 56px;
   height: 56px;
   border-radius: var(--radius-full);
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(255, 99, 99, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--brand);
+  color: var(--color-coral-pulse);
 }
 
 .empty-title {
@@ -826,10 +849,10 @@ body {
   width: 54px;
   height: 54px;
   border-radius: var(--radius-full);
-  background: #3b82f6;
-  color: #fff;
-  border: none;
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.5);
+  background: var(--color-mist);
+  color: var(--color-iron);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1100,7 +1123,7 @@ body {
 
 .image-upload-zone:hover, .image-upload-zone.dragover {
   border-color: var(--brand);
-  background: rgba(59, 130, 246, 0.05);
+  background: rgba(255, 99, 99, 0.05);
 }
 
 .upload-icon {
@@ -1219,8 +1242,8 @@ body {
 
 /* Install PWA Prompt Banner */
 .install-banner {
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(16, 185, 129, 0.15));
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: linear-gradient(90deg, rgba(255, 99, 99, 0.12), rgba(89, 212, 153, 0.12));
+  border: 1px solid rgba(255, 99, 99, 0.25);
   border-radius: var(--radius-md);
   padding: 10px 14px;
   display: flex;
@@ -1274,30 +1297,40 @@ body {
 }
 
 /* ==========================================================================
-   Bottom Navigation Bar & Tab Views
+   Bottom Navigation Bar (Raycast Floating Glass Pill)
    ========================================================================== */
 .bottom-nav {
   position: fixed;
-  bottom: 0;
+  bottom: 14px;
   left: 0;
   right: 0;
-  height: 62px;
-  background: rgba(12, 14, 21, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid var(--border-subtle);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 90;
+  pointer-events: none;
+  padding: 0 16px;
   padding-bottom: var(--safe-bottom);
 }
 
 .bottom-nav-inner {
+  pointer-events: auto;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
-  max-width: 500px;
-  height: 100%;
+  max-width: 360px;
+  height: 56px;
+  background: rgba(7, 8, 10, 0.88);
+  backdrop-filter: blur(48px);
+  -webkit-backdrop-filter: blur(48px);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-full);
+  padding: 4px 8px;
+  box-shadow: 
+    rgba(0, 0, 0, 0.6) 0px 8px 32px 0px,
+    rgba(255, 255, 255, 0.05) 0px 1px 0px 0px inset,
+    rgba(0, 0, 0, 0.2) 0px -1px 0px 0px inset;
 }
 
 .bottom-nav-item {
@@ -1306,33 +1339,39 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   height: 100%;
   background: none;
   border: none;
-  color: var(--text-muted);
+  border-radius: var(--radius-full);
+  color: var(--color-ash);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.78rem;
-  font-weight: 600;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
   user-select: none;
+  padding: 4px 10px;
 }
 
 .bottom-nav-item svg {
-  transition: transform 0.2s ease, stroke 0.2s ease;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.18s ease;
 }
 
 .bottom-nav-item:hover {
-  color: var(--text-secondary);
+  color: var(--color-pure-white);
 }
 
 .bottom-nav-item.active {
-  color: var(--brand);
+  color: var(--color-pure-white);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: rgba(255, 255, 255, 0.08) 0px 1px 0px 0px inset;
 }
 
 .bottom-nav-item.active svg {
-  stroke: var(--brand);
-  transform: translateY(-1px);
+  stroke: var(--color-coral-pulse);
+  transform: translateY(-1px) scale(1.05);
 }
 
 .tab-view {
@@ -1420,11 +1459,11 @@ body {
 }
 
 .preset-chip.active {
-  background: rgba(59, 130, 246, 0.18);
+  background: rgba(255, 99, 99, 0.15);
   border-color: var(--brand);
   color: #fff;
   font-weight: 600;
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 0 10px rgba(255, 99, 99, 0.25);
 }
 
 .preset-chip-del {
