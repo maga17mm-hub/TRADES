@@ -624,11 +624,11 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 16px;
+  padding: 12px 14px;
   box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 9px;
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
@@ -901,6 +901,104 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Compact Trade Card Meta Row */
+.trade-compact-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.trade-compact-prices {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.compact-price-pill {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.compact-price-pill strong {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.compact-price-pill.pnl-pill.win {
+  color: var(--win);
+  background: var(--win-bg);
+  border-color: var(--win-border);
+}
+
+.compact-price-pill.pnl-pill.loss {
+  color: var(--loss);
+  background: var(--loss-bg);
+  border-color: var(--loss-border);
+}
+
+.compact-price-pill.pnl-pill.be {
+  color: var(--be);
+  background: var(--be-bg);
+  border-color: var(--be-border);
+}
+
+.compact-trade-date {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
+}
+
+.trade-compact-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.btn-compact-action {
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 9px !important;
+  font-size: 0.72rem !important;
+  border-radius: var(--radius-sm) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.btn-compact-delete {
+  color: var(--loss) !important;
+  border-color: rgba(244, 63, 94, 0.25) !important;
+  padding: 0 7px !important;
+}
+
+.btn-compact-delete:hover {
+  background: var(--loss-bg) !important;
+}
+
+.history-controls-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
 }
 
 /* Empty State */

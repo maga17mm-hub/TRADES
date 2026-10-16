@@ -1327,8 +1327,6 @@ function renderTradeCard(t) {
   const outcomeLabel = t.outcome === 'WIN' ? 'Тейк-профит' : t.outcome === 'LOSS' ? 'Стоп-лосс' : 'Безубыток';
 
   const entryFormatted = formatDateTimeDisplay(t.entryTime);
-  const exitFormatted = formatDateTimeDisplay(t.exitTime);
-  const durationText = calculateDuration(t.entryTime, t.exitTime);
 
   const images = t.images || [];
   let imagesHtml = '';
@@ -1350,23 +1348,13 @@ function renderTradeCard(t) {
     notesHtml = `<div class="trade-notes-preview">${escapeHtml(t.notes)}</div>`;
   }
 
-  let priceHtml = '';
-  if (t.entryPrice || t.exitPrice) {
-    priceHtml = `
-      <div class="timing-item highlight-price-item">
-        <span class="timing-label">Вход / Выход</span>
-        <span class="timing-val price-val-highlight">${escapeHtml(t.entryPrice || '—')} → ${escapeHtml(t.exitPrice || '—')}</span>
-      </div>
-    `;
-  }
-
-  const priceBadgeHtml = t.entryPrice
-    ? `<span class="card-entry-pill" title="Цена входа"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>Вход: ${escapeHtml(t.entryPrice)}</span>`
-    : '';
-
   const criteriaBadgeHtml = t.criteria
-    ? `<span class="criteria-badge" title="Критерии входа"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>${escapeHtml(t.criteria)}</span>`
+    ? `<span class="criteria-badge" title="Критерии входа"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>${escapeHtml(t.criteria)}</span>`
     : '';
+
+  const entryPriceDisplay = t.entryPrice ? escapeHtml(t.entryPrice) : '—';
+  const exitPriceDisplay = t.exitPrice ? escapeHtml(t.exitPrice) : '—';
+  const pnlDisplay = escapeHtml(t.pnl || '0R');
 
   return `
     <div class="trade-card ${outcomeClass}" id="trade-card-${t.id}">
@@ -1374,57 +1362,53 @@ function renderTradeCard(t) {
         <div class="trade-asset-info">
           <span class="trade-symbol">${escapeHtml(t.symbol || 'ASSET')}</span>
           <span class="direction-badge ${dirClass}">${escapeHtml(t.direction || 'LONG')}</span>
-          <span class="tf-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${escapeHtml(t.timeframe || '15m')}</span>
           <span class="setup-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="2" r="2"></circle></svg>${escapeHtml(t.setup || 'Без сетапа')}</span>
-          ${criteriaBadgeHtml}
-          ${priceBadgeHtml}
+          <span class="tf-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${escapeHtml(t.timeframe || '15m')}</span>
         </div>
 
         <div class="trade-outcome-wrapper">
           <span class="outcome-badge ${outcomeClass}">${outcomeLabel}</span>
-          <span class="trade-pnl-text ${outcomeClass}">${escapeHtml(t.pnl || '0R')}</span>
+          <span class="trade-pnl-text ${outcomeClass}">${pnlDisplay}</span>
         </div>
       </div>
 
-      <div class="trade-timing-strip">
-        <div class="timing-item">
-          <span class="timing-label">Вход в сделку</span>
-          <span class="timing-val">${entryFormatted}</span>
+      <div class="trade-compact-meta-row">
+        <div class="trade-compact-prices">
+          <span class="compact-price-pill" title="Цена входа">
+            <span>Вход:</span>
+            <strong>${entryPriceDisplay}</strong>
+          </span>
+          <span class="compact-price-pill" title="Тейк-профит / Цена выхода">
+            <span>Тейк:</span>
+            <strong>${exitPriceDisplay}</strong>
+          </span>
+          <span class="compact-price-pill pnl-pill ${outcomeClass}" title="Результат сделки">
+            <span>RR:</span>
+            <strong>${pnlDisplay}</strong>
+          </span>
+          ${criteriaBadgeHtml}
+          ${entryFormatted ? `<span class="compact-trade-date" title="Дата входа">${entryFormatted}</span>` : ''}
         </div>
-        <div class="timing-item">
-          <span class="timing-label">Выход из сделки</span>
-          <span class="timing-val">${exitFormatted}</span>
-        </div>
-        <div class="timing-item">
-          <span class="timing-label">Длительность</span>
-          <span class="timing-val">${durationText}</span>
-        </div>
-        ${priceHtml}
-      </div>
 
-      ${imagesHtml}
-      ${notesHtml}
-
-      <div class="trade-card-footer">
-        <div class="card-footer-info">
-          ID: #${t.id}
-        </div>
-        <div class="card-footer-btns">
-          <button class="btn btn-secondary btn-sm" onclick="editTrade(${t.id})">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="trade-compact-actions">
+          <button class="btn btn-secondary btn-sm btn-compact-action" onclick="editTrade(${t.id})" title="Изменить сделку">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
-            Изменить
+            <span>Изменить</span>
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="confirmDeleteTrade(${t.id})" style="color: var(--loss); border-color: rgba(244,63,94,0.2);">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <button class="btn btn-secondary btn-sm btn-compact-action btn-compact-delete" onclick="confirmDeleteTrade(${t.id})" title="Удалить сделку">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
             </svg>
           </button>
         </div>
       </div>
+
+      ${imagesHtml}
+      ${notesHtml}
     </div>
   `;
 }

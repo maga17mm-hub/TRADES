@@ -194,10 +194,10 @@ main.app-container { padding-top: 43px; }
 .month-header-stats { gap: 8px; font-size: 10px; }
 .month-title { font-size: 12px; font-weight: 550; }
 .trades-feed { gap: 24px; }
-.trade-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 20px; padding: 19px; box-shadow: none; }
+.trade-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 11px 13px; box-shadow: none; gap: 8px; }
 .trade-card:hover { border-color: var(--border-medium); box-shadow: var(--shadow-card); transform: none; }
-.trade-card::before { width: 3px; top: 22px; bottom: 22px; border-radius: 4px; }
-.trade-card-top { flex-wrap: wrap; gap: 12px; }
+.trade-card::before { width: 3px; top: 12px; bottom: 12px; border-radius: 4px; }
+.trade-card-top { flex-wrap: wrap; gap: 8px; }
 .trade-asset-info { flex-wrap: wrap; gap: 7px; }
 .trade-symbol { font-size: 16px; font-weight: 650; letter-spacing: -.4px; color: var(--text-primary); }
 .direction-badge, .outcome-badge, .tf-badge, .setup-badge { border: 0; font-size: 10px; border-radius: 6px; }
@@ -559,9 +559,9 @@ body.modal-open::-webkit-scrollbar,
   .cal-day-pill { font-size: 8px; }
   .calendar-weekdays { gap: 3px; }
   .section-title { font-size: 27px; }
-  .history-controls > div:first-child { flex-direction: column; gap: 14px !important; }
-  .btn-trades-filter-toggle { font-size: 11px; min-height: 40px; }
-  .trade-card { padding: 17px; }
+  .history-controls-header { display: flex !important; flex-direction: row !important; justify-content: space-between !important; align-items: center !important; }
+  .btn-trades-filter-toggle { font-size: 11px; min-height: 34px; padding: 0 10px; }
+  .trade-card { padding: 10px 12px; gap: 7px; }
   .empty-state { min-height: 290px; padding: 32px 22px; }
   .ios-notes-header-top { flex-wrap: wrap; gap: 18px; margin-bottom: 16px; }
   .journal-header-actions { width: 100%; flex-direction: row; align-items: center; gap: 9px; padding-top: 0; }

@@ -385,20 +385,8 @@ function renderThoughtViewMode(thought) {
   const tag = (thought.tag && thought.tag !== 'Мысли') ? thought.tag : 'Запись';
 
   const audioHtml = thought.audioData ? `
-    <div class="ios-note-audio-box">
-      <div class="ios-note-audio-header">
-        <span style="display: inline-flex; align-items: center; gap: 6px; color: var(--brand); font-weight: 500;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-            <line x1="12" y1="19" x2="12" y2="23"></line>
-            <line x1="8" y1="23" x2="16" y2="23"></line>
-          </svg>
-          Голосовая заметка
-        </span>
-        <span>${thought.audioDuration ? thought.audioDuration + ' сек' : ''}</span>
-      </div>
-      <audio controls src="${thought.audioData}" class="thought-native-audio" style="width: 100%; margin-top: 6px;"></audio>
+    <div class="ios-note-audio-box" style="margin-top: 14px; padding: 0; background: transparent; border: 0;">
+      <audio controls src="${thought.audioData}" class="thought-native-audio" style="width: 100%; height: 38px;"></audio>
     </div>
   ` : '';
 
@@ -449,14 +437,8 @@ function renderThoughtComposerMode(existingThought) {
     <div class="ios-note-edit-card">
       
       <!-- Category Tag Row (Compact, Right-aligned) -->
-      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 12px;">
-        <div style="display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 0.74rem;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-            <line x1="7" y1="7" x2="7.01" y2="7"></line>
-          </svg>
-        </div>
-        <select id="iosNoteEditTag" class="form-select form-select-sm" style="width: auto; min-width: 140px; max-width: 170px; height: 30px; min-height: 30px; padding: 2px 24px 2px 10px; font-size: 0.76rem; border-radius: 15px;">
+      <div style="display: flex; align-items: center; justify-content: flex-end; margin-bottom: 10px;">
+        <select id="iosNoteEditTag" class="form-select form-select-sm" style="width: auto; min-width: 130px; max-width: 165px; height: 30px; min-height: 30px; padding: 2px 22px 2px 10px; font-size: 0.76rem; border-radius: 14px;">
           <option value="Запись" ${(initialTag === 'Запись' || initialTag === 'Мысли') ? 'selected' : ''}>Запись</option>
           <option value="Психология" ${initialTag === 'Психология' ? 'selected' : ''}>Психология</option>
           <option value="Анализ рынка" ${initialTag === 'Анализ рынка' ? 'selected' : ''}>Анализ рынка</option>
@@ -762,24 +744,10 @@ function updateThoughtRecordUI(recording) {
 function renderAudioPreviewCardHtml(dataUrl, duration) {
   if (!dataUrl) return '';
   return `
-    <div class="audio-note-preview-card">
-      <div class="audio-note-left">
-        <span class="audio-note-icon">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-            <line x1="12" y1="19" x2="12" y2="23"></line>
-            <line x1="8" y1="23" x2="16" y2="23"></line>
-          </svg>
-        </span>
-        <div class="audio-note-info">
-          <span class="audio-note-title">Голосовая запись прикреплена</span>
-          <span class="audio-note-meta">${duration ? duration + ' сек' : ''}</span>
-        </div>
-      </div>
-      <audio controls src="${dataUrl}" class="thought-native-audio"></audio>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="removeCurrentThoughtAudio()" title="Удалить запись" style="display: inline-flex; align-items: center; gap: 4px;">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    <div class="audio-note-preview-card" style="display: flex; align-items: center; gap: 8px; padding: 6px 0; background: transparent; border: 0; box-shadow: none;">
+      <audio controls src="${dataUrl}" class="thought-native-audio" style="flex: 1; min-width: 0; height: 36px;"></audio>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="removeCurrentThoughtAudio()" title="Удалить аудиозапись" style="height: 32px; min-height: 32px; padding: 0 10px; font-size: 11px; border-radius: 16px; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
