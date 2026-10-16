@@ -41,6 +41,12 @@
         </div>
 
         <div class="header-actions">
+          <button class="btn btn-secondary ai-trigger-btn" onclick="openAiAssistant()" title="ИИ-Ассистент (gpt-5.6-terra)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ff6363" stroke-width="2.5">
+              <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path>
+            </svg>
+            <span>ИИ Ассистент</span>
+          </button>
           <button class="btn btn-secondary btn-icon-only" onclick="openBackupModal()" title="Резервная копия & Экспорт">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -73,6 +79,27 @@
          ====================================================================== -->
     <div id="tabHomeView" class="tab-view">
       
+      <!-- AI Quick Command Banner (Raycast Midnight Style) -->
+      <div class="ai-quick-banner" onclick="openAiAssistant()">
+        <div class="ai-quick-left">
+          <div class="ai-quick-icon-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6363" stroke-width="2.5">
+              <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="ai-quick-title">ИИ-Ассистент <span class="ai-model-tag">gpt-5.6-terra</span></div>
+            <div class="ai-quick-desc">Скажите: «Добавь сделку: лонг BTC...» или «Проанализируй сетапы»</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm ai-quick-btn">
+          <span>Открыть ИИ</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      </div>
+
       <!-- Top Analytics Summary Cards (Raycast Key Cards) -->
       <section class="analytics-section">
         <div class="stats-grid">
@@ -624,11 +651,132 @@
     </div>
   </div>
 
+  <!-- ==========================================================================
+       MODAL: AI Assistant Command Center (Raycast Midnight Theme)
+       ========================================================================== -->
+  <div id="aiAssistantModal" class="modal-overlay ai-modal-overlay">
+    <div class="modal-content ai-modal-card">
+      
+      <!-- AI Header -->
+      <div class="ai-modal-header">
+        <div class="ai-header-brand">
+          <div class="ai-header-icon-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6363" stroke-width="2.5">
+              <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="ai-header-title-row">
+              <h2 class="ai-header-title">TradeLog AI</h2>
+              <span class="ai-status-pill"><span class="ai-status-dot"></span>gpt-5.6-terra</span>
+            </div>
+            <div class="ai-header-subtitle">Tooken Club · Автоматический разбор и запись сделок</div>
+          </div>
+        </div>
+
+        <div class="ai-header-controls">
+          <button type="button" class="btn btn-secondary btn-sm btn-icon-only" onclick="openAiSettings()" title="Настройки API & Ключа">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm btn-icon-only" onclick="clearAiChat()" title="Очистить чат">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+          <button type="button" class="close-btn" onclick="closeAiAssistant()" title="Закрыть (Esc)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Action Prompt Pills -->
+      <div class="ai-quick-pills-row">
+        <button type="button" class="ai-chip" onclick="sendAiPrompt('Добавь сделку: ')">
+          <span>⚡ Добавить сделку</span>
+        </button>
+        <button type="button" class="ai-chip" onclick="sendAiPrompt('Проанализируй мои последние сделки и винрейт')">
+          <span>📊 Анализ винрейта</span>
+        </button>
+        <button type="button" class="ai-chip" onclick="sendAiPrompt('Какой сетап у меня самый прибыльный и где основные убытки?')">
+          <span>🎯 Лучшие сетапы</span>
+        </button>
+        <button type="button" class="ai-chip" onclick="sendAiPrompt('Дай советы по дисциплине и психологии в трейдинге')">
+          <span>🧠 Психология</span>
+        </button>
+      </div>
+
+      <!-- AI Settings View (Collapsible) -->
+      <div id="aiSettingsPanel" class="ai-settings-card" style="display: none;">
+        <div class="ai-settings-header">
+          <span style="font-weight: 600; font-size: 0.85rem; color: #fff;">⚙️ Настройки Tooken Club & Модели</span>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeAiSettings()">✕ Закрыть</button>
+        </div>
+        <form onsubmit="saveAiSettings(event)" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.72rem;">API Ключ (Tooken Club)</label>
+            <input type="password" id="aiSettingKey" class="form-input" style="font-size: 0.8rem; font-family: var(--font-mono);" placeholder="tc_live_...">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-size: 0.72rem;">Модель</label>
+              <input type="text" id="aiSettingModel" class="form-input" value="gpt-5.6-terra" style="font-size: 0.8rem; font-family: var(--font-mono);">
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-size: 0.72rem;">Base URL</label>
+              <input type="text" id="aiSettingBaseUrl" class="form-input" value="https://tooken.club/v1" style="font-size: 0.8rem; font-family: var(--font-mono);">
+            </div>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.72rem;">CORS Proxy URL (опционально, если API блокируется браузером)</label>
+            <input type="text" id="aiSettingProxy" class="form-input" style="font-size: 0.8rem;" placeholder="например https://corsproxy.io/?url={url}">
+          </div>
+          <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="resetAiSettings()">Сбросить</button>
+            <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Scrollable Chat Messages Feed -->
+      <div id="aiChatMessages" class="ai-chat-messages">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Bottom Chat Input Bar -->
+      <form class="ai-chat-input-bar" onsubmit="handleAiSubmit(event)">
+        <textarea id="aiChatInput" class="ai-chat-textarea" placeholder="Скажите «Добавить сделку: лонг BTC...» или задайте вопрос" rows="1" onkeydown="if(event.key === 'Enter' && !event.shiftKey){ event.preventDefault(); handleAiSubmit(event); }"></textarea>
+        <button type="submit" id="aiSendBtn" class="ai-send-btn" title="Отправить сообщение">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- Floating AI Assistant Button (Accessible anywhere) -->
+  <button class="ai-fab-btn" onclick="openAiAssistant()" title="ИИ-Ассистент (gpt-5.6-terra)">
+    <span class="ai-fab-glow"></span>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.3">
+      <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path>
+    </svg>
+  </button>
+
   <!-- Toast Container -->
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
   <script src="./js/db.js"></script>
   <script src="./js/app.js"></script>
+  <script src="./js/ai.js"></script>
 </body>
 </html>
