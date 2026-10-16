@@ -106,8 +106,19 @@ function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
-        .then((reg) => console.log('Service Worker active:', reg.scope))
+        .then((reg) => {
+          console.log('Service Worker active:', reg.scope);
+          try { reg.update(); } catch (_) {}
+        })
         .catch((err) => console.log('Service Worker failed:', err));
+    });
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
     });
   }
 }
@@ -1325,7 +1336,6 @@ function renderTradeCard(t) {
   const outcomeClass = (t.outcome || 'be').toLowerCase();
   const dirClass = (t.direction || 'long').toLowerCase();
   const outcomeLabel = t.outcome === 'WIN' ? 'Тейк-профит' : t.outcome === 'LOSS' ? 'Стоп-лосс' : 'Безубыток';
-  const pnlDisplay = escapeHtml(t.pnl || '0R');
 
   return `
     <div class="trade-card ${outcomeClass} trade-card-compact-row" id="trade-card-${t.id}" onclick="openTradeDetailModal(${t.id})" title="Нажмите, чтобы открыть подробности сделки">
@@ -1334,7 +1344,6 @@ function renderTradeCard(t) {
         <span class="direction-badge ${dirClass}">${escapeHtml(t.direction || 'LONG')}</span>
         <span class="setup-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="2" r="2"></circle></svg>${escapeHtml(t.setup || 'Без сетапа')}</span>
         <span class="outcome-badge ${outcomeClass}">${outcomeLabel}</span>
-        <span class="trade-pnl-text ${outcomeClass}">${pnlDisplay}</span>
       </div>
 
       <div class="trade-compact-btn-wrap" onclick="event.stopPropagation()">
