@@ -2,9 +2,12 @@
  * ============================================================================
  * TradeLog AI Assistant (Raycast Midnight Theme)
  * Powered by Tooken Club (gpt-5.6-terra)
+ * Voice: Neural Dmitry (Speech Synthesis) & Voice Command Input (Web Speech API)
  * 
  * Features:
  * - Natural language trade logging ("добавь сделку лонг по BTC...")
+ * - Speech-to-Text: Speak commands via microphone in Russian
+ * - Text-to-Speech: Neural voice "Дмитрий" (ru-RU-DmitryNeural / Dmitry Natural)
  * - Automatic extraction of Symbol, Direction, Setup, Timeframe, Outcome, PnL
  * - Journal performance analytics & trading psychology feedback
  * - Offline / CORS-resilient fallback parser
@@ -55,12 +58,30 @@ function getAiProxyUrl() {
 let aiChatHistory = [];
 let isAiGenerating = false;
 
+// Voice Synthesis (TTS - Dmitry) State
+let isVoiceEnabled = localStorage.getItem('tradelog_ai_voice_enabled') !== 'false'; // default on
+let currentlySpeakingIdx = null;
+
+// Voice Recognition (STT - Mic) State
+let speechRecognizer = null;
+let isListening = false;
+
 /**
  * Initialize AI Assistant on page load
  */
 document.addEventListener('DOMContentLoaded', () => {
   initAiChatHistory();
+  initVoiceEngine();
+  updateVoiceToggleUI();
 });
+
+function initVoiceEngine() {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => {
+      getDmitryVoice();
+    };
+  }
+}
 
 function initAiChatHistory() {
   const saved = sessionStorage.getItem('tradelog_ai_chat');
@@ -78,7 +99,7 @@ function initAiChatHistory() {
   aiChatHistory = [
     {
       role: 'assistant',
-      content: 'Привет! Я твой торговый ИИ-ассистент на базе **gpt-5.6-terra**.\n\nТы можешь просто сказать мне:\n- *«Добавь сделку: лонг по BTC/USDT на 15m, сетап пробой уровня, вход 68500, выход 70000, профит +2.5R»*\n- *«Проанализируй мои последние сделки и винрейт»*\n- *«Какой сетап приносит больше всего прибыли?»*\n\nЯ сразу распознаю параметры сделки, занесу её в дневник и обновлю статистику с календарём!',
+      content: 'Привет! Я твой торговый ИИ-ассистент на базе **gpt-5.6-terra** с голосом **Дмитрия**.\n\nТы можешь нажать на микрофон 🎙 и сказать голосом:\n- *«Добавь сделку: лонг по BTC/USDT на 15m, сетап пробой уровня, вход 68500, выход 70000, профит +2.5R»*\n- *«Проанализируй мои последние сделки и винрейт»*\n- *«Какой сетап приносит больше всего прибыли?»*\n\nЯ сразу распознаю голос, занесу сделку в дневник и отвечу голосом Дмитрия!',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ];
@@ -87,11 +108,303 @@ function initAiChatHistory() {
 
 function saveAiChatHistory() {
   try {
-    // Keep last 30 messages in session
     const trimmed = aiChatHistory.slice(-30);
     sessionStorage.setItem('tradelog_ai_chat', JSON.stringify(trimmed));
   } catch (e) {
     console.warn('Failed to save AI chat:', e);
+  }
+}
+
+/**
+ * ============================================================================
+ * VOICE SYNTHESIS: Нейросетевой голос «Дмитрий» (TTS)
+ * ============================================================================
+ */
+function getDmitryVoice() {
+  if (!('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  // 1. Direct match for Dmitry / Дмитрий / ru-RU-DmitryNeural
+  let voice = voices.find(v => {
+    const n = v.name.toLowerCase();
+    return (n.includes('dmitry') || n.includes('дмитрий')) && 
+           (v.lang.startsWith('ru') || v.lang.includes('RU'));
+  });
+  if (voice) return voice;
+
+  // 2. Microsoft Natural Russian male voice (Edge / Windows Online Natural)
+  voice = voices.find(v => {
+    const n = v.name.toLowerCase();
+    return v.lang.startsWith('ru') && 
+           (n.includes('natural') || n.includes('online')) && 
+           !n.includes('svetlana') && !n.includes('irina') && !n.includes('female');
+  });
+  if (voice) return voice;
+
+  // 3. Fallback Russian male voice (e.g. Pavel / Павел)
+  voice = voices.find(v => {
+    const n = v.name.toLowerCase();
+    return v.lang.startsWith('ru') && (n.includes('pavel') || n.includes('павел') || n.includes('male'));
+  });
+  if (voice) return voice;
+
+  // 4. Any Russian voice
+  voice = voices.find(v => v.lang.startsWith('ru') || v.lang.includes('RU'));
+  return voice || voices[0];
+}
+
+function speakWithDmitry(text, msgIdx = null) {
+  if (!isVoiceEnabled || !('speechSynthesis' in window)) return;
+
+  stopSpeaking();
+
+  // Clean text from code blocks, JSON actions, markdown symbols and emojis
+  let cleanText = text
+    .replace(/```json:trade_action[\s\S]*?```/gi, '')
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/#+\s+/g, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/[🎯✨⚡📊🧠⚙️👁✏️✕🔴🎙🔊]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleanText) return;
+
+  const utterance = new SpeechSynthesisUtterance(cleanText);
+  utterance.lang = 'ru-RU';
+  utterance.rate = 1.0;
+  utterance.pitch = 0.94; // slightly masculine neural timbre for Dmitry
+
+  const dmitryVoice = getDmitryVoice();
+  if (dmitryVoice) {
+    utterance.voice = dmitryVoice;
+  }
+
+  currentlySpeakingIdx = msgIdx;
+  updateSpeechButtonsUI();
+
+  utterance.onend = () => {
+    currentlySpeakingIdx = null;
+    updateSpeechButtonsUI();
+  };
+
+  utterance.onerror = (e) => {
+    console.warn('Speech synthesis error:', e);
+    currentlySpeakingIdx = null;
+    updateSpeechButtonsUI();
+  };
+
+  window.speechSynthesis.speak(utterance);
+}
+
+function stopSpeaking() {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+  currentlySpeakingIdx = null;
+  updateSpeechButtonsUI();
+}
+window.stopSpeaking = stopSpeaking;
+
+function toggleSpeakMessage(idx) {
+  if (currentlySpeakingIdx === idx) {
+    stopSpeaking();
+  } else {
+    const msg = aiChatHistory[idx];
+    if (msg && msg.content) {
+      speakWithDmitry(msg.content, idx);
+    }
+  }
+}
+window.toggleSpeakMessage = toggleSpeakMessage;
+
+function toggleAiVoice() {
+  isVoiceEnabled = !isVoiceEnabled;
+  localStorage.setItem('tradelog_ai_voice_enabled', isVoiceEnabled);
+
+  if (!isVoiceEnabled) {
+    stopSpeaking();
+    showToast('Озвучка Дмитрия выключена', 'info');
+  } else {
+    showToast('Озвучка Дмитрия включена', 'success');
+    speakWithDmitry('Голос Дмитрия включен. Я готов озвучивать ответы и добавленные сделки.');
+  }
+
+  updateVoiceToggleUI();
+}
+window.toggleAiVoice = toggleAiVoice;
+
+function updateVoiceToggleUI() {
+  const btn = document.getElementById('aiVoiceToggleBtn');
+  const label = document.getElementById('aiVoiceToggleLabel');
+  if (!btn) return;
+
+  if (isVoiceEnabled) {
+    btn.classList.add('active');
+    if (label) label.textContent = 'Дмитрий: Вкл';
+  } else {
+    btn.classList.remove('active');
+    if (label) label.textContent = 'Дмитрий: Выкл';
+  }
+}
+
+function updateSpeechButtonsUI() {
+  document.querySelectorAll('.ai-speech-btn').forEach(btn => {
+    const idx = Number(btn.dataset.msgIdx);
+    if (currentlySpeakingIdx === idx) {
+      btn.classList.add('speaking');
+      btn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+        </svg>
+      `;
+      btn.title = 'Остановить воспроизведение';
+    } else {
+      btn.classList.remove('speaking');
+      btn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+        </svg>
+      `;
+      btn.title = 'Озвучить голосом Дмитрия';
+    }
+  });
+}
+
+/**
+ * ============================================================================
+ * VOICE INPUT: Распознавание речи (STT - Speech-to-Text)
+ * ============================================================================
+ */
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return null;
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'ru-RU';
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    isListening = true;
+    updateMicButtonUI(true);
+    showToast('🎙 Слушаю вас... Назовите сделку или команду', 'info');
+  };
+
+  recognition.onresult = (event) => {
+    let interimTranscript = '';
+    let finalTranscript = '';
+
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript;
+      } else {
+        interimTranscript += event.results[i][0].transcript;
+      }
+    }
+
+    const inputEl = document.getElementById('aiChatInput');
+    if (inputEl) {
+      inputEl.value = finalTranscript || interimTranscript;
+    }
+  };
+
+  recognition.onspeechend = () => {
+    stopListening();
+
+    // Auto-submit when user finishes speaking
+    const inputEl = document.getElementById('aiChatInput');
+    if (inputEl && inputEl.value.trim().length > 1) {
+      setTimeout(() => {
+        handleAiSubmit();
+      }, 350);
+    }
+  };
+
+  recognition.onerror = (event) => {
+    stopListening();
+    if (event.error === 'not-allowed') {
+      showToast('Доступ к микрофону заблокирован. Разрешите микрофон в браузере.', 'error');
+    } else if (event.error !== 'no-speech') {
+      console.warn('Speech recognition error:', event.error);
+    }
+  };
+
+  recognition.onend = () => {
+    stopListening();
+  };
+
+  return recognition;
+}
+
+function toggleVoiceRecording() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showToast('Голосовой ввод не поддерживается браузером. Используйте Chrome, Edge или Safari.', 'error');
+    return;
+  }
+
+  if (isListening) {
+    stopListening();
+  } else {
+    startListening();
+  }
+}
+window.toggleVoiceRecording = toggleVoiceRecording;
+
+function startListening() {
+  stopSpeaking(); // don't listen to Dmitry's own voice
+
+  if (!speechRecognizer) {
+    speechRecognizer = initSpeechRecognition();
+  }
+  if (!speechRecognizer) return;
+
+  try {
+    speechRecognizer.start();
+  } catch (err) {
+    console.warn('Could not start recognition:', err);
+    stopListening();
+  }
+}
+
+function stopListening() {
+  isListening = false;
+  updateMicButtonUI(false);
+  if (speechRecognizer) {
+    try {
+      speechRecognizer.stop();
+    } catch (e) {}
+  }
+}
+
+function updateMicButtonUI(listening) {
+  const micBtn = document.getElementById('aiMicBtn');
+  const inputEl = document.getElementById('aiChatInput');
+
+  if (micBtn) {
+    if (listening) {
+      micBtn.classList.add('listening');
+      micBtn.title = 'Идет запись... Нажмите, чтобы остановить';
+    } else {
+      micBtn.classList.remove('listening');
+      micBtn.title = 'Голосовой ввод (нажмите и говорите команду)';
+    }
+  }
+
+  if (inputEl) {
+    if (listening) {
+      inputEl.placeholder = '🔴 Слушаю вас... Говорите команду';
+    } else {
+      inputEl.placeholder = 'Скажите «Добавить сделку: лонг BTC...» или задайте вопрос';
+    }
   }
 }
 
@@ -113,6 +426,7 @@ function openAiAssistant(initialPrompt = '') {
     setTimeout(() => inputEl.focus(), 200);
   }
 
+  updateVoiceToggleUI();
   scrollAiChatToBottom();
 }
 window.openAiAssistant = openAiAssistant;
@@ -123,6 +437,8 @@ function closeAiAssistant() {
     modal.classList.remove('active');
   }
   document.body.style.overflow = '';
+  stopSpeaking();
+  stopListening();
 }
 window.closeAiAssistant = closeAiAssistant;
 
@@ -174,13 +490,27 @@ function renderAiChat() {
       `;
     }
 
+    // Voice button for assistant messages
+    const speakBtnHtml = !isUser ? `
+      <button type="button" class="ai-speech-btn" data-msg-idx="${idx}" onclick="toggleSpeakMessage(${idx})" title="Озвучить голосом Дмитрия">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+        </svg>
+      </button>
+    ` : '';
+
     return `
       <div class="ai-msg-row ${roleClass}">
         ${!isUser ? '<div class="ai-avatar">✨</div>' : ''}
         <div class="ai-msg-bubble">
           <div class="ai-msg-text">${contentHtml}</div>
           ${tradeCardHtml}
-          <div class="ai-msg-time">${escapeHtml(timeStr)}</div>
+          <div class="ai-msg-footer">
+            ${speakBtnHtml}
+            <div class="ai-msg-time">${escapeHtml(timeStr)}</div>
+          </div>
         </div>
       </div>
     `;
@@ -199,6 +529,7 @@ function renderAiChat() {
     `;
   }
 
+  updateSpeechButtonsUI();
   scrollAiChatToBottom();
 }
 
@@ -268,7 +599,7 @@ async function handleAiSubmit(e) {
   } catch (err) {
     console.error('AI call failed:', err);
     // Try fallback intelligent local parser for trade logging commands
-    handleAiFallback(userText, err);
+    await handleAiFallback(userText, err);
   } finally {
     isAiGenerating = false;
     renderAiChat();
@@ -314,7 +645,7 @@ function buildAiSystemPrompt() {
     `#${t.id}: ${t.symbol} (${t.direction}, ${t.timeframe}) Setup: "${t.setup}", Outcome: ${t.outcome}, PnL: ${t.pnl || t.rMultiple + 'R'}, Date: ${t.entryTime}`
   ).join('\n');
 
-  return `Ты профессиональный русскоязычный торговый ИИ-ассистент в приложении TradeLog (Raycast Midnight).
+  return `Ты профессиональный русскоязычный торговый ИИ-ассистент в приложении TradeLog (Raycast Midnight) с голосом Дмитрия.
 Текущее локальное время пользователя: ${currentDateTime} (ISO: ${currentIso}).
 
 КОНТЕКСТ ПОЛЬЗОВАТЕЛЯ:
@@ -326,7 +657,7 @@ ${recentTrades || 'Пока нет сделок'}
 
 ТВОЯ ГЛАВНАЯ ЗАДАЧА:
 1. ДОБАВЛЕНИЕ СДЕЛОК:
-Когда пользователь просит добавить/зафиксировать сделку (или описывает трейд, например: "добавь сделку по BTC...", "купил ETH по 3500...", "зашел в шорт SOL...", "запиши трейд..."):
+Когда пользователь просит добавить/зафиксировать сделку (голосом или текстом, например: "добавь сделку по BTC...", "купил ETH по 3500...", "зашел в шорт SOL...", "запиши трейд..."):
 Ты ОБЯЗАН включить в ответ блок \`\`\`json:trade_action ... \`\`\` строго по следующей схеме:
 \`\`\`json:trade_action
 {
@@ -359,7 +690,7 @@ ${recentTrades || 'Пока нет сделок'}
 
 2. АНАЛИЗ И СОВЕТЫ:
 Если пользователь спрашивает об анализе статистики, ошибках, сетапах или психологии: отвечай четко, структурно, лаконично, как профессиональный трейдер и риск-менеджер.
-Отвечай всегда на русском языке.`;
+Отвечай всегда на русском языке. Твой ответ будет также озвучен голосом Дмитрия, поэтому пиши естественно.`;
 }
 
 /**
@@ -416,7 +747,6 @@ async function callTookenClubAi(userMessage) {
       body: JSON.stringify(payload)
     });
   } catch (fetchErr) {
-    // If CORS or network error occurs, throw detailed error
     throw new Error(`CORS_OR_NETWORK: ${fetchErr.message}`);
   }
 
@@ -434,7 +764,7 @@ async function callTookenClubAi(userMessage) {
 }
 
 /**
- * Process AI Response (Execute actions & format text)
+ * Process AI Response (Execute actions, format text & speak with Dmitry)
  */
 async function processAiResponse(rawResponse) {
   const now = new Date();
@@ -457,12 +787,16 @@ async function processAiResponse(rawResponse) {
     }
   }
 
+  const newIdx = aiChatHistory.length;
   aiChatHistory.push({
     role: 'assistant',
     content: rawResponse,
     createdTrade: actionTrade,
     timestamp: timeStr
   });
+
+  // Speak aloud with Dmitry's neural voice
+  speakWithDmitry(rawResponse, newIdx);
 }
 
 /**
@@ -526,8 +860,6 @@ async function executeAddTradeFromAi(tradeObj) {
 
 /**
  * Fallback Natural Language Parser
- * If Tooken Club request is blocked by browser CORS, this ensures "добавить сделку"
- * still works 100% seamlessly for the user!
  */
 async function handleAiFallback(userText, originalError) {
   const lower = userText.toLowerCase();
@@ -537,17 +869,21 @@ async function handleAiFallback(userText, originalError) {
   const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   if (isAddRequest) {
-    // Intelligent local NLP extraction
     const extracted = parseTradeFromTextLocally(userText);
     if (extracted && extracted.symbol) {
       const createdTrade = await executeAddTradeFromAi(extracted);
       
+      const replyText = `Сделка по ${createdTrade.symbol} успешно добавлена в дневник! Направление: ${createdTrade.direction}, сетап: ${createdTrade.setup}, результат: ${createdTrade.outcome} (${createdTrade.pnl}).`;
+      
+      const newIdx = aiChatHistory.length;
       aiChatHistory.push({
         role: 'assistant',
-        content: `🎯 **Сделка успешно добавлена в дневник!**\n\nЯ распознал параметры из вашего текста:\n- **Тикер:** ${createdTrade.symbol}\n- **Направление:** ${createdTrade.direction}\n- **Сетап:** ${createdTrade.setup}\n- **Таймфрейм:** ${createdTrade.timeframe}\n- **Результат:** ${createdTrade.outcome} (${createdTrade.pnl})\n\n*(Сделка зафиксирована в базе и отображается в календаре)*`,
+        content: `🎯 **Сделка успешно добавлена в дневник!**\n\nЯ распознал параметры из вашей голосовой команды:\n- **Тикер:** ${createdTrade.symbol}\n- **Направление:** ${createdTrade.direction}\n- **Сетап:** ${createdTrade.setup}\n- **Таймфрейм:** ${createdTrade.timeframe}\n- **Результат:** ${createdTrade.outcome} (${createdTrade.pnl})\n\n*(Сделка зафиксирована в базе и отображается в календаре)*`,
         createdTrade: createdTrade,
         timestamp: timeStr
       });
+
+      speakWithDmitry(replyText, newIdx);
       return;
     }
   }
@@ -555,14 +891,17 @@ async function handleAiFallback(userText, originalError) {
   // General error explanation with CORS guidance
   let errorMsg = `⚠️ **Не удалось связаться с Tooken Club API.**\n\nПричина: *${escapeHtml(originalError.message)}*`;
   if (originalError.message.includes('CORS_OR_NETWORK')) {
-    errorMsg += `\n\n> [!NOTE] Браузер заблокировал прямой запрос к Tooken Club из-за отсутствия CORS заголовков на сервере API.\n\n**Что можно сделать:**\n1. Для добавления сделок просто напишите: *«Добавь сделку: лонг BTC на 15m, вход 68000 выход 70000 +2.5R»* — локальный анализатор добавит её моментально!\n2. Вы можете настроить CORS-прокси в **Настройках ИИ** (иконка шестерёнки вверху).`;
+    errorMsg += `\n\n> [!NOTE] Браузер заблокировал прямой запрос к Tooken Club из-за отсутствия CORS заголовков на сервере API.\n\n**Что можно сделать:**\n1. Для добавления сделок просто скажите в микрофон: *«Добавь сделку: лонг BTC на 15m, вход 68000 выход 70000 +2.5R»* — локальный анализатор добавит её моментально!\n2. Вы можете настроить CORS-прокси в **Настройках ИИ** (иконка шестерёнки вверху).`;
   }
 
+  const newIdx = aiChatHistory.length;
   aiChatHistory.push({
     role: 'assistant',
     content: errorMsg,
     timestamp: timeStr
   });
+
+  speakWithDmitry('Не удалось связаться с сервером API. Проверьте подключение к сети или настройки прокси.', newIdx);
 }
 
 /**
@@ -579,6 +918,14 @@ function parseTradeFromTextLocally(text) {
 
   if (tickerMatch) {
     symbol = tickerMatch[1].includes('/') ? tickerMatch[1] : `${tickerMatch[1]}/USDT`;
+  } else if (lower.includes('биткоин') || lower.includes('биток') || lower.includes('биткойн')) {
+    symbol = 'BTC/USDT';
+  } else if (lower.includes('эфир') || lower.includes('эфириум')) {
+    symbol = 'ETH/USDT';
+  } else if (lower.includes('солана') || lower.includes('солан')) {
+    symbol = 'SOL/USDT';
+  } else if (lower.includes('золот') || lower.includes('голд')) {
+    symbol = 'XAU/USD';
   }
 
   // 2. Direction
@@ -590,16 +937,24 @@ function parseTradeFromTextLocally(text) {
   // 3. Timeframe
   let timeframe = '15m';
   const tfMatch = lower.match(/\b(1m|3m|5m|15m|30m|1h|4h|1d|1w)\b/i);
-  if (tfMatch) timeframe = tfMatch[1];
+  if (tfMatch) {
+    timeframe = tfMatch[1];
+  } else if (lower.includes('минут')) {
+    const minsMatch = lower.match(/(\d+)\s*мин/);
+    if (minsMatch) timeframe = `${minsMatch[1]}m`;
+  } else if (lower.includes('час')) {
+    const hoursMatch = lower.match(/(\d+)\s*час/);
+    if (hoursMatch) timeframe = `${hoursMatch[1]}h`;
+  }
 
   // 4. Outcome & PnL
   let outcome = 'WIN';
   let rMultiple = 2.0;
   let pnl = '+2.0R';
 
-  const rMatch = text.match(/([+-]?\d+(?:\.\d+)?)\s*R\b/i);
+  const rMatch = text.match(/([+-]?\d+(?:[\.,]\d+)?)\s*R\b/i);
   if (rMatch) {
-    rMultiple = parseFloat(rMatch[1]);
+    rMultiple = parseFloat(rMatch[1].replace(',', '.'));
     pnl = `${rMultiple > 0 ? '+' : ''}${rMultiple}R`;
     outcome = rMultiple > 0 ? 'WIN' : rMultiple < 0 ? 'LOSS' : 'BE';
   } else {
@@ -617,11 +972,11 @@ function parseTradeFromTextLocally(text) {
   // 5. Prices
   let entryPrice = '';
   let exitPrice = '';
-  const entryMatch = text.match(/(?:вход|вход[ае]|по цене|купил по|цена входа)\s*[:=]?\s*(\d+(?:\.\d+)?)/i);
-  if (entryMatch) entryPrice = entryMatch[1];
+  const entryMatch = text.match(/(?:вход|вход[ае]|по цене|купил по|цена входа)\s*[:=]?\s*(\d+(?:[\.,]\d+)?)/i);
+  if (entryMatch) entryPrice = entryMatch[1].replace(',', '.');
 
-  const exitMatch = text.match(/(?:выход|тейк|закрыл по|цена выхода)\s*[:=]?\s*(\d+(?:\.\d+)?)/i);
-  if (exitMatch) exitPrice = exitMatch[1];
+  const exitMatch = text.match(/(?:выход|тейк|закрыл по|цена выхода)\s*[:=]?\s*(\d+(?:[\.,]\d+)?)/i);
+  if (exitMatch) exitPrice = exitMatch[1].replace(',', '.');
 
   // 6. Setup
   let setup = 'Breakout / Пробой';
@@ -705,6 +1060,7 @@ window.resetAiSettings = resetAiSettings;
 
 function clearAiChat() {
   if (confirm('Очистить историю диалога с ИИ?')) {
+    stopSpeaking();
     sessionStorage.removeItem('tradelog_ai_chat');
     initAiChatHistory();
     showToast('История диалога очищена', 'info');
