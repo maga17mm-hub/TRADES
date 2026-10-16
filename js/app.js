@@ -1186,8 +1186,8 @@ function renderTradesFeed() {
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
           </svg>
         </div>
-        <div class="empty-title">Дневник пуст</div>
-        <div class="empty-desc">Сделки по выбранным критериям отсутствуют. Нажмите кнопку ниже, чтобы внести новую сделку!</div>
+        <div class="empty-title">Здесь начинается история</div>
+        <div class="empty-desc">Добавьте сделку, чтобы увидеть свой прогресс. Если вы уже ведёте журнал, проверьте выбранные фильтры.</div>
         <button class="btn btn-primary" onclick="openTradeModal()">+ Записать сделку</button>
       </div>
     `;
@@ -2041,19 +2041,26 @@ function applyAppTheme(themeName) {
   document.documentElement.setAttribute('data-theme', themeName);
   localStorage.setItem('tradelog_theme', themeName);
   updateThemeCardsUI(themeName);
+  syncThemeChrome();
   showToast(`Тема «${getThemeDisplayName(themeName)}» установлена`, 'info');
 }
 window.applyAppTheme = applyAppTheme;
 
 function initAppTheme() {
-  const saved = localStorage.getItem('tradelog_theme') || 'midnight';
+  const saved = localStorage.getItem('tradelog_theme') || 'books';
   document.documentElement.setAttribute('data-theme', saved);
   updateThemeCardsUI(saved);
+  syncThemeChrome();
 }
 window.initAppTheme = initAppTheme;
 
+function syncThemeChrome() {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
+}
+
 function updateThemeCardsUI(activeTheme = null) {
-  const current = activeTheme || localStorage.getItem('tradelog_theme') || 'midnight';
+  const current = activeTheme || localStorage.getItem('tradelog_theme') || 'books';
   document.querySelectorAll('.theme-card').forEach(card => {
     card.classList.toggle('active', card.dataset.themeName === current);
   });
@@ -2061,6 +2068,7 @@ function updateThemeCardsUI(activeTheme = null) {
 
 function getThemeDisplayName(theme) {
   const names = {
+    books: 'Paper · Светлая',
     midnight: 'Raycast Midnight',
     cyberpunk: 'Cyberpunk Neon',
     emerald: 'Emerald Forest',

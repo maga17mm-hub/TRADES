@@ -2,12 +2,12 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>TradeLog — Дневник Трейдера</title>
-  
+
   <!-- PWA & Mobile Meta Tags -->
   <link rel="manifest" href="./manifest.json">
-  <meta name="theme-color" content="#040506">
+  <meta name="theme-color" content="#f7f5f0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="TradeLog">
@@ -19,10 +19,13 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
   <!-- Fonts & Styles -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/books.css">
+  <script>
+    // Apply the saved appearance before paint; existing theme choices are retained.
+    try { document.documentElement.dataset.theme = localStorage.getItem("tradelog_theme") || "books"; }
+    catch (_) { document.documentElement.dataset.theme = "books"; }
+  </script>
 </head>
 <body>
 
@@ -32,12 +35,17 @@
       <div class="header-content">
         <div class="brand">
           <div class="brand-icon-wrapper">
-            <img src="./icons/icon.svg" alt="TradeLog" class="brand-icon">
+            <svg class="brand-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5.5C9 3.5 5.5 3.5 2.5 5v15c3-1.5 6.5-1.5 9.5.5 3-2 6.5-2 9.5-.5V5c-3-1.5-6.5-1.5-9.5.5Z"/><path d="M12 5.5v15M6 9l3 1M6 13l3 1M15 10l3-1M15 14l3-1"/></svg>
           </div>
           <div class="brand-text">
             <h1>TradeLog</h1>
           </div>
         </div>
+        <span class="header-caption">Дневник осознанной торговли</span>
+        <button type="button" class="header-assistant" onclick="openAiAssistant()" aria-label="Открыть ИИ-ассистента">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg>
+          <span>Ассистент</span>
+        </button>
       </div>
     </div>
   </header>
@@ -49,27 +57,25 @@
          TAB 1: ДОМОЙ (HOME: Аналитика & Календарь сделок)
          ====================================================================== -->
     <div id="tabHomeView" class="tab-view">
-      
-      <!-- AI Quick Command Banner (Raycast Midnight Style) -->
-      <div class="ai-quick-banner" onclick="openAiAssistant()">
-        <div class="ai-quick-left">
-          <div class="ai-quick-icon-wrap">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6363" stroke-width="2.5">
-              <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path>
-            </svg>
-          </div>
-          <div>
-            <div class="ai-quick-title">ИИ-Ассистент <span class="ai-model-tag">gpt-5.6-terra</span></div>
-            <div class="ai-quick-desc">Скажите: «Добавь сделку: лонг BTC...» или «Проанализируй сетапы»</div>
-          </div>
+      <div class="page-heading home-heading">
+        <div>
+          <p class="page-eyebrow">ВАША ТОРГОВЛЯ. ВАША ИСТОРИЯ.</p>
+          <h2 class="page-title">Обзор</h2>
+          <p class="page-description">Чуть больше ясности. С каждой сделкой.</p>
         </div>
-        <button type="button" class="btn btn-secondary btn-sm ai-quick-btn">
-          <span>Открыть ИИ</span>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="9 18 15 12 9 6"></polyline>
+      <!-- Dedicated Record Trade Quick Action Button -->
+      <div class="home-record-action-bar">
+        <button type="button" class="btn btn-primary btn-lg home-add-trade-btn" onclick="openTradeModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
+          <span>Записать сделку</span>
         </button>
       </div>
+
+      </div>
+
 
       <!-- Top Analytics Summary Cards (Raycast Key Cards) -->
       <section class="analytics-section">
@@ -100,7 +106,7 @@
 
           <div class="stat-card">
             <div class="stat-label">
-              <span>Всего трейдов</span>
+              <span>Всего сделок</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="20" x2="18" y2="10"></line>
                 <line x1="12" y1="20" x2="12" y2="4"></line>
@@ -108,7 +114,7 @@
               </svg>
             </div>
             <div id="statTotal" class="stat-value">0</div>
-            <div class="stat-subtext">Зафиксировано в базе</div>
+            <div class="stat-subtext">В вашей истории</div>
           </div>
 
           <div class="stat-card">
@@ -124,19 +130,32 @@
         </div>
       </section>
 
-      <!-- Dedicated Record Trade Quick Action Button -->
-      <div class="home-record-action-bar">
-        <button type="button" class="btn btn-primary btn-lg home-add-trade-btn" onclick="openTradeModal()">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
+      <!-- AI Quick Command Banner (Raycast Midnight Style) -->
+      <div class="ai-quick-banner">
+        <div class="ai-quick-left">
+          <div class="ai-quick-icon-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6363" stroke-width="2.5">
+              <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="ai-quick-title">Место для второго взгляда</div>
+            <div class="ai-quick-desc">Запишите сделку голосом или разберите её с ИИ.</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm ai-quick-btn" onclick="openAiAssistant()">
+          <span>Спросить ИИ</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
           </svg>
-          <span>Записать сделку</span>
         </button>
       </div>
 
+
+      <div class="home-workspace">
       <!-- Trading Calendar Section (Raycast Style) -->
-      <section class="calendar-card">
+      <section class="calendar-card" aria-label="Календарь сделок">
+        <p class="section-eyebrow">ТОРГОВЫЙ КАЛЕНДАРЬ</p>
         <div class="calendar-header">
           <div class="calendar-title-wrap">
             <h2 id="calMonthTitle" class="calendar-month-title">Октябрь 2026</h2>
@@ -179,12 +198,13 @@
         </div>
       </section>
 
+      <div class="history-column">
       <!-- All Trades History & Filter Section -->
-      <section class="controls-card" style="margin-top: 16px; margin-bottom: 14px;">
+      <section class="controls-card history-controls">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
           <div>
-            <h3 style="font-size: 0.95rem; font-weight: 600; color: #fff;">История сделок</h3>
-            <span style="font-size: 0.74rem; color: var(--text-muted);">Группировка и фильтрация по параметрам</span>
+            <h3 class="section-title">История сделок</h3>
+            <span style="font-size: 0.74rem; color: var(--text-muted);">Опыт, к которому можно вернуться</span>
           </div>
           <button type="button" class="btn-trades-filter-toggle" onclick="toggleTradesFilterPanel()" title="Сортировка и группировка">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -244,6 +264,8 @@
       <section id="tradesFeed" class="trades-feed">
         <!-- Dynamically populated -->
       </section>
+      </div>
+      </div>
 
     </div>
 
@@ -251,16 +273,26 @@
          TAB 2: ДНЕВНИК МЫСЛЕЙ (Apple Notes / iOS Style)
          ====================================================================== -->
     <div id="tabJournalView" class="tab-view" style="display: none;">
-      
+
       <!-- SUB-VIEW 1: Notes List (Главный список заметок) -->
       <div id="journalListView" class="ios-notes-list-view">
-        
+
         <div class="ios-notes-header">
           <div class="ios-notes-header-top">
             <div>
+              <p class="page-eyebrow">МЫСЛИ СТАНОВЯТСЯ ОПЫТОМ</p>
               <h2 class="ios-notes-title">Дневник</h2>
+              <p class="page-description">Для идей, выводов и честных разговоров с собой.</p>
               <span id="journalCountBadge" class="ios-notes-count-badge">0 мыслей</span>
             </div>
+            <div class="journal-header-actions">
+        <button type="button" id="journalAddFabBtn" class="journal-add-fab" onclick="openNewThoughtComposer()" title="Добавить мысль или голос">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Добавить мысль</span>
+        </button>
             <div class="ios-notes-filter-wrap">
               <select id="journalFilterTag" class="form-select form-select-sm" onchange="filterJournalThoughts(this.value)">
                 <option value="all">Все категории</option>
@@ -270,6 +302,7 @@
                 <option value="Торговый план">Торговый план</option>
                 <option value="Ошибки">Ошибки и дисциплина</option>
               </select>
+            </div>
             </div>
           </div>
 
@@ -294,20 +327,14 @@
           <!-- Dynamically populated from IndexedDB -->
         </div>
 
-        <!-- Bottom-Left Add Button (+) -->
-        <button type="button" id="journalAddFabBtn" class="journal-add-fab" onclick="openNewThoughtComposer()" title="Добавить мысль или голос">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          <span>Добавить мысль</span>
-        </button>
+        <!-- Note creation is available in the journal header. -->
+
 
       </div>
 
       <!-- SUB-VIEW 2: Note Detail & Edit Screen (Просмотр и редактирование мысли) -->
       <div id="journalDetailView" class="ios-note-detail-view" style="display: none;">
-        
+
         <!-- Top Action Bar -->
         <div class="ios-note-detail-topbar">
           <button type="button" class="ios-note-back-btn" onclick="backToJournalList()">
@@ -350,39 +377,14 @@
          TAB 3: НАСТРОЙКИ (Кэш, Темы, Голос, Данные)
          ====================================================================== -->
     <div id="tabSettingsView" class="tab-view" style="display: none;">
-      
+
       <div class="journal-feed-header" style="margin-bottom: 16px;">
         <div>
+          <p class="page-eyebrow">ВАШЕ ЛИЧНОЕ ПРОСТРАНСТВО</p>
           <h2 class="journal-feed-title">Настройки</h2>
-          <p class="journal-feed-subtitle">Сброс кэша, темы оформления и управление голосом ИИ</p>
+          <p class="journal-feed-subtitle">Всё, чтобы журнал был вашим.</p>
         </div>
       </div>
-
-      <!-- Cache & Update Card -->
-      <section class="settings-section-card">
-        <h3 class="settings-section-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-          <span>Обновление приложения и сброс кэша</span>
-        </h3>
-        <p class="settings-section-subtitle">
-          Если вышли новые обновления или приложение работает из старого кэша — нажмите эту кнопку. Все кэши очистятся, и сразу загрузится свежая версия без переустановки PWA!
-        </p>
-        <button type="button" class="btn btn-primary btn-lg" onclick="forceAppCacheReset()" style="width: 100%; justify-content: center; gap: 10px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <polyline points="1 20 1 14 7 14"></polyline>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-          </svg>
-          <span>Очистить кэш и применить обновления</span>
-        </button>
-        <div style="display: flex; gap: 12px; margin-top: 14px; font-size: 0.76rem; color: var(--text-muted); flex-wrap: wrap;">
-          <span>Версия: <strong style="color: var(--text-secondary);">2.4.0 (Raycast Suite)</strong></span>
-          <span>·</span>
-          <span>PWA: <strong style="color: var(--win);">Активно</strong></span>
-          <span>·</span>
-          <span>База: <strong style="color: var(--win);">IndexedDB v2</strong></span>
-        </div>
-      </section>
 
       <!-- Theme Switcher Card -->
       <section class="settings-section-card">
@@ -394,83 +396,87 @@
           Выберите приятную цветовую тему интерфейса. Тема применяется мгновенно и сохраняется автоматически.
         </p>
         <div class="theme-picker-grid">
+          <button type="button" class="theme-card" data-theme-name="books" onclick="applyAppTheme('books')">
+            <span class="theme-preview-palette"><span class="theme-swatch" style="background:#f7f5f0;"></span><span class="theme-swatch" style="background:#e6dfd3;"></span><span class="theme-swatch" style="background:#b95727;"></span></span>
+            <span class="theme-card-header-row"><span class="theme-card-name">Paper · Светлая</span><span class="theme-card-check">✓</span></span>
+          </button>
           <!-- Midnight (Default) -->
-          <div class="theme-card active" data-theme-name="midnight" onclick="applyAppTheme('midnight')">
-            <div class="theme-preview-palette">
+          <button type="button" class="theme-card active" data-theme-name="midnight" onclick="applyAppTheme('midnight')">
+            <span class="theme-preview-palette">
               <span class="theme-swatch" style="background: #040506;"></span>
               <span class="theme-swatch" style="background: #111214;"></span>
               <span class="theme-swatch" style="background: #ff6363;"></span>
-            </div>
-            <div class="theme-card-header-row">
+            </span>
+            <span class="theme-card-header-row">
               <span class="theme-card-name">Raycast Midnight</span>
               <span class="theme-card-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            </div>
-          </div>
+            </span>
+          </button>
 
           <!-- Cyberpunk Neon -->
-          <div class="theme-card" data-theme-name="cyberpunk" onclick="applyAppTheme('cyberpunk')">
-            <div class="theme-preview-palette">
+          <button type="button" class="theme-card" data-theme-name="cyberpunk" onclick="applyAppTheme('cyberpunk')">
+            <span class="theme-preview-palette">
               <span class="theme-swatch" style="background: #070913;"></span>
               <span class="theme-swatch" style="background: #131833;"></span>
               <span class="theme-swatch" style="background: #00e5ff;"></span>
-            </div>
-            <div class="theme-card-header-row">
+            </span>
+            <span class="theme-card-header-row">
               <span class="theme-card-name">Cyberpunk Neon</span>
               <span class="theme-card-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            </div>
-          </div>
+            </span>
+          </button>
 
           <!-- Emerald Forest -->
-          <div class="theme-card" data-theme-name="emerald" onclick="applyAppTheme('emerald')">
-            <div class="theme-preview-palette">
+          <button type="button" class="theme-card" data-theme-name="emerald" onclick="applyAppTheme('emerald')">
+            <span class="theme-preview-palette">
               <span class="theme-swatch" style="background: #040d09;"></span>
               <span class="theme-swatch" style="background: #0f271c;"></span>
               <span class="theme-swatch" style="background: #22c55e;"></span>
-            </div>
-            <div class="theme-card-header-row">
+            </span>
+            <span class="theme-card-header-row">
               <span class="theme-card-name">Emerald Forest</span>
               <span class="theme-card-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            </div>
-          </div>
+            </span>
+          </button>
 
           <!-- Nordic Slate -->
-          <div class="theme-card" data-theme-name="nordic" onclick="applyAppTheme('nordic')">
-            <div class="theme-preview-palette">
+          <button type="button" class="theme-card" data-theme-name="nordic" onclick="applyAppTheme('nordic')">
+            <span class="theme-preview-palette">
               <span class="theme-swatch" style="background: #0b1120;"></span>
               <span class="theme-swatch" style="background: #1e293b;"></span>
               <span class="theme-swatch" style="background: #38bdf8;"></span>
-            </div>
-            <div class="theme-card-header-row">
+            </span>
+            <span class="theme-card-header-row">
               <span class="theme-card-name">Nordic Slate</span>
               <span class="theme-card-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            </div>
-          </div>
+            </span>
+          </button>
 
           <!-- OLED Pure Black -->
-          <div class="theme-card" data-theme-name="oled" onclick="applyAppTheme('oled')">
-            <div class="theme-preview-palette">
+          <button type="button" class="theme-card" data-theme-name="oled" onclick="applyAppTheme('oled')">
+            <span class="theme-preview-palette">
               <span class="theme-swatch" style="background: #000000;"></span>
               <span class="theme-swatch" style="background: #141414;"></span>
               <span class="theme-swatch" style="background: #ffffff;"></span>
-            </div>
-            <div class="theme-card-header-row">
+            </span>
+            <span class="theme-card-header-row">
               <span class="theme-card-name">OLED Pure Black</span>
               <span class="theme-card-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            </div>
-          </div>
+            </span>
+          </button>
 
           <!-- Warm Amber -->
-          <div class="theme-card" data-theme-name="amber" onclick="applyAppTheme('amber')">
-            <div class="theme-preview-palette">
+          <button type="button" class="theme-card" data-theme-name="amber" onclick="applyAppTheme('amber')">
+            <span class="theme-preview-palette">
               <span class="theme-swatch" style="background: #0c0907;"></span>
               <span class="theme-swatch" style="background: #1f1813;"></span>
               <span class="theme-swatch" style="background: #f59e0b;"></span>
-            </div>
-            <div class="theme-card-header-row">
+            </span>
+            <span class="theme-card-header-row">
               <span class="theme-card-name">Warm Amber</span>
               <span class="theme-card-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-            </div>
-          </div>
+            </span>
+          </button>
         </div>
       </section>
 
@@ -478,7 +484,7 @@
       <section class="settings-section-card">
         <h3 class="settings-section-title">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-          <span>Голосовой движок & ИИ (Дмитрий)</span>
+          <span>Голос и ассистент</span>
         </h3>
         <p class="settings-section-subtitle">
           Настройка синтеза речи ответов и распознавания голоса.
@@ -486,7 +492,7 @@
         <div style="display: flex; flex-direction: column; gap: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-input); border-radius: var(--radius-sm);">
             <div>
-              <div style="font-weight: 500; font-size: 0.88rem; color: #fff;">Озвучка ответов голосом Дмитрия</div>
+              <div style="font-weight: 500; font-size: 0.88rem; color: var(--text-primary);">Озвучка ответов голосом Дмитрия</div>
               <div style="font-size: 0.74rem; color: var(--text-muted);">ИИ озвучивает ответы и добавленные сделки</div>
             </div>
             <button type="button" class="btn btn-secondary btn-sm" id="settingsVoiceToggleBtn" onclick="toggleAiVoice()">
@@ -518,7 +524,7 @@
       <section class="settings-section-card">
         <h3 class="settings-section-title">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-          <span>Данные & Резервная копия</span>
+          <span>Ваши данные</span>
         </h3>
         <p class="settings-section-subtitle">
           Экспортируйте ваши сделки и мысли в файл или восстановите из резервной копии.
@@ -536,6 +542,32 @@
         </div>
       </section>
 
+      <!-- Cache & Update Card -->
+      <section class="settings-section-card">
+        <h3 class="settings-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          <span>Обновление приложения</span>
+        </h3>
+        <p class="settings-section-subtitle">
+          Если вышли новые обновления или приложение работает из старого кэша — нажмите эту кнопку. Все кэши очистятся, и сразу загрузится свежая версия без переустановки PWA!
+        </p>
+        <button type="button" class="btn btn-primary btn-lg" onclick="forceAppCacheReset()" style="width: 100%; justify-content: center; gap: 10px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span>Очистить кэш и применить обновления</span>
+        </button>
+        <div style="display: flex; gap: 12px; margin-top: 14px; font-size: 0.76rem; color: var(--text-muted); flex-wrap: wrap;">
+          <span>Версия: <strong style="color: var(--text-secondary);">2.5.0 (Paper)</strong></span>
+          <span>·</span>
+          <span>PWA: <strong style="color: var(--win);">Активно</strong></span>
+          <span>·</span>
+          <span>База: <strong style="color: var(--win);">IndexedDB v2</strong></span>
+        </div>
+      </section>
+
     </div>
 
   </main>
@@ -543,7 +575,7 @@
   <!-- ==========================================================================
        BOTTOM NAVIGATION TAB BAR (Домой · Дневник · Настройки)
        ========================================================================== -->
-  <nav class="bottom-nav">
+  <nav class="bottom-nav" aria-label="Основная навигация">
     <div class="bottom-nav-inner">
       <button type="button" class="bottom-nav-item active" id="navBtnHome" onclick="switchTab('home')" title="Главная">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -572,11 +604,11 @@
   <!-- ==========================================================================
        MODAL: Add / Edit Trade
        ========================================================================== -->
-  <div id="tradeModal" class="modal-overlay">
+  <div id="tradeModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-content">
       <div class="modal-header">
         <h2 id="modalTitle" class="modal-title">Редактирование сделки</h2>
-        <button type="button" class="close-btn" onclick="closeTradeModal()">
+        <button type="button" class="close-btn" onclick="closeTradeModal()" aria-label="Закрыть форму сделки">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -585,7 +617,7 @@
       </div>
 
       <form id="tradeForm" class="form-grid">
-        
+
         <!-- Asset / Pair & Direction -->
         <div class="form-grid form-grid-2">
           <div class="form-group">
@@ -748,7 +780,7 @@
     <div class="modal-content" style="max-width: 480px;">
       <div class="modal-header">
         <h2 class="modal-title">Резервная копия & Данные</h2>
-        <button type="button" class="close-btn" onclick="closeBackupModal()">
+        <button type="button" class="close-btn" onclick="closeBackupModal()" aria-label="Закрыть резервные копии">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -807,9 +839,9 @@
   <!-- ==========================================================================
        MODAL: AI Assistant Command Center (Raycast Midnight Theme)
        ========================================================================== -->
-  <div id="aiAssistantModal" class="modal-overlay ai-modal-overlay">
+  <div id="aiAssistantModal" class="modal-overlay ai-modal-overlay" role="dialog" aria-modal="true" aria-label="TradeLog AI">
     <div class="modal-content ai-modal-card">
-      
+
       <!-- AI Header -->
       <div class="ai-modal-header">
         <div class="ai-header-brand">
@@ -884,7 +916,7 @@
       <!-- AI Settings View (Collapsible) -->
       <div id="aiSettingsPanel" class="ai-settings-card" style="display: none;">
         <div class="ai-settings-header">
-          <span style="font-weight: 600; font-size: 0.85rem; color: #fff; display: inline-flex; align-items: center; gap: 6px;">
+          <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); display: inline-flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
             <span>Настройки Tooken Club & Модели</span>
           </span>
@@ -944,12 +976,7 @@
   </div>
 
   <!-- Floating AI Assistant Button (Accessible anywhere) -->
-  <button class="ai-fab-btn" onclick="openAiAssistant()" title="ИИ-Ассистент (gpt-5.6-terra)">
-    <span class="ai-fab-glow"></span>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.3">
-      <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path>
-    </svg>
-  </button>
+
 
   <!-- Toast Container -->
   <div id="toastContainer" class="toast-container"></div>

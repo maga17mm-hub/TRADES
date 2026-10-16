@@ -102,7 +102,7 @@ function renderJournalThoughtsList() {
           </div>
           <h3 class="ios-notes-empty-title">Ваш дневник мыслей пуст</h3>
           <p class="ios-notes-empty-desc">
-            Нажмите кнопку «+ Добавить мысль» снизу слева, чтобы записать свои первые размышления, эмоции или голосовую заметку.
+            Сохраните идею, разберите сделку или запишите голосовую заметку. Ваша история начинается здесь.
           </p>
         </div>
       `;
@@ -381,7 +381,7 @@ function renderThoughtViewMode(thought) {
   const audioHtml = thought.audioData ? `
     <div class="ios-note-audio-box">
       <div class="ios-note-audio-header">
-        <span style="display: inline-flex; align-items: center; gap: 6px; color: #ff8585; font-weight: 500;">
+        <span style="display: inline-flex; align-items: center; gap: 6px; color: var(--brand); font-weight: 500;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
             <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
@@ -468,7 +468,7 @@ function renderThoughtComposerMode(existingThought) {
       <!-- Voice Memo Section -->
       <div class="thought-record-box" style="margin-bottom: 20px;">
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;">
-          <span style="font-size: 0.84rem; font-weight: 500; color: #ffffff; display: inline-flex; align-items: center; gap: 6px;">
+          <span style="font-size: 0.84rem; font-weight: 500; color: var(--text-primary); display: inline-flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
               <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
