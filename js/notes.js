@@ -140,7 +140,7 @@ function renderJournalThoughtsList() {
     const audioDurationText = thought.audioDuration ? `${thought.audioDuration} сек` : 'Голос';
 
     return `
-      <div class="ios-note-card" onclick="openThoughtDetail(${thought.id})">
+      <div class="ios-note-card" onclick="openThoughtDetail('${thought.id}')">
         <div class="ios-note-card-main">
           <div class="ios-note-card-title">${safeEscape(title)}</div>
           <div class="ios-note-card-subline">
@@ -211,7 +211,7 @@ function getThoughtTitleAndSnippet(thought) {
  * Open Note in Detail View (View Mode)
  */
 async function openThoughtDetail(id) {
-  const thought = allJournalThoughts.find(t => t.id === Number(id));
+  const thought = allJournalThoughts.find(t => String(t.id) === String(id));
   if (!thought) {
     if (typeof getJournalThought === 'function') {
       try {
@@ -317,7 +317,7 @@ async function toggleThoughtEditMode() {
     await saveCurrentThought();
   } else {
     // Switch to edit mode for current note
-    const thought = allJournalThoughts.find(t => t.id === Number(currentOpenThoughtId));
+    const thought = allJournalThoughts.find(t => String(t.id) === String(currentOpenThoughtId));
     if (!thought) return;
 
     isEditingThought = true;
@@ -627,7 +627,11 @@ async function handleCurrentThoughtDelete() {
       }
       showToast('Мысль удалена', 'info');
       backToJournalList();
-      if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
+      if (typeof syncWithCloud === 'function' && typeof isUserLoggedIn === 'function' && isUserLoggedIn()) {
+        syncWithCloud(true).catch(err => console.warn('Auto-sync error:', err));
+      } else if (typeof scheduleAutoSync === 'function') {
+        scheduleAutoSync();
+      }
     } catch (err) {
       console.error('Failed to delete thought:', err);
       showToast('Не удалось удалить мысль', 'error');

@@ -479,7 +479,9 @@ async function handleRegisterSubmit(e) {
       updatedAt: new Date().toISOString(),
       trades: localTrades,
       thoughts: localThoughts,
-      presets: presetsPayload
+      presets: presetsPayload,
+      deletedTradeUuids: typeof getDeletedTradeSigs === 'function' ? getDeletedTradeSigs() : [],
+      deletedThoughtUuids: typeof getDeletedThoughtSigs === 'function' ? getDeletedThoughtSigs() : []
     };
 
     let vaultId = null;
@@ -602,10 +604,10 @@ async function handleLoginSubmit(e) {
     let mergedThoughtsCount = 0;
 
     if (Array.isArray(vaultData.trades) && typeof mergeCloudTrades === 'function') {
-      mergedTradesCount = await mergeCloudTrades(vaultData.trades);
+      mergedTradesCount = await mergeCloudTrades(vaultData.trades, vaultData.deletedTradeUuids || []);
     }
     if (Array.isArray(vaultData.thoughts) && typeof mergeCloudThoughts === 'function') {
-      mergedThoughtsCount = await mergeCloudThoughts(vaultData.thoughts);
+      mergedThoughtsCount = await mergeCloudThoughts(vaultData.thoughts, vaultData.deletedThoughtUuids || []);
     }
 
     // Merge custom presets if available
@@ -675,17 +677,27 @@ async function syncWithCloud(silent = false) {
     // 1. Fetch remote vault
     const remoteData = await fetchCloudVault(user.vaultId);
 
-    // 2. Merge remote items into local
+    // 2. Merge remote items into local, respecting deleted tombstones
+    const remoteDeletedTrades = Array.isArray(remoteData.deletedTradeUuids) ? remoteData.deletedTradeUuids : [];
+    const remoteDeletedThoughts = Array.isArray(remoteData.deletedThoughtUuids) ? remoteData.deletedThoughtUuids : [];
+
     if (Array.isArray(remoteData.trades) && typeof mergeCloudTrades === 'function') {
-      await mergeCloudTrades(remoteData.trades);
+      await mergeCloudTrades(remoteData.trades, remoteDeletedTrades);
     }
     if (Array.isArray(remoteData.thoughts) && typeof mergeCloudThoughts === 'function') {
-      await mergeCloudThoughts(remoteData.thoughts);
+      await mergeCloudThoughts(remoteData.thoughts, remoteDeletedThoughts);
     }
 
-    // 3. Get all latest local data (now merged)
-    const rawLatestTrades = typeof getAllTradesRaw === 'function' ? await getAllTradesRaw() : [];
-    const rawLatestThoughts = typeof getAllJournalThoughts === 'function' ? await getAllJournalThoughts() : [];
+    // 3. Get all latest local data (now merged and filtered of deleted tombstones)
+    let rawLatestTrades = typeof getAllTradesRaw === 'function' ? await getAllTradesRaw() : [];
+    let rawLatestThoughts = typeof getAllJournalThoughts === 'function' ? await getAllJournalThoughts() : [];
+
+    if (typeof isTradeDeletedLocally === 'function') {
+      rawLatestTrades = rawLatestTrades.filter(t => !isTradeDeletedLocally(t));
+    }
+    if (typeof isThoughtDeletedLocally === 'function') {
+      rawLatestThoughts = rawLatestThoughts.filter(t => !isThoughtDeletedLocally(t));
+    }
 
     const latestTrades = sanitizeTradesForCloud(rawLatestTrades);
     const latestThoughts = sanitizeThoughtsForCloud(rawLatestThoughts);
@@ -698,6 +710,12 @@ async function syncWithCloud(silent = false) {
       criteria: typeof getCustomPresets === 'function' ? getCustomPresets('criteria') : []
     };
 
+    const localDeletedTrades = typeof getDeletedTradeSigs === 'function' ? getDeletedTradeSigs() : [];
+    const combinedDeletedTrades = Array.from(new Set([...remoteDeletedTrades, ...localDeletedTrades])).slice(-500);
+
+    const localDeletedThoughts = typeof getDeletedThoughtSigs === 'function' ? getDeletedThoughtSigs() : [];
+    const combinedDeletedThoughts = Array.from(new Set([...remoteDeletedThoughts, ...localDeletedThoughts])).slice(-500);
+
     // 4. Update cloud vault with newest merged package
     const updatedVault = {
       ...remoteData,
@@ -707,7 +725,9 @@ async function syncWithCloud(silent = false) {
       updatedAt: new Date().toISOString(),
       trades: latestTrades,
       thoughts: latestThoughts,
-      presets: presetsPayload
+      presets: presetsPayload,
+      deletedTradeUuids: combinedDeletedTrades,
+      deletedThoughtUuids: combinedDeletedThoughts
     };
 
     await updateCloudVault(user.vaultId, updatedVault);

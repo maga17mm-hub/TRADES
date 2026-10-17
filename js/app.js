@@ -63,7 +63,7 @@ const lightboxCaptionEl = document.getElementById('lightboxCaption');
 const recordTradeFormEl = document.getElementById('recordTradeForm');
 
 // App Build Version for auto cache invalidation
-const CURRENT_APP_BUILD = 'v22';
+const CURRENT_APP_BUILD = 'v23';
 
 function checkAppBuildVersion() {
   try {
@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=22', { updateViaCache: 'none' })
+      navigator.serviceWorker.register('./sw.js?v=23', { updateViaCache: 'none' })
         .then((reg) => {
           try { reg.update(); } catch (_) {}
         })
@@ -1368,7 +1368,7 @@ function renderTradeCard(t) {
   const outcomeLabel = t.outcome === 'WIN' ? 'Тейк-профит' : t.outcome === 'LOSS' ? 'Стоп-лосс' : 'Безубыток';
 
   return `
-    <div class="trade-card ${outcomeClass} trade-card-compact-row" id="trade-card-${t.id}" onclick="openTradeDetailModal(${t.id})" title="Нажмите, чтобы открыть подробности сделки">
+    <div class="trade-card ${outcomeClass} trade-card-compact-row" id="trade-card-${t.id}" onclick="openTradeDetailModal('${t.id}')" title="Нажмите, чтобы открыть подробности сделки">
       <div class="trade-compact-main">
         <span class="trade-symbol">${escapeHtml(t.symbol || 'ASSET')}</span>
         <span class="direction-badge ${dirClass}">${escapeHtml(t.direction || 'LONG')}</span>
@@ -1377,7 +1377,7 @@ function renderTradeCard(t) {
       </div>
 
       <div class="trade-compact-btn-wrap" onclick="event.stopPropagation()">
-        <button type="button" class="btn btn-secondary btn-sm btn-trade-detail-trigger" onclick="openTradeDetailModal(${t.id})" title="Подробнее о сделке">
+        <button type="button" class="btn btn-secondary btn-sm btn-trade-detail-trigger" onclick="openTradeDetailModal('${t.id}')" title="Подробнее о сделке">
           <span>Подробнее</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="9 18 15 12 9 6"></polyline>
@@ -1389,7 +1389,7 @@ function renderTradeCard(t) {
 }
 
 function openTradeDetailModal(id) {
-  const trade = allTrades.find((t) => t.id === Number(id));
+  const trade = allTrades.find((t) => String(t.id) === String(id));
   if (!trade) return;
 
   const modal = document.getElementById('tradeDetailModal');
@@ -1493,7 +1493,7 @@ function openTradeDetailModal(id) {
 
     <!-- Modal Actions Footer (with Edit & Delete) -->
     <div class="trade-detail-footer">
-      <button type="button" class="btn btn-secondary btn-sm" onclick="closeTradeDetailModal(); confirmDeleteTrade(${trade.id})" style="color: var(--loss); border-color: rgba(244, 63, 94, 0.25);">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeTradeDetailModal(); confirmDeleteTrade('${trade.id}')" style="color: var(--loss); border-color: rgba(244, 63, 94, 0.25);">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="3 6 5 6 21 6"></polyline>
           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1505,7 +1505,7 @@ function openTradeDetailModal(id) {
         <button type="button" class="btn btn-secondary btn-sm" onclick="closeTradeDetailModal()">
           Закрыть
         </button>
-        <button type="button" class="btn btn-primary btn-sm" onclick="closeTradeDetailModal(); editTrade(${trade.id})">
+        <button type="button" class="btn btn-primary btn-sm" onclick="closeTradeDetailModal(); editTrade('${trade.id}')">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
@@ -2082,7 +2082,12 @@ function openTradeModal(trade = null) {
 window.openTradeModal = openTradeModal;
 
 async function editTrade(id) {
-  const trade = allTrades.find((t) => t.id === Number(id));
+  let trade = allTrades.find((t) => String(t.id) === String(id));
+  if (!trade && typeof getTrade === 'function') {
+    try {
+      trade = await getTrade(id);
+    } catch (_) {}
+  }
   if (trade) {
     openTradeModal(trade);
   }
@@ -2459,7 +2464,11 @@ async function confirmDeleteTrade(id) {
       await deleteTrade(id);
       showToast(`Сделка #${id} удалена`, 'info');
       await refreshTrades();
-      if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
+      if (typeof syncWithCloud === 'function' && typeof isUserLoggedIn === 'function' && isUserLoggedIn()) {
+        syncWithCloud(true).catch(err => console.warn('Auto-sync error:', err));
+      } else if (typeof scheduleAutoSync === 'function') {
+        scheduleAutoSync();
+      }
     } catch (err) {
       console.error('Failed to delete trade:', err);
       showToast('Ошибка при удалении', 'error');

@@ -9,6 +9,116 @@ const DB_VERSION = 2;
 const STORE_NAME = 'trades';
 const THOUGHTS_STORE = 'journal_thoughts';
 const LS_BACKUP_KEY = 'tradelog_trades_store';
+const LS_DELETED_TRADES_KEY = 'tradelog_deleted_trade_sigs';
+const LS_DELETED_THOUGHTS_KEY = 'tradelog_deleted_thought_sigs';
+
+function getTradeSig(t) {
+  if (!t) return '';
+  if (t.uuid) return 'uuid:' + t.uuid;
+  return `${(t.symbol || '').toUpperCase()}|${t.entryTime || ''}|${t.direction || ''}|${t.entryPrice || ''}`;
+}
+
+function getThoughtSig(t) {
+  if (!t) return '';
+  if (t.uuid) return 'uuid:' + t.uuid;
+  const dateKey = (t.createdAt || '').substring(0, 19);
+  const titleKey = (t.title || '').trim();
+  const textSnippet = (t.text || '').substring(0, 30);
+  return `${dateKey}|${titleKey}|${textSnippet}`;
+}
+
+function getDeletedTradeSigs() {
+  try {
+    const raw = localStorage.getItem(LS_DELETED_TRADES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function recordDeletedTradeTombstone(trade) {
+  if (!trade) return;
+  const sigs = new Set(getDeletedTradeSigs());
+  if (trade.uuid) sigs.add(trade.uuid);
+  const sig = getTradeSig(trade);
+  if (sig) sigs.add(sig);
+  if (trade.id !== undefined && trade.id !== null) sigs.add(String(trade.id));
+  try {
+    localStorage.setItem(LS_DELETED_TRADES_KEY, JSON.stringify(Array.from(sigs).slice(-500)));
+  } catch (_) {}
+}
+
+function isTradeDeletedLocally(trade) {
+  if (!trade) return false;
+  const sigs = new Set(getDeletedTradeSigs());
+  if (trade.uuid && sigs.has(trade.uuid)) return true;
+  if (trade.id !== undefined && trade.id !== null && sigs.has(String(trade.id))) return true;
+  const sig = getTradeSig(trade);
+  if (sig && sigs.has(sig)) return true;
+  return false;
+}
+
+function getDeletedThoughtSigs() {
+  try {
+    const raw = localStorage.getItem(LS_DELETED_THOUGHTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function recordDeletedThoughtTombstone(thought) {
+  if (!thought) return;
+  const sigs = new Set(getDeletedThoughtSigs());
+  if (thought.uuid) sigs.add(thought.uuid);
+  const sig = getThoughtSig(thought);
+  if (sig) sigs.add(sig);
+  if (thought.id !== undefined && thought.id !== null) sigs.add(String(thought.id));
+  try {
+    localStorage.setItem(LS_DELETED_THOUGHTS_KEY, JSON.stringify(Array.from(sigs).slice(-500)));
+  } catch (_) {}
+}
+
+function isThoughtDeletedLocally(thought) {
+  if (!thought) return false;
+  const sigs = new Set(getDeletedThoughtSigs());
+  if (thought.uuid && sigs.has(thought.uuid)) return true;
+  if (thought.id !== undefined && thought.id !== null && sigs.has(String(thought.id))) return true;
+  const sig = getThoughtSig(thought);
+  if (sig && sigs.has(sig)) return true;
+  return false;
+}
+
+async function deleteTradeFromStoreOnly(id) {
+  const db = await getDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction([STORE_NAME], 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const numId = Number(id);
+    if (!isNaN(numId)) store.delete(numId);
+    store.delete(String(id));
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => resolve(false);
+  });
+}
+
+async function deleteThoughtFromStoreOnly(id) {
+  const db = await getDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction([THOUGHTS_STORE], 'readwrite');
+    const store = tx.objectStore(THOUGHTS_STORE);
+    const numId = Number(id);
+    if (!isNaN(numId)) store.delete(numId);
+    store.delete(String(id));
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => resolve(false);
+  });
+}
+
+window.getDeletedTradeSigs = getDeletedTradeSigs;
+window.getDeletedThoughtSigs = getDeletedThoughtSigs;
+window.isTradeDeletedLocally = isTradeDeletedLocally;
+window.isThoughtDeletedLocally = isThoughtDeletedLocally;
 
 let dbInstance = null;
 
@@ -88,7 +198,11 @@ async function getAllTradesRaw() {
     const transaction = db.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
     const request = store.getAll();
-    request.onsuccess = () => resolve(request.result || []);
+    request.onsuccess = () => {
+      let items = request.result || [];
+      items = items.filter(t => !isTradeDeletedLocally(t));
+      resolve(items);
+    };
     request.onerror = (e) => reject(e.target.error);
   });
 }
@@ -160,11 +274,24 @@ async function updateTrade(trade) {
  */
 async function deleteTrade(id) {
   const db = await getDB();
+  try {
+    const trade = await getTrade(id);
+    if (trade) {
+      recordDeletedTradeTombstone(trade);
+    } else {
+      recordDeletedTradeTombstone({ id: id });
+    }
+  } catch (_) {}
+
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.delete(Number(id));
-    request.onsuccess = async () => {
+    const numId = Number(id);
+    if (!isNaN(numId)) {
+      store.delete(numId);
+    }
+    store.delete(String(id));
+    transaction.oncomplete = async () => {
       try {
         const all = await getAllTradesRaw();
         syncTradesToLocalStorage(all);
@@ -173,7 +300,7 @@ async function deleteTrade(id) {
       }
       resolve(true);
     };
-    request.onerror = (e) => reject(e.target.error);
+    transaction.onerror = (e) => reject(e.target.error);
   });
 }
 
@@ -185,8 +312,14 @@ async function getTrade(id) {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(Number(id));
-    request.onsuccess = () => resolve(request.result);
+    const numId = Number(id);
+    const request = !isNaN(numId) ? store.get(numId) : store.get(String(id));
+    request.onsuccess = () => {
+      if (request.result) return resolve(request.result);
+      const req2 = store.get(String(id));
+      req2.onsuccess = () => resolve(req2.result);
+      req2.onerror = () => resolve(null);
+    };
     request.onerror = (e) => reject(e.target.error);
   });
 }
@@ -203,6 +336,9 @@ async function getAllTrades() {
     request.onsuccess = async () => {
       let list = request.result || [];
 
+      // Filter out any trade that is marked as deleted
+      list = list.filter(t => !isTradeDeletedLocally(t));
+
       // One-time cleanup: If existing trades are ONLY the original hardcoded demo trades, clear them so app is clean empty
       if (localStorage.getItem('tradelog_demo_cleaned_v2') !== 'true') {
         localStorage.setItem('tradelog_demo_cleaned_v2', 'true');
@@ -218,9 +354,10 @@ async function getAllTrades() {
         }
       }
 
-      // Restore from localStorage if IndexedDB is empty
+      // Restore from localStorage ONLY if IndexedDB is empty AND backup trades weren't deleted
       if (list.length === 0) {
-        const backup = getTradesFromLocalStorage();
+        let backup = getTradesFromLocalStorage() || [];
+        backup = backup.filter(t => !isTradeDeletedLocally(t));
         if (backup && backup.length > 0) {
           console.log('Restoring trades from LocalStorage mirror...');
           try {
@@ -417,7 +554,8 @@ async function getAllJournalThoughts() {
     const store = tx.objectStore(THOUGHTS_STORE);
     const request = store.getAll();
     request.onsuccess = () => {
-      const items = request.result || [];
+      let items = request.result || [];
+      items = items.filter(t => !isThoughtDeletedLocally(t));
       // Sort newest first
       items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       resolve(items);
@@ -428,12 +566,25 @@ async function getAllJournalThoughts() {
 
 async function deleteJournalThought(id) {
   const db = await getDB();
+  try {
+    const thought = await getJournalThought(id);
+    if (thought) {
+      recordDeletedThoughtTombstone(thought);
+    } else {
+      recordDeletedThoughtTombstone({ id: id });
+    }
+  } catch (_) {}
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction([THOUGHTS_STORE], 'readwrite');
     const store = tx.objectStore(THOUGHTS_STORE);
-    const request = store.delete(Number(id));
-    request.onsuccess = () => resolve(true);
-    request.onerror = (e) => reject(e.target.error);
+    const numId = Number(id);
+    if (!isNaN(numId)) {
+      store.delete(numId);
+    }
+    store.delete(String(id));
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = (e) => reject(e.target.error);
   });
 }
 
@@ -454,8 +605,14 @@ async function getJournalThought(id) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction([THOUGHTS_STORE], 'readonly');
     const store = tx.objectStore(THOUGHTS_STORE);
-    const request = store.get(Number(id));
-    request.onsuccess = () => resolve(request.result);
+    const numId = Number(id);
+    const request = !isNaN(numId) ? store.get(numId) : store.get(String(id));
+    request.onsuccess = () => {
+      if (request.result) return resolve(request.result);
+      const req2 = store.get(String(id));
+      req2.onsuccess = () => resolve(req2.result);
+      req2.onerror = () => resolve(null);
+    };
     request.onerror = (e) => reject(e.target.error);
   });
 }
@@ -469,17 +626,30 @@ async function getJournalThought(id) {
 /**
  * Two-way merge of cloud trades into local IndexedDB
  */
-async function mergeCloudTrades(cloudTrades) {
-  if (!Array.isArray(cloudTrades) || cloudTrades.length === 0) return 0;
+async function mergeCloudTrades(cloudTrades, remoteDeletedSigs = []) {
+  const localDeletedSigs = new Set(getDeletedTradeSigs());
+  (remoteDeletedSigs || []).forEach(sig => {
+    if (sig) {
+      localDeletedSigs.add(String(sig));
+      recordDeletedTradeTombstone({ uuid: String(sig) });
+    }
+  });
+
   const localTrades = await getAllTradesRaw();
 
-  function getTradeSig(t) {
-    if (t.uuid) return 'uuid:' + t.uuid;
-    return `${(t.symbol || '').toUpperCase()}|${t.entryTime || ''}|${t.direction || ''}|${t.entryPrice || ''}`;
+  // Purge any local trades that have been deleted in remote tombstones
+  for (const lt of localTrades) {
+    const sig = getTradeSig(lt);
+    if (localDeletedSigs.has(sig) || (lt.uuid && localDeletedSigs.has(lt.uuid)) || localDeletedSigs.has(String(lt.id))) {
+      await deleteTradeFromStoreOnly(lt.id);
+    }
   }
 
+  if (!Array.isArray(cloudTrades) || cloudTrades.length === 0) return 0;
+
+  const freshLocalTrades = await getAllTradesRaw();
   const localMap = new Map();
-  localTrades.forEach(lt => {
+  freshLocalTrades.forEach(lt => {
     localMap.set(getTradeSig(lt), lt);
   });
 
@@ -488,6 +658,12 @@ async function mergeCloudTrades(cloudTrades) {
   for (const ct of cloudTrades) {
     if (!ct || typeof ct !== 'object') continue;
     const sig = getTradeSig(ct);
+
+    // If trade was deleted locally or remotely, do NOT re-add or update it!
+    if (localDeletedSigs.has(sig) || (ct.uuid && localDeletedSigs.has(ct.uuid)) || localDeletedSigs.has(String(ct.id)) || isTradeDeletedLocally(ct)) {
+      continue;
+    }
+
     const existing = localMap.get(sig);
 
     if (existing) {
@@ -516,20 +692,30 @@ window.mergeCloudTrades = mergeCloudTrades;
 /**
  * Two-way merge of cloud journal thoughts into local IndexedDB
  */
-async function mergeCloudThoughts(cloudThoughts) {
-  if (!Array.isArray(cloudThoughts) || cloudThoughts.length === 0) return 0;
+async function mergeCloudThoughts(cloudThoughts, remoteDeletedSigs = []) {
+  const localDeletedSigs = new Set(getDeletedThoughtSigs());
+  (remoteDeletedSigs || []).forEach(sig => {
+    if (sig) {
+      localDeletedSigs.add(String(sig));
+      recordDeletedThoughtTombstone({ uuid: String(sig) });
+    }
+  });
+
   const localThoughts = await getAllJournalThoughts();
 
-  function getThoughtSig(t) {
-    if (t.uuid) return 'uuid:' + t.uuid;
-    const dateKey = (t.createdAt || '').substring(0, 19);
-    const titleKey = (t.title || '').trim();
-    const textSnippet = (t.text || '').substring(0, 30);
-    return `${dateKey}|${titleKey}|${textSnippet}`;
+  // Purge any local thoughts that have been deleted in remote tombstones
+  for (const lt of localThoughts) {
+    const sig = getThoughtSig(lt);
+    if (localDeletedSigs.has(sig) || (lt.uuid && localDeletedSigs.has(lt.uuid)) || localDeletedSigs.has(String(lt.id))) {
+      await deleteThoughtFromStoreOnly(lt.id);
+    }
   }
 
+  if (!Array.isArray(cloudThoughts) || cloudThoughts.length === 0) return 0;
+
+  const freshLocalThoughts = await getAllJournalThoughts();
   const localMap = new Map();
-  localThoughts.forEach(lt => {
+  freshLocalThoughts.forEach(lt => {
     localMap.set(getThoughtSig(lt), lt);
   });
 
@@ -538,6 +724,12 @@ async function mergeCloudThoughts(cloudThoughts) {
   for (const ct of cloudThoughts) {
     if (!ct || typeof ct !== 'object') continue;
     const sig = getThoughtSig(ct);
+
+    // If thought was deleted locally or remotely, do NOT re-add or update it!
+    if (localDeletedSigs.has(sig) || (ct.uuid && localDeletedSigs.has(ct.uuid)) || localDeletedSigs.has(String(ct.id)) || isThoughtDeletedLocally(ct)) {
+      continue;
+    }
+
     const existing = localMap.get(sig);
 
     if (existing) {
@@ -562,5 +754,6 @@ async function mergeCloudThoughts(cloudThoughts) {
   return mergedCount;
 }
 window.mergeCloudThoughts = mergeCloudThoughts;
+
 
 
