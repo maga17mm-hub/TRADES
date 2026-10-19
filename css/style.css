@@ -2501,7 +2501,7 @@ html.lightbox-open {
 }
 
 .ai-modal-header {
-  padding: 10px 16px;
+  padding: 6px 16px;
   background: var(--color-obsidian);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
@@ -2509,6 +2509,7 @@ html.lightbox-open {
   justify-content: space-between;
   gap: 10px;
   flex-shrink: 0;
+  min-height: 44px;
 }
 
 .ai-header-brand {
@@ -2578,7 +2579,8 @@ html.lightbox-open {
 .ai-quick-pills-row {
   display: flex;
   gap: 6px;
-  padding: 10px 18px;
+  padding: 4px 14px 6px 14px;
+  margin-top: 0;
   background: var(--bg-canvas);
   border-bottom: 1px solid var(--border-subtle);
   overflow-x: auto;
@@ -2791,7 +2793,8 @@ html.lightbox-open {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 6px 12px max(4px, env(safe-area-inset-bottom, 4px)) 12px;
+  margin: 0 !important;
   background: var(--color-obsidian);
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
@@ -4139,18 +4142,20 @@ main.app-container {
 
 @media (max-width: 640px) {
   .ai-modal-overlay {
-    padding-top: max(32px, env(safe-area-inset-top, 32px)) !important;
+    padding-top: max(16px, env(safe-area-inset-top, 16px)) !important;
+    padding-bottom: 0 !important;
     align-items: flex-end !important;
   }
   .ai-modal-card {
-    height: calc(100dvh - max(16px, env(safe-area-inset-top, 16px))) !important;
-    max-height: calc(100% - 10px) !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
     border-radius: 20px 20px 0 0 !important;
-    margin-top: auto !important;
+    margin: 0 !important;
     padding: 0 !important;
   }
   .ai-modal-header {
-    padding: 8px 14px !important;
+    padding: 6px 14px !important;
+    min-height: 42px !important;
     align-items: center !important;
     gap: 8px !important;
   }
@@ -4174,19 +4179,20 @@ main.app-container {
     align-items: center !important;
     gap: 5px !important;
   }
+  .ai-quick-pills-row {
+    padding: 3px 10px 5px 10px !important;
+    margin-top: 0 !important;
+    gap: 6px !important;
+  }
   .ai-chat-messages {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow-y: auto !important;
-    padding: 12px 14px !important;
+    padding: 8px 12px !important;
   }
   .ai-chat-input-bar {
-    padding: 8px 12px max(8px, env(safe-area-inset-bottom, 8px)) 12px !important;
+    padding: 5px 8px max(2px, env(safe-area-inset-bottom, 2px)) 8px !important;
     margin: 0 !important;
-  }
-  .ai-quick-pills-row {
-    padding: 8px 12px !important;
-    gap: 6px !important;
   }
 }
 

@@ -76,9 +76,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initVoiceEngine() {
+  try {
+    const saved = localStorage.getItem('tradelog_selected_voice') || '';
+    if (saved.toLowerCase().includes('milena') || saved.toLowerCase().includes('милена')) {
+      localStorage.removeItem('tradelog_selected_voice');
+    }
+  } catch (e) {}
+
   if ('speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.getVoices();
+    } catch (e) {}
     window.speechSynthesis.onvoiceschanged = () => {
       getDmitryVoice();
+      if (typeof populateSettingsVoiceList === 'function') {
+        populateSettingsVoiceList();
+      }
     };
   }
 }
@@ -125,14 +138,30 @@ function saveAiChatHistory() {
  */
 function getDmitryVoice() {
   if (!('speechSynthesis' in window)) return null;
-  const voices = window.speechSynthesis.getVoices();
+  const voices = window.speechSynthesis.getVoices() || [];
   if (!voices || voices.length === 0) return null;
 
-  // 0. User-selected preferred voice from Settings
-  const preferredVoiceName = localStorage.getItem('tradelog_selected_voice');
+  // Helper: Strictly reject Milena and unwanted female voices
+  const isExcluded = (v) => {
+    const n = (v.name || '').toLowerCase();
+    return n.includes('milena') || n.includes('милена') ||
+           n.includes('katya') || n.includes('катя') ||
+           n.includes('svetlana') || n.includes('светлана') ||
+           n.includes('irina') || n.includes('ирина') ||
+           n.includes('dariya') || n.includes('дарья') ||
+           n.includes('female');
+  };
+
+  // 0. User-selected preferred voice from Settings (ignoring Milena)
+  let preferredVoiceName = localStorage.getItem('tradelog_selected_voice');
   if (preferredVoiceName) {
-    const userVoice = voices.find(v => v.name === preferredVoiceName);
-    if (userVoice) return userVoice;
+    if (preferredVoiceName.toLowerCase().includes('milena') || preferredVoiceName.toLowerCase().includes('милена')) {
+      localStorage.removeItem('tradelog_selected_voice');
+      preferredVoiceName = null;
+    } else {
+      const userVoice = voices.find(v => v.name === preferredVoiceName);
+      if (userVoice && !isExcluded(userVoice)) return userVoice;
+    }
   }
 
   // 1. Exact Microsoft Dmitry Neural / Online Natural voice (Highest fidelity 24kHz natural Russian male voice)
@@ -141,7 +170,8 @@ function getDmitryVoice() {
     const l = (v.lang || '').toLowerCase();
     return (l.startsWith('ru') || l.includes('ru')) &&
            (n.includes('dmitry') || n.includes('дмитрий')) &&
-           (n.includes('natural') || n.includes('neural') || n.includes('online'));
+           (n.includes('natural') || n.includes('neural') || n.includes('online')) &&
+           !isExcluded(v);
   });
   if (voice) return voice;
 
@@ -150,7 +180,8 @@ function getDmitryVoice() {
     const n = v.name.toLowerCase();
     const l = (v.lang || '').toLowerCase();
     return (l.startsWith('ru') || l.includes('ru')) && 
-           (n.includes('dmitry') || n.includes('дмитрий'));
+           (n.includes('dmitry') || n.includes('дмитрий')) &&
+           !isExcluded(v);
   });
   if (voice) return voice;
 
@@ -160,32 +191,40 @@ function getDmitryVoice() {
     const l = (v.lang || '').toLowerCase();
     return (l.startsWith('ru') || l.includes('ru')) && 
            (n.includes('natural') || n.includes('neural') || n.includes('online')) && 
-           !n.includes('svetlana') && !n.includes('irina') && !n.includes('dariya') && !n.includes('female');
+           !isExcluded(v);
   });
   if (voice) return voice;
 
-  // 4. Google Russian (high quality natural on Android/Chrome)
-  voice = voices.find(v => {
-    const n = v.name.toLowerCase();
-    const l = (v.lang || '').toLowerCase();
-    return (l.startsWith('ru') || l.includes('ru')) && n.includes('google');
-  });
-  if (voice) return voice;
-
-  // 5. Any Russian male voice (Pavel / Юрий / Александр)
+  // 4. Any Russian male voice (Pavel / Юрий / Александр)
   voice = voices.find(v => {
     const n = v.name.toLowerCase();
     const l = (v.lang || '').toLowerCase();
     return (l.startsWith('ru') || l.includes('ru')) && 
-           (n.includes('pavel') || n.includes('павел') || n.includes('yuri') || n.includes('юрий') || n.includes('male'));
+           (n.includes('pavel') || n.includes('павел') || n.includes('yuri') || n.includes('юрий') || n.includes('male') || n.includes('александр')) &&
+           !isExcluded(v);
   });
   if (voice) return voice;
 
-  // 6. Any other Russian voice
+  // 5. Google Russian (high quality natural on Android/Chrome)
+  voice = voices.find(v => {
+    const n = v.name.toLowerCase();
+    const l = (v.lang || '').toLowerCase();
+    return (l.startsWith('ru') || l.includes('ru')) && n.includes('google') && !isExcluded(v);
+  });
+  if (voice) return voice;
+
+  // 6. Any other Russian voice (strictly excluding Milena/female)
   voice = voices.find(v => {
     const l = (v.lang || '').toLowerCase();
     const n = v.name.toLowerCase();
-    return l.startsWith('ru') || l.includes('ru') || n.includes('russian') || n.includes('русский');
+    return (l.startsWith('ru') || l.includes('ru') || n.includes('russian') || n.includes('русский')) && !isExcluded(v);
+  });
+  if (voice) return voice;
+
+  // 7. Last resort Russian voice if no others match (still excluding Milena)
+  voice = voices.find(v => {
+    const l = (v.lang || '').toLowerCase();
+    return (l.startsWith('ru') || l.includes('ru')) && !isExcluded(v);
   });
   if (voice) return voice;
 
@@ -198,6 +237,8 @@ function getAvailableRussianVoices() {
   return voices.filter(v => {
     const l = (v.lang || '').toLowerCase();
     const n = (v.name || '').toLowerCase();
+    // Strictly exclude Milena
+    if (n.includes('milena') || n.includes('милена')) return false;
     return l.startsWith('ru') || l.includes('ru') || n.includes('russian') || n.includes('русский') || n.includes('dmitry');
   });
 }
@@ -347,8 +388,11 @@ function cleanTextForSpeech(text) {
   return t;
 }
 
+let dmitryKeepAliveTimer = null;
+
 function speakWithDmitry(text, msgIdx = null) {
   if (!isVoiceEnabled) return;
+  if (!('speechSynthesis' in window)) return;
 
   stopSpeaking();
 
@@ -356,46 +400,74 @@ function speakWithDmitry(text, msgIdx = null) {
   if (!cleanText) return;
 
   const dmitryVoice = getDmitryVoice();
+  const utterance = new SpeechSynthesisUtterance(cleanText);
+
   if (dmitryVoice) {
-    const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.voice = dmitryVoice;
     utterance.lang = dmitryVoice.lang || 'ru-RU';
-    // Rate 1.0 and Pitch 1.0 preserves pure HD neural audio on Edge/Chrome/Android
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-
-    currentlySpeakingIdx = msgIdx;
-    updateSpeechButtonsUI();
-
-    utterance.onend = () => {
-      currentlySpeakingIdx = null;
-      updateSpeechButtonsUI();
-    };
-
-    utterance.onerror = (e) => {
-      console.warn('Speech synthesis notice:', e);
-      currentlySpeakingIdx = null;
-      updateSpeechButtonsUI();
-    };
-
-    window.speechSynthesis.speak(utterance);
   } else {
-    if ('speechSynthesis' in window && window.speechSynthesis.getVoices().length === 0) {
-      setTimeout(() => {
-        const retryVoice = getDmitryVoice();
-        if (retryVoice) {
-          speakWithDmitry(text, msgIdx);
-        } else {
-          playRussianAudioTts(cleanText, msgIdx);
-        }
-      }, 250);
+    utterance.lang = 'ru-RU';
+  }
+
+  // Rate 1.0 and Pitch 1.0 preserves natural pitch
+  utterance.rate = 1.0;
+  utterance.pitch = 1.0;
+
+  // Crucial: keep reference on window to prevent Chromium/WebKit garbage-collection mid-sentence
+  window._activeDmitryUtterance = utterance;
+  currentlySpeakingIdx = msgIdx;
+  updateSpeechButtonsUI();
+
+  const cleanupSpeech = () => {
+    if (dmitryKeepAliveTimer) {
+      clearInterval(dmitryKeepAliveTimer);
+      dmitryKeepAliveTimer = null;
+    }
+    window._activeDmitryUtterance = null;
+    currentlySpeakingIdx = null;
+    updateSpeechButtonsUI();
+  };
+
+  utterance.onend = () => {
+    cleanupSpeech();
+  };
+
+  utterance.onerror = (e) => {
+    console.warn('Speech synthesis notice:', e);
+    cleanupSpeech();
+  };
+
+  // Keep-alive for long speech on Chromium (prevents automatic pause after 15 seconds)
+  dmitryKeepAliveTimer = setInterval(() => {
+    if (!window._activeDmitryUtterance) {
+      if (dmitryKeepAliveTimer) clearInterval(dmitryKeepAliveTimer);
       return;
     }
-    playRussianAudioTts(cleanText, msgIdx);
-  }
+    if (window.speechSynthesis.speaking && window.speechSynthesis.paused) {
+      try { window.speechSynthesis.resume(); } catch (_) {}
+    }
+  }, 3500);
+
+  // Slight 40ms delay allows window.speechSynthesis.cancel() from stopSpeaking to fully finish
+  setTimeout(() => {
+    try {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn('Speech speak exception:', err);
+      cleanupSpeech();
+    }
+  }, 40);
 }
 
 function stopSpeaking() {
+  if (dmitryKeepAliveTimer) {
+    clearInterval(dmitryKeepAliveTimer);
+    dmitryKeepAliveTimer = null;
+  }
+  window._activeDmitryUtterance = null;
   if ('speechSynthesis' in window) {
     try { window.speechSynthesis.cancel(); } catch (e) {}
   }

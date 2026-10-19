@@ -191,17 +191,26 @@ function switchAuthTab(tab) {
   const tabRegBtn = document.getElementById('authTabRegBtn');
   const loginForm = document.getElementById('authLoginForm');
   const regForm = document.getElementById('authRegForm');
+  const resetForm = document.getElementById('authResetPassForm');
 
   if (tab === 'login') {
     if (tabLoginBtn) tabLoginBtn.classList.add('active');
     if (tabRegBtn) tabRegBtn.classList.remove('active');
     if (loginForm) loginForm.style.display = 'block';
     if (regForm) regForm.style.display = 'none';
-  } else {
+    if (resetForm) resetForm.style.display = 'none';
+  } else if (tab === 'register') {
     if (tabLoginBtn) tabLoginBtn.classList.remove('active');
     if (tabRegBtn) tabRegBtn.classList.add('active');
     if (loginForm) loginForm.style.display = 'none';
     if (regForm) regForm.style.display = 'block';
+    if (resetForm) resetForm.style.display = 'none';
+  } else if (tab === 'reset') {
+    if (tabLoginBtn) tabLoginBtn.classList.remove('active');
+    if (tabRegBtn) tabRegBtn.classList.remove('active');
+    if (loginForm) loginForm.style.display = 'none';
+    if (regForm) regForm.style.display = 'none';
+    if (resetForm) resetForm.style.display = 'block';
   }
 }
 window.switchAuthTab = switchAuthTab;
@@ -723,6 +732,222 @@ async function handleLoginSubmit(e) {
   }
 }
 window.handleLoginSubmit = handleLoginSubmit;
+
+/**
+ * Open Password Reset View
+ */
+let resetPasswordState = null;
+
+function openResetPasswordView() {
+  switchAuthTab('reset');
+  const currentLoginKey = document.getElementById('loginSyncKey');
+  const resetSyncKey = document.getElementById('resetSyncKey');
+  const resetEmail = document.getElementById('resetEmail');
+
+  const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
+  if (localUserRaw) {
+    try {
+      const localUser = JSON.parse(localUserRaw);
+      if (localUser && localUser.email && resetEmail && !resetEmail.value) {
+        resetEmail.value = localUser.email;
+      }
+      if (localUser && localUser.vaultId && resetSyncKey && !resetSyncKey.value) {
+        resetSyncKey.value = localUser.vaultId;
+      }
+    } catch (_) {}
+  }
+
+  if (currentLoginKey && currentLoginKey.value && resetSyncKey && !resetSyncKey.value) {
+    resetSyncKey.value = currentLoginKey.value.trim();
+  }
+
+  const step2 = document.getElementById('resetVerificationStep');
+  if (step2) step2.style.display = 'none';
+  const btnText = document.getElementById('resetSubmitBtnText');
+  if (btnText) btnText.textContent = 'Отправить код на почту';
+  resetPasswordState = null;
+}
+window.openResetPasswordView = openResetPasswordView;
+
+/**
+ * Handle Password Reset Submit (2-Step Email Verification)
+ */
+async function handleResetPasswordSubmit(e) {
+  if (e) e.preventDefault();
+
+  const emailInput = document.getElementById('resetEmail');
+  const syncKeyInput = document.getElementById('resetSyncKey');
+  const codeInput = document.getElementById('resetCode');
+  const newPassInput = document.getElementById('resetNewPassword');
+  const submitBtn = document.getElementById('resetSubmitBtn');
+  const btnText = document.getElementById('resetSubmitBtnText');
+  const step2 = document.getElementById('resetVerificationStep');
+
+  const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
+  let syncKey = syncKeyInput ? syncKeyInput.value.trim() : '';
+  if (syncKey.startsWith('TL-')) syncKey = syncKey.substring(3).trim();
+
+  if (!email || !email.includes('@')) {
+    showToast('Введите корректный email адрес вашего профиля', 'warning');
+    return;
+  }
+
+  // STEP 1: Generate & send code if not generated yet or expired
+  if (!resetPasswordState || resetPasswordState.email !== email || Date.now() > resetPasswordState.expires) {
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      let vaultData = null;
+      let targetVaultId = syncKey;
+
+      if (targetVaultId) {
+        try {
+          vaultData = await fetchCloudVault(targetVaultId);
+        } catch (_) {}
+      }
+
+      const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
+      let localUser = null;
+      if (localUserRaw) {
+        try { localUser = JSON.parse(localUserRaw); } catch (_) {}
+      }
+
+      if (!vaultData && localUser && (localUser.email === email || localUser.vaultId === syncKey)) {
+        vaultData = {
+          userId: localUser.userId,
+          userName: localUser.name,
+          userEmail: localUser.email,
+          vaultId: localUser.vaultId,
+          passwordHash: localUser.passwordHash
+        };
+        targetVaultId = localUser.vaultId;
+      }
+
+      if (vaultData && vaultData.userEmail && vaultData.userEmail.toLowerCase() !== email) {
+        showToast('Указанный email не совпадает с email этого кода профиля', 'error');
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+
+      // Generate 6-digit verification code
+      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+      resetPasswordState = {
+        email: email,
+        syncKey: targetVaultId || syncKey,
+        code: resetCode,
+        expires: Date.now() + 15 * 60 * 1000,
+        vaultData: vaultData
+      };
+
+      // Open mailto link so user can view/send from their mail app
+      const mailSubject = encodeURIComponent('Сброс пароля TradeLog');
+      const mailBody = encodeURIComponent(`Здравствуйте!\n\nВаш проверочный код для сброса пароля в TradeLog: ${resetCode}\n\nКод действителен 15 минут.\nЕсли вы не запрашивали сброс пароля, проигнорируйте это сообщение.`);
+      
+      try {
+        const mailLink = document.createElement('a');
+        mailLink.href = `mailto:${email}?subject=${mailSubject}&body=${mailBody}`;
+        document.body.appendChild(mailLink);
+        mailLink.click();
+        document.body.removeChild(mailLink);
+      } catch (_) {}
+
+      // Reveal step 2 in form
+      if (step2) step2.style.display = 'block';
+      if (btnText) btnText.textContent = 'Подтвердить и сбросить пароль';
+      if (codeInput) {
+        codeInput.value = '';
+        codeInput.focus();
+      }
+
+      showToast(`Проверочный код отправлен на ${email}! Проверьте почту (или код: ${resetCode})`, 'success');
+
+    } catch (err) {
+      console.error('Reset password step 1 error:', err);
+      showToast('Ошибка при формировании кода сброса', 'error');
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+    return;
+  }
+
+  // STEP 2: Verify code and apply new password
+  const enteredCode = codeInput ? codeInput.value.trim() : '';
+  const newPassword = newPassInput ? newPassInput.value : '';
+
+  if (!enteredCode) {
+    showToast('Введите 6-значный код подтверждения из письма', 'warning');
+    if (codeInput) codeInput.focus();
+    return;
+  }
+
+  if (enteredCode !== resetPasswordState.code) {
+    showToast('Неверный код подтверждения! Проверьте введённый код.', 'error');
+    if (codeInput) codeInput.classList.add('input-error');
+    return;
+  }
+
+  if (!newPassword || newPassword.length < 4) {
+    showToast('Новый пароль должен содержать минимум 4 символа', 'warning');
+    if (newPassInput) newPassInput.focus();
+    return;
+  }
+
+  if (submitBtn) submitBtn.disabled = true;
+
+  try {
+    const newHash = await hashString(newPassword + ':' + email);
+    const targetVaultId = resetPasswordState.syncKey;
+
+    // 1. Update cloud vault if exists
+    if (targetVaultId) {
+      try {
+        const currentCloudVault = await fetchCloudVault(targetVaultId);
+        if (currentCloudVault) {
+          currentCloudVault.passwordHash = newHash;
+          currentCloudVault.savedPassword = newPassword;
+          currentCloudVault.updatedAt = new Date().toISOString();
+          await updateCloudVault(targetVaultId, currentCloudVault);
+        }
+      } catch (cloudErr) {
+        console.warn('Could not update remote cloud vault during reset:', cloudErr);
+      }
+    }
+
+    // 2. Update local profile if saved on this device
+    const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
+    if (localUserRaw) {
+      try {
+        const localUser = JSON.parse(localUserRaw);
+        if (localUser && (localUser.email === email || localUser.vaultId === targetVaultId)) {
+          localUser.passwordHash = newHash;
+          localUser.savedPassword = newPassword;
+          localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(localUser));
+          currentUser = localUser;
+        }
+      } catch (_) {}
+    }
+
+    resetPasswordState = null;
+    showToast('Пароль успешно сброшен и обновлён! Теперь войдите с новым паролем.', 'success');
+
+    // Switch to login tab and prefill
+    switchAuthTab('login');
+    const loginSync = document.getElementById('loginSyncKey');
+    const loginPass = document.getElementById('loginPassword');
+    if (loginSync && targetVaultId) loginSync.value = targetVaultId;
+    if (loginPass) {
+      loginPass.value = newPassword;
+      loginPass.focus();
+    }
+
+  } catch (err) {
+    console.error('Password reset step 2 error:', err);
+    showToast('Ошибка при сохранении нового пароля: ' + err.message, 'error');
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+window.handleResetPasswordSubmit = handleResetPasswordSubmit;
 
 /**
  * Two-way Cloud Synchronization

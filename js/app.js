@@ -63,7 +63,7 @@ const lightboxCaptionEl = document.getElementById('lightboxCaption');
 const recordTradeFormEl = document.getElementById('recordTradeForm');
 
 // App Build Version for auto cache invalidation
-const CURRENT_APP_BUILD = 'v25';
+const CURRENT_APP_BUILD = 'v26';
 
 function checkAppBuildVersion() {
   try {
@@ -2319,11 +2319,18 @@ function populateSettingsVoiceList() {
   if (!select || !('speechSynthesis' in window)) return;
 
   const voices = typeof getAvailableRussianVoices === 'function' ? getAvailableRussianVoices() : [];
-  const selectedVoice = localStorage.getItem('tradelog_selected_voice') || '';
+  let selectedVoice = localStorage.getItem('tradelog_selected_voice') || '';
+  if (selectedVoice.toLowerCase().includes('milena') || selectedVoice.toLowerCase().includes('милена')) {
+    localStorage.removeItem('tradelog_selected_voice');
+    selectedVoice = '';
+  }
 
-  select.innerHTML = '<option value="">Автовыбор (Дмитрий / Приоритетный русский голос)</option>';
+  select.innerHTML = '<option value="">Дмитрий (Основной русский голос)</option>';
 
   voices.forEach(v => {
+    const nameLower = (v.name || '').toLowerCase();
+    if (nameLower.includes('milena') || nameLower.includes('милена')) return;
+
     const opt = document.createElement('option');
     opt.value = v.name;
     opt.textContent = `${v.name} (${v.lang})`;

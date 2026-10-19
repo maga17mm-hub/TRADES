@@ -19,8 +19,8 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
   <!-- Fonts & Styles -->
-  <link rel="stylesheet" href="./css/style.css?v=25">
-  <link rel="stylesheet" href="./css/books.css?v=25">
+  <link rel="stylesheet" href="./css/style.css?v=26">
+  <link rel="stylesheet" href="./css/books.css?v=26">
   <script>
     // Apply the saved appearance before paint; existing theme choices are retained.
     try { document.documentElement.dataset.theme = localStorage.getItem("tradelog_theme") || "books"; }
@@ -881,7 +881,7 @@
             </svg>
           </div>
           <div class="ai-header-title-row">
-            <h2 class="ai-header-title">ВАШ Ассистент</h2>
+            <h2 class="ai-header-title">Ассистент</h2>
           </div>
         </div>
 
@@ -1077,6 +1077,11 @@
             <label class="form-label" for="loginPassword">Пароль от профиля</label>
             <input type="password" id="loginPassword" class="form-input" placeholder="Введите ваш пароль..." autocomplete="current-password" required oninput="const e=document.getElementById('loginPasswordError'); if(e){e.style.display='none'; this.classList.remove('input-error');}">
             <div id="loginPasswordError" class="form-error-msg" style="display: none; color: #ef4444; font-size: 0.78rem; margin-top: 6px; font-weight: 500;"></div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+              <button type="button" class="btn-link" onclick="openResetPasswordView()" style="background: none; border: none; color: var(--brand, #ff6363); font-size: 0.78rem; cursor: pointer; text-decoration: underline; padding: 2px 0;">
+                Забыли пароль? Сбросить через почту
+              </button>
+            </div>
           </div>
 
           <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; gap: 8px; margin-top: 16px; margin-bottom: 28px;">
@@ -1086,6 +1091,56 @@
               <line x1="15" y1="12" x2="3" y2="12"></line>
             </svg>
             <span>Войти в профиль и загрузить данные</span>
+          </button>
+        </form>
+
+        <!-- Reset Password Form -->
+        <form id="authResetPassForm" class="auth-form" onsubmit="handleResetPasswordSubmit(event)" style="display: none;">
+          <div class="auth-info-banner">
+            <div class="auth-info-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+            </div>
+            <div class="auth-info-text">
+              Сброс пароля через электронную почту. Введите email вашего профиля, и мы вышлем 6-значный код подтверждения для установки нового пароля!
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="resetEmail">Email адрес профиля</label>
+            <input type="email" id="resetEmail" class="form-input" placeholder="trader@example.com" autocomplete="email" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="resetSyncKey">Код профиля (Sync Key, если известен)</label>
+            <input type="text" id="resetSyncKey" class="form-input" placeholder="например ff80818196... (необязательно, если входили ранее)" autocomplete="off">
+          </div>
+
+          <div id="resetVerificationStep" style="display: none;">
+            <div class="form-group">
+              <label class="form-label" for="resetCode">Код подтверждения из письма</label>
+              <input type="text" id="resetCode" class="form-input" placeholder="6-значный код..." maxlength="8" style="font-family: var(--font-mono); letter-spacing: 2px;">
+              <span class="form-helper">Введите код, отправленный на вашу почту</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="resetNewPassword">Новый пароль</label>
+              <input type="password" id="resetNewPassword" class="form-input" placeholder="Минимум 4 символа...">
+            </div>
+          </div>
+
+          <button type="submit" id="resetSubmitBtn" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; gap: 8px; margin-top: 16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <span id="resetSubmitBtnText">Отправить код на почту</span>
+          </button>
+
+          <button type="button" class="btn btn-secondary btn-md" onclick="switchAuthTab('login')" style="width: 100%; justify-content: center; margin-top: 8px; margin-bottom: 28px;">
+            <span>Вернуться ко входу</span>
           </button>
         </form>
 
@@ -1294,7 +1349,7 @@
             Голос и акцент
           </label>
           <select id="settingsVoiceSelect" class="form-select" onchange="handleVoiceSelectChange(this)" style="font-size: 0.86rem; padding: 10px 14px; border-radius: var(--radius-sm);">
-            <option value="">Автовыбор (Дмитрий / Приоритетный русский голос)</option>
+            <option value="">Дмитрий (Основной русский голос)</option>
           </select>
           <span class="form-helper" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px; display: block;">
             Выберите голосовой синтезатор в вашей операционной системе или региональный акцент
@@ -1334,10 +1389,10 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="./js/db.js?v=25"></script>
-  <script src="./js/auth.js?v=25"></script>
-  <script src="./js/notes.js?v=25"></script>
-  <script src="./js/app.js?v=25"></script>
-  <script src="./js/ai.js?v=25"></script>
+  <script src="./js/db.js?v=26"></script>
+  <script src="./js/auth.js?v=26"></script>
+  <script src="./js/notes.js?v=26"></script>
+  <script src="./js/app.js?v=26"></script>
+  <script src="./js/ai.js?v=26"></script>
 </body>
 </html>
