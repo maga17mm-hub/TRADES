@@ -664,7 +664,13 @@ body.modal-open::-webkit-scrollbar,
 }
 
 [data-theme="books"] #tabJournalView {
-  margin-top: 0;
+  margin-top: -24px;
+}
+
+@media (max-width: 767px) {
+  [data-theme="books"] #tabJournalView {
+    margin-top: -20px;
+  }
 }
 
 [data-theme="books"] .apple-journal-fab {

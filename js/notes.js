@@ -261,7 +261,7 @@ function renderJournalThoughtsList() {
           <div class="apple-card-body">${safeEscape(body)}</div>
 
           ${hasAudio ? `
-            <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.76rem; color: #7b8cf8; background: rgba(123, 140, 248, 0.12); border-radius: 12px; padding: 3px 10px; margin-bottom: 10px;">
+            <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--brand, var(--accent, #ff6363)); background: var(--brand-soft, rgba(255, 99, 99, 0.12)); border-radius: 12px; padding: 3px 10px; margin-bottom: 10px;">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
@@ -572,8 +572,12 @@ function showThoughtDetailScreen(thought) {
           <circle cx="18" cy="12" r="1.5"></circle>
         </svg>
       </button>
-      <button type="button" class="apple-pill-btn" onclick="toggleThoughtEditMode()">
-        Править
+      <button type="button" class="apple-pill-btn" onclick="toggleThoughtEditMode()" title="Редактировать мысль" aria-label="Править">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        <span>Править</span>
       </button>
     `;
   }
@@ -613,7 +617,7 @@ function renderThoughtViewMode(thought) {
     <div class="apple-view-card">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
         <span class="apple-tag-pill active" style="font-size: 0.75rem; padding: 3px 12px; pointer-events: none;">${safeEscape(tag)}</span>
-        <span style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.45);">${fullDate}</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">${fullDate}</span>
       </div>
       <h1 class="apple-view-title">${safeEscape(title)}</h1>
       <div class="apple-view-subdate">${subdate}</div>

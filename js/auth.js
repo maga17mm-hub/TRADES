@@ -807,6 +807,26 @@ async function handleResetPasswordSubmit(e) {
 
   if (!email || !email.includes('@')) {
     showToast('Введите корректный email адрес вашего профиля', 'warning');
+    if (emailInput) emailInput.focus();
+    return;
+  }
+
+  if (!syncKey) {
+    // If syncKey field is empty, check if this device has a saved profile with that email
+    const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
+    if (localUserRaw) {
+      try {
+        const parsed = JSON.parse(localUserRaw);
+        if (parsed && parsed.vaultId && parsed.email?.toLowerCase() === email) {
+          syncKey = parsed.vaultId;
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (!syncKey) {
+    showToast('Введите Код профиля (Sync Key), чтобы сбросить пароль от вашего аккаунта', 'warning');
+    if (syncKeyInput) syncKeyInput.focus();
     return;
   }
 
@@ -816,32 +836,38 @@ async function handleResetPasswordSubmit(e) {
 
     try {
       let vaultData = null;
-      let targetVaultId = syncKey;
-
-      if (targetVaultId) {
-        try {
-          vaultData = await fetchCloudVault(targetVaultId);
-        } catch (_) {}
+      try {
+        vaultData = await fetchCloudVault(syncKey);
+      } catch (err) {
+        console.warn('fetchCloudVault error for key:', syncKey, err);
       }
 
+      // If cloud fetch had issue, check local profile
       const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
       let localUser = null;
       if (localUserRaw) {
         try { localUser = JSON.parse(localUserRaw); } catch (_) {}
       }
 
-      if (!vaultData && localUser && (localUser.email === email || localUser.vaultId === syncKey)) {
+      if (!vaultData && localUser && (localUser.email?.toLowerCase() === email || localUser.vaultId === syncKey)) {
         vaultData = {
           userId: localUser.userId,
           userName: localUser.name,
           userEmail: localUser.email,
           vaultId: localUser.vaultId,
-          passwordHash: localUser.passwordHash
+          passwordHash: localUser.passwordHash,
+          savedPassword: localUser.savedPassword
         };
-        targetVaultId = localUser.vaultId;
       }
 
-      if (vaultData && vaultData.userEmail && vaultData.userEmail.toLowerCase() !== email) {
+      if (!vaultData) {
+        showToast(`Профиль с кодом "${syncKey}" не найден. Проверьте правильность кода профиля.`, 'error');
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+
+      // Verify email ownership
+      if (vaultData.userEmail && vaultData.userEmail.toLowerCase() !== email) {
         showToast('Указанный email не совпадает с email этого кода профиля', 'error');
         if (submitBtn) submitBtn.disabled = false;
         return;
@@ -851,7 +877,7 @@ async function handleResetPasswordSubmit(e) {
       const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
       resetPasswordState = {
         email: email,
-        syncKey: targetVaultId || syncKey,
+        syncKey: syncKey,
         code: resetCode,
         expires: Date.now() + 15 * 60 * 1000,
         vaultData: vaultData
@@ -868,7 +894,7 @@ async function handleResetPasswordSubmit(e) {
           body: JSON.stringify({
             _subject: `Код сброса пароля TradeLog: ${resetCode}`,
             email: email,
-            message: `Здравствуйте!\n\nВаш проверочный код для сброса пароля в TradeLog: ${resetCode}\n\nКод действителен 15 минут. Введите его в приложении TradeLog для установки нового пароля.`,
+            message: `Здравствуйте, ${vaultData.userName || 'трейдер'}!\n\nВаш проверочный код для сброса пароля в TradeLog: ${resetCode}\n\nКод действителен 15 минут. Введите его в приложении TradeLog для установки нового пароля.`,
             _template: 'box',
             _captcha: 'false'
           })
@@ -892,7 +918,7 @@ async function handleResetPasswordSubmit(e) {
 
     } catch (err) {
       console.error('Reset password step 1 error:', err);
-      showToast('Ошибка при формировании кода сброса', 'error');
+      showToast('Ошибка при формировании кода сброса: ' + err.message, 'error');
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
@@ -904,7 +930,7 @@ async function handleResetPasswordSubmit(e) {
   const newPassword = newPassInput ? newPassInput.value : '';
 
   if (!enteredCode) {
-    showToast('Введите 6-значный код подтверждения из письма', 'warning');
+    showToast('Введите 6-значный код подтверждения', 'warning');
     if (codeInput) codeInput.focus();
     return;
   }
@@ -924,59 +950,95 @@ async function handleResetPasswordSubmit(e) {
   if (submitBtn) submitBtn.disabled = true;
 
   try {
-    const newHash = await hashString(newPassword + ':' + email);
     const targetVaultId = resetPasswordState.syncKey;
+    const newHash = await hashString(newPassword + ':' + email);
 
-    // 1. Update cloud vault if exists
+    // 1. Fetch fresh cloud vault or use cached from step 1
+    let vaultData = resetPasswordState.vaultData;
     if (targetVaultId) {
       try {
-        const currentCloudVault = await fetchCloudVault(targetVaultId);
-        if (currentCloudVault) {
-          currentCloudVault.passwordHash = newHash;
-          currentCloudVault.savedPassword = newPassword;
-          currentCloudVault.updatedAt = new Date().toISOString();
-          await updateCloudVault(targetVaultId, currentCloudVault);
-        }
+        const fresh = await fetchCloudVault(targetVaultId);
+        if (fresh) vaultData = fresh;
       } catch (cloudErr) {
-        console.warn('Could not update remote cloud vault during reset:', cloudErr);
+        console.warn('Could not re-fetch cloud vault during reset, using cached state:', cloudErr);
       }
     }
 
-    // 2. Set authenticated user locally and auto-login
-    let localUser = null;
-    const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
-    if (localUserRaw) {
+    if (!vaultData) {
+      throw new Error('Данные профиля не найдены');
+    }
+
+    // 2. Update password in vault data and save to cloud
+    vaultData.passwordHash = newHash;
+    vaultData.savedPassword = newPassword;
+    vaultData.updatedAt = new Date().toISOString();
+
+    if (targetVaultId) {
       try {
-        localUser = JSON.parse(localUserRaw);
-      } catch (_) {}
+        await updateCloudVault(targetVaultId, vaultData);
+      } catch (upErr) {
+        console.warn('Cloud vault update notice:', upErr);
+      }
     }
 
-    if (!localUser) {
-      localUser = {
-        userId: 'usr_' + Date.now().toString(36),
-        name: 'Трейдер',
-        email: email,
-        vaultId: targetVaultId || ''
-      };
+    // 3. Construct authenticated user profile using REAL user data
+    const realName = vaultData.userName || 'Трейдер';
+    const realUserId = vaultData.userId || 'usr_' + Date.now().toString(36);
+    const realEmail = vaultData.userEmail || email;
+    const realRegisteredAt = vaultData.createdAt || vaultData.updatedAt || new Date().toISOString();
+
+    const userProfile = {
+      userId: realUserId,
+      name: realName,
+      email: realEmail,
+      vaultId: targetVaultId,
+      passwordHash: newHash,
+      savedPassword: newPassword,
+      registeredAt: realRegisteredAt,
+      lastSyncAt: new Date().toISOString()
+    };
+
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userProfile));
+    currentUser = userProfile;
+
+    // 4. Merge all cloud data (trades, thoughts, presets) into local IndexedDB
+    if (Array.isArray(vaultData.trades) && typeof mergeCloudTrades === 'function') {
+      await mergeCloudTrades(vaultData.trades, vaultData.deletedTradeUuids || []);
+    }
+    if (Array.isArray(vaultData.thoughts) && typeof mergeCloudThoughts === 'function') {
+      await mergeCloudThoughts(vaultData.thoughts, vaultData.deletedThoughtUuids || []);
     }
 
-    localUser.email = email;
-    if (targetVaultId) localUser.vaultId = targetVaultId;
-    localUser.passwordHash = newHash;
-    localUser.savedPassword = newPassword;
-    localUser.lastSyncAt = new Date().toISOString();
+    if (vaultData.presets) {
+      if (Array.isArray(vaultData.presets.tickers) && typeof saveCustomPresets === 'function') {
+        saveCustomPresets('symbol', vaultData.presets.tickers);
+      }
+      if (Array.isArray(vaultData.presets.setups) && typeof saveCustomPresets === 'function') {
+        saveCustomPresets('setup', vaultData.presets.setups);
+      }
+      if (Array.isArray(vaultData.presets.criteria) && typeof saveCustomPresets === 'function') {
+        saveCustomPresets('criteria', vaultData.presets.criteria);
+      }
+      if (Array.isArray(vaultData.presets.timeframes) && typeof saveCustomPresets === 'function') {
+        saveCustomPresets('timeframe', vaultData.presets.timeframes);
+      }
+      if (typeof populatePresetSelects === 'function') {
+        populatePresetSelects();
+      }
+    }
 
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(localUser));
-    currentUser = localUser;
+    // 5. Refresh all screens in the app
+    if (typeof refreshTrades === 'function') {
+      await refreshTrades();
+    }
+    if (typeof loadAndRenderJournal === 'function') {
+      await loadAndRenderJournal();
+    }
 
     resetPasswordState = null;
     updateProfileUI();
     closeProfileModal();
-    showToast('Пароль успешно сброшен! Вы успешно вошли в аккаунт.', 'success');
-
-    if (targetVaultId && typeof syncWithCloud === 'function') {
-      syncWithCloud(true).catch(err => console.warn('Auto-sync error after reset:', err));
-    }
+    showToast(`Пароль успешно обновлён! Добро пожаловать, ${realName}!`, 'success');
 
   } catch (err) {
     console.error('Password reset step 2 error:', err);
