@@ -233,6 +233,22 @@ async function renderProfileModalDetails(user) {
       statsEl.textContent = `${trades.length} сделок · ${thoughts.length} записей в дневнике`;
     }
   } catch (e) {}
+
+  const passEl = document.getElementById('profModalPassword');
+  const toggleText = document.getElementById('profPassToggleText');
+  const eyeIcon = document.getElementById('profPassEyeIcon');
+  isProfilePasswordVisible = false;
+  if (passEl) {
+    passEl.textContent = '••••••••';
+    passEl.style.letterSpacing = '2px';
+  }
+  if (toggleText) toggleText.textContent = 'Показать';
+  if (eyeIcon) {
+    eyeIcon.innerHTML = `
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+      <circle cx="12" cy="12" r="3"></circle>
+    `;
+  }
 }
 
 /**
@@ -475,6 +491,7 @@ async function handleRegisterSubmit(e) {
       userName: name,
       userEmail: email,
       passwordHash: passwordHash,
+      savedPassword: password,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       trades: localTrades,
@@ -506,6 +523,7 @@ async function handleRegisterSubmit(e) {
       email: email,
       vaultId: vaultId,
       passwordHash: passwordHash,
+      savedPassword: password,
       registeredAt: new Date().toISOString(),
       lastSyncAt: new Date().toISOString()
     };
@@ -576,8 +594,22 @@ async function handleLoginSubmit(e) {
     const email = vaultData.userEmail || '';
     const computedHash = await hashString(password + ':' + email);
 
-    if (vaultData.passwordHash && vaultData.passwordHash !== computedHash) {
-      showToast('Неверный пароль от профиля', 'error');
+    const isPasswordValid = (!vaultData.passwordHash) || 
+                            (vaultData.passwordHash === computedHash) || 
+                            (vaultData.savedPassword && vaultData.savedPassword === password);
+
+    if (!isPasswordValid) {
+      if (passwordInput) {
+        passwordInput.classList.add('input-error');
+        passwordInput.focus();
+        passwordInput.select();
+      }
+      const errEl = document.getElementById('loginPasswordError');
+      if (errEl) {
+        errEl.textContent = 'Неверный пароль от профиля! Проверьте правильность введённого пароля.';
+        errEl.style.display = 'block';
+      }
+      showToast('Неверный пароль от профиля! Проверьте введённый пароль.', 'error');
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = `<span>Войти в профиль</span>`;
@@ -591,7 +623,8 @@ async function handleLoginSubmit(e) {
       name: vaultData.userName || 'Трейдер',
       email: vaultData.userEmail || '',
       vaultId: syncKey,
-      passwordHash: vaultData.passwordHash,
+      passwordHash: vaultData.passwordHash || computedHash,
+      savedPassword: password,
       registeredAt: vaultData.updatedAt || new Date().toISOString(),
       lastSyncAt: new Date().toISOString()
     };
@@ -644,6 +677,43 @@ async function handleLoginSubmit(e) {
 
   } catch (err) {
     console.error('Login failed:', err);
+
+    // Check if user is logging into a profile known locally on this device
+    const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
+    if (localUserRaw) {
+      try {
+        const localUser = JSON.parse(localUserRaw);
+        if (localUser && (localUser.vaultId === syncKey || localUser.email === syncKey)) {
+          const computedLocalHash = await hashString(password + ':' + (localUser.email || ''));
+          const isLocalMatch = (localUser.passwordHash && localUser.passwordHash === computedLocalHash) ||
+                               (localUser.savedPassword && localUser.savedPassword === password);
+          if (!isLocalMatch) {
+            if (passwordInput) {
+              passwordInput.classList.add('input-error');
+              passwordInput.focus();
+              passwordInput.select();
+            }
+            const errEl = document.getElementById('loginPasswordError');
+            if (errEl) {
+              errEl.textContent = 'Неверный пароль от профиля! Проверьте правильность введённого пароля.';
+              errEl.style.display = 'block';
+            }
+            showToast('Неверный пароль от профиля! Проверьте введённый пароль.', 'error');
+            return;
+          }
+
+          // Local password matches!
+          localUser.savedPassword = password;
+          localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(localUser));
+          currentUser = localUser;
+          updateProfileUI();
+          showToast('Вход выполнен успешно!', 'success');
+          closeProfileModal();
+          return;
+        }
+      } catch (le) {}
+    }
+
     showToast(err.message, 'error');
   } finally {
     if (submitBtn) {
@@ -822,6 +892,68 @@ function copySyncKeyToClipboard() {
   });
 }
 window.copySyncKeyToClipboard = copySyncKeyToClipboard;
+
+/**
+ * Toggle Profile Password Visibility in Profile Modal
+ */
+let isProfilePasswordVisible = false;
+
+function toggleProfilePasswordVisibility() {
+  const passEl = document.getElementById('profModalPassword');
+  const toggleText = document.getElementById('profPassToggleText');
+  const eyeIcon = document.getElementById('profPassEyeIcon');
+  if (!passEl) return;
+
+  const user = getCurrentUser();
+  const actualPassword = user && user.savedPassword ? user.savedPassword : '';
+
+  isProfilePasswordVisible = !isProfilePasswordVisible;
+  if (isProfilePasswordVisible) {
+    passEl.textContent = actualPassword || '(не сохранён локально)';
+    passEl.style.letterSpacing = 'normal';
+    if (toggleText) toggleText.textContent = 'Скрыть';
+    if (eyeIcon) {
+      eyeIcon.innerHTML = `
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+        <line x1="1" y1="1" x2="23" y2="23"></line>
+      `;
+    }
+  } else {
+    passEl.textContent = '••••••••';
+    passEl.style.letterSpacing = '2px';
+    if (toggleText) toggleText.textContent = 'Показать';
+    if (eyeIcon) {
+      eyeIcon.innerHTML = `
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+      `;
+    }
+  }
+}
+window.toggleProfilePasswordVisibility = toggleProfilePasswordVisibility;
+
+/**
+ * Copy Profile Password to Clipboard
+ */
+function copyProfilePasswordToClipboard() {
+  const user = getCurrentUser();
+  const actualPassword = user && user.savedPassword ? user.savedPassword : '';
+  if (!actualPassword) {
+    showToast('Пароль не найден в локальном профиле этого устройства', 'warning');
+    return;
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(actualPassword).then(() => {
+      showToast('Пароль профиля скопирован в буфер обмена!', 'success');
+    }).catch(() => {
+      prompt('Ваш пароль от профиля:', actualPassword);
+    });
+  } else {
+    prompt('Ваш пароль от профиля:', actualPassword);
+  }
+}
+window.copyProfilePasswordToClipboard = copyProfilePasswordToClipboard;
 
 /**
  * Logout User

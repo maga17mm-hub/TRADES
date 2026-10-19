@@ -1477,6 +1477,18 @@ body.modal-open .bottom-nav {
   box-shadow: 0 0 0 3px var(--brand-glow);
 }
 
+.input-error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+  animation: inputShake 0.35s ease-in-out;
+}
+
+@keyframes inputShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
 .form-textarea {
   min-height: 80px;
   resize: vertical;
@@ -2489,13 +2501,13 @@ html.lightbox-open {
 }
 
 .ai-modal-header {
-  padding: 16px 20px;
+  padding: 10px 16px;
   background: var(--color-obsidian);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
@@ -4131,41 +4143,50 @@ main.app-container {
     align-items: flex-end !important;
   }
   .ai-modal-card {
-    height: calc(100vh - max(42px, env(safe-area-inset-top, 42px))) !important;
-    max-height: calc(100% - 24px) !important;
+    height: calc(100dvh - max(16px, env(safe-area-inset-top, 16px))) !important;
+    max-height: calc(100% - 10px) !important;
     border-radius: 20px 20px 0 0 !important;
     margin-top: auto !important;
+    padding: 0 !important;
   }
   .ai-modal-header {
-    padding: 14px 16px !important;
+    padding: 8px 14px !important;
     align-items: center !important;
+    gap: 8px !important;
   }
   .ai-header-brand {
-    gap: 10px !important;
+    gap: 8px !important;
     align-items: center !important;
   }
   .ai-header-title-row {
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 6px !important;
   }
   .ai-header-title {
-    font-size: 1rem !important;
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
     line-height: 1.2 !important;
     margin: 0 !important;
   }
-  .ai-status-pill {
-    padding: 2px 7px !important;
-    font-size: 0.68rem !important;
+  .ai-header-controls {
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
   }
-  .ai-header-subtitle {
-    font-size: 0.72rem !important;
-    line-height: 1.2 !important;
-    margin-top: 3px !important;
+  .ai-chat-messages {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    padding: 12px 14px !important;
+  }
+  .ai-chat-input-bar {
+    padding: 8px 12px max(8px, env(safe-area-inset-bottom, 8px)) 12px !important;
+    margin: 0 !important;
   }
   .ai-quick-pills-row {
-    padding: 10px 14px 12px 14px !important;
-    gap: 8px !important;
+    padding: 8px 12px !important;
+    gap: 6px !important;
   }
 }
 

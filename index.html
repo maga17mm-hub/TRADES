@@ -19,8 +19,8 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
   <!-- Fonts & Styles -->
-  <link rel="stylesheet" href="./css/style.css?v=24">
-  <link rel="stylesheet" href="./css/books.css?v=24">
+  <link rel="stylesheet" href="./css/style.css?v=25">
+  <link rel="stylesheet" href="./css/books.css?v=25">
   <script>
     // Apply the saved appearance before paint; existing theme choices are retained.
     try { document.documentElement.dataset.theme = localStorage.getItem("tradelog_theme") || "books"; }
@@ -880,12 +880,8 @@
               <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path>
             </svg>
           </div>
-          <div>
-            <div class="ai-header-title-row">
-              <h2 class="ai-header-title">TradeLog AI</h2>
-              <span class="ai-status-pill"><span class="ai-status-dot"></span>gpt-5.6-terra</span>
-            </div>
-            <div class="ai-header-subtitle">Tooken Club · Автоматический разбор и запись сделок</div>
+          <div class="ai-header-title-row">
+            <h2 class="ai-header-title">ВАШ Ассистент</h2>
           </div>
         </div>
 
@@ -1079,7 +1075,8 @@
 
           <div class="form-group">
             <label class="form-label" for="loginPassword">Пароль от профиля</label>
-            <input type="password" id="loginPassword" class="form-input" placeholder="Введите ваш пароль..." autocomplete="current-password" required>
+            <input type="password" id="loginPassword" class="form-input" placeholder="Введите ваш пароль..." autocomplete="current-password" required oninput="const e=document.getElementById('loginPasswordError'); if(e){e.style.display='none'; this.classList.remove('input-error');}">
+            <div id="loginPasswordError" class="form-error-msg" style="display: none; color: #ef4444; font-size: 0.78rem; margin-top: 6px; font-weight: 500;"></div>
           </div>
 
           <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; gap: 8px; margin-top: 16px; margin-bottom: 28px;">
@@ -1173,6 +1170,41 @@
           </div>
           <p class="sync-key-hint">
             Скопируйте этот код и откройте сайт на компьютере. Нажмите «Войти по коду», вставьте код и введите свой пароль — все ваши сделки и дневник мыслей откроются на компьютере!
+          </p>
+        </div>
+
+        <!-- Profile Password Box to view created password -->
+        <div class="sync-key-box" style="margin-top: 14px;">
+          <div class="sync-key-header">
+            <div class="sync-key-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <span>Ваш пароль от профиля</span>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btnToggleProfPassword" onclick="toggleProfilePasswordVisibility()" style="padding: 4px 10px; font-size: 0.76rem;" title="Показать или скрыть пароль">
+                <svg id="profPassEyeIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <span id="profPassToggleText">Показать</span>
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="copyProfilePasswordToClipboard()" style="padding: 4px 10px; font-size: 0.76rem;" title="Скопировать пароль">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Копировать</span>
+              </button>
+            </div>
+          </div>
+          <div id="profModalPassword" class="sync-key-val" onclick="toggleProfilePasswordVisibility()" title="Нажмите, чтобы показать или скрыть пароль" style="letter-spacing: 2px; font-family: monospace;">
+            ••••••••
+          </div>
+          <p class="sync-key-hint">
+            Пароль, созданный вами при регистрации. Необходим для входа в профиль на других устройствах.
           </p>
         </div>
 
@@ -1302,10 +1334,10 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="./js/db.js?v=24"></script>
-  <script src="./js/auth.js?v=24"></script>
-  <script src="./js/notes.js?v=24"></script>
-  <script src="./js/app.js?v=24"></script>
-  <script src="./js/ai.js?v=24"></script>
+  <script src="./js/db.js?v=25"></script>
+  <script src="./js/auth.js?v=25"></script>
+  <script src="./js/notes.js?v=25"></script>
+  <script src="./js/app.js?v=25"></script>
+  <script src="./js/ai.js?v=25"></script>
 </body>
 </html>

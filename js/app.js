@@ -63,7 +63,7 @@ const lightboxCaptionEl = document.getElementById('lightboxCaption');
 const recordTradeFormEl = document.getElementById('recordTradeForm');
 
 // App Build Version for auto cache invalidation
-const CURRENT_APP_BUILD = 'v24';
+const CURRENT_APP_BUILD = 'v25';
 
 function checkAppBuildVersion() {
   try {
@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=23', { updateViaCache: 'none' })
+      navigator.serviceWorker.register('./sw.js?v=25', { updateViaCache: 'none' })
         .then((reg) => {
           try { reg.update(); } catch (_) {}
         })

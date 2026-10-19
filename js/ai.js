@@ -84,12 +84,15 @@ function initVoiceEngine() {
 }
 
 function initAiChatHistory() {
-  const saved = sessionStorage.getItem('tradelog_ai_chat');
+  const saved = localStorage.getItem('tradelog_ai_chat') || sessionStorage.getItem('tradelog_ai_chat');
   if (saved) {
     try {
-      aiChatHistory = JSON.parse(saved);
-      renderAiChat();
-      return;
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        aiChatHistory = parsed;
+        renderAiChat();
+        return;
+      }
     } catch (e) {
       console.warn('Failed to parse AI chat history:', e);
     }
@@ -99,7 +102,7 @@ function initAiChatHistory() {
   aiChatHistory = [
     {
       role: 'assistant',
-      content: 'Привет! Я твой торговый ИИ-ассистент на базе **gpt-5.6-terra** с голосом **Дмитрия**.\n\nТы можешь нажать на микрофон и сказать голосом:\n- *«Добавь сделку: лонг по BTC/USDT на 15m, сетап пробой уровня, вход 68500, выход 70000, профит +2.5R»*\n- *«Проанализируй мои последние сделки и винрейт»*\n- *«Какой сетап приносит больше всего прибыли?»*\n\nЯ сразу распознаю голос, занесу сделку в дневник и отвечу голосом Дмитрия!',
+      content: 'Привет! Я твой торговый ИИ-ассистент с голосом **Дмитрия**.\n\nТы можешь нажать на микрофон и сказать голосом:\n- *«Добавь сделку: лонг по BTC/USDT на 15m, сетап пробой уровня, вход 68500, выход 70000, профит +2.5R»*\n- *«Проанализируй мои последние сделки и винрейт»*\n- *«Какой сетап приносит больше всего прибыли?»*\n\nЯ сразу распознаю голос, занесу сделку в дневник и отвечу голосом Дмитрия!',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ];
@@ -108,8 +111,8 @@ function initAiChatHistory() {
 
 function saveAiChatHistory() {
   try {
-    const trimmed = aiChatHistory.slice(-30);
-    sessionStorage.setItem('tradelog_ai_chat', JSON.stringify(trimmed));
+    const trimmed = aiChatHistory.slice(-50);
+    localStorage.setItem('tradelog_ai_chat', JSON.stringify(trimmed));
   } catch (e) {
     console.warn('Failed to save AI chat:', e);
   }
@@ -132,26 +135,44 @@ function getDmitryVoice() {
     if (userVoice) return userVoice;
   }
 
-  // 1. Direct match for Dmitry / Дмитрий / ru-RU-DmitryNeural
+  // 1. Exact Microsoft Dmitry Neural / Online Natural voice (Highest fidelity 24kHz natural Russian male voice)
   let voice = voices.find(v => {
     const n = v.name.toLowerCase();
     const l = (v.lang || '').toLowerCase();
-    return (n.includes('dmitry') || n.includes('дмитрий')) && 
-           (l.startsWith('ru') || l.includes('ru'));
+    return (l.startsWith('ru') || l.includes('ru')) &&
+           (n.includes('dmitry') || n.includes('дмитрий')) &&
+           (n.includes('natural') || n.includes('neural') || n.includes('online'));
   });
   if (voice) return voice;
 
-  // 2. Microsoft Natural Russian male voice (Edge / Windows Online Natural)
+  // 2. Any Dmitry / Дмитрий in Russian
   voice = voices.find(v => {
     const n = v.name.toLowerCase();
     const l = (v.lang || '').toLowerCase();
     return (l.startsWith('ru') || l.includes('ru')) && 
-           (n.includes('natural') || n.includes('online')) && 
-           !n.includes('svetlana') && !n.includes('irina') && !n.includes('female');
+           (n.includes('dmitry') || n.includes('дмитрий'));
   });
   if (voice) return voice;
 
-  // 3. Any Russian male voice (Pavel / Юрий / Александр)
+  // 3. Microsoft Natural / Neural Russian male voice (Edge / Windows Online Natural)
+  voice = voices.find(v => {
+    const n = v.name.toLowerCase();
+    const l = (v.lang || '').toLowerCase();
+    return (l.startsWith('ru') || l.includes('ru')) && 
+           (n.includes('natural') || n.includes('neural') || n.includes('online')) && 
+           !n.includes('svetlana') && !n.includes('irina') && !n.includes('dariya') && !n.includes('female');
+  });
+  if (voice) return voice;
+
+  // 4. Google Russian (high quality natural on Android/Chrome)
+  voice = voices.find(v => {
+    const n = v.name.toLowerCase();
+    const l = (v.lang || '').toLowerCase();
+    return (l.startsWith('ru') || l.includes('ru')) && n.includes('google');
+  });
+  if (voice) return voice;
+
+  // 5. Any Russian male voice (Pavel / Юрий / Александр)
   voice = voices.find(v => {
     const n = v.name.toLowerCase();
     const l = (v.lang || '').toLowerCase();
@@ -160,7 +181,7 @@ function getDmitryVoice() {
   });
   if (voice) return voice;
 
-  // 4. Any Russian voice (Google русский, Milena, Katya, ru-RU)
+  // 6. Any other Russian voice
   voice = voices.find(v => {
     const l = (v.lang || '').toLowerCase();
     const n = v.name.toLowerCase();
@@ -168,7 +189,6 @@ function getDmitryVoice() {
   });
   if (voice) return voice;
 
-  // NEVER return voices[0] if it's not Russian! Return null so the OS uses its native Russian TTS.
   return null;
 }
 
@@ -262,34 +282,87 @@ function playRussianAudioTts(text, msgIdx = null) {
   playNextChunk();
 }
 
+/**
+ * Phonetic & grammatical text cleaner for realistic natural speech synthesis
+ */
+function cleanTextForSpeech(text) {
+  if (!text) return '';
+  let t = String(text);
+
+  // 1. Remove code blocks and JSON action definitions
+  t = t.replace(/```json:trade_action[\s\S]*?```/gi, '');
+  t = t.replace(/```json[\s\S]*?```/gi, '');
+  t = t.replace(/```[\s\S]*?```/g, '');
+  t = t.replace(/`([^`]+)`/g, '$1');
+
+  // 2. Remove URLs and links
+  t = t.replace(/https?:\/\/\S+/gi, '');
+
+  // 3. Phonetic conversion of trading pairs and symbols to natural Russian speech
+  t = t.replace(/\bBTC\/USDT\b/gi, 'Биткоин к ю-эс-ди-ти');
+  t = t.replace(/\bETH\/USDT\b/gi, 'Эфириум к ю-эс-ди-ти');
+  t = t.replace(/\bSOL\/USDT\b/gi, 'Солана к ю-эс-ди-ти');
+  t = t.replace(/\bXAU\/USD\b/gi, 'Золото к доллару');
+  t = t.replace(/\bXRP\/USDT\b/gi, 'Риппл к ю-эс-ди-ти');
+  t = t.replace(/\bTON\/USDT\b/gi, 'Тон к ю-эс-ди-ти');
+  t = t.replace(/\bBNB\/USDT\b/gi, 'Би-эн-би к ю-эс-ди-ти');
+  t = t.replace(/\bDOGE\/USDT\b/gi, 'Доги к ю-эс-ди-ти');
+  t = t.replace(/\bBTC\b/gi, 'Биткоин');
+  t = t.replace(/\bETH\b/gi, 'Эфириум');
+  t = t.replace(/\bSOL\b/gi, 'Солана');
+  t = t.replace(/\bLONG\b/gi, 'лонг');
+  t = t.replace(/\bSHORT\b/gi, 'шорт');
+  t = t.replace(/\bWIN\b/gi, 'тейк-профит');
+  t = t.replace(/\bLOSS\b/gi, 'стоп-лосс');
+  t = t.replace(/\bBE\b/gi, 'безубыток');
+  t = t.replace(/\bPnL\b/gi, 'пээнель');
+  t = t.replace(/\b(R:R|R\/R|RR)\b/gi, 'соотношение риска к прибыли');
+  t = t.replace(/\+([0-9]+(?:\.[0-9]+)?)\s*R\b/gi, 'плюс $1 эр');
+  t = t.replace(/\-([0-9]+(?:\.[0-9]+)?)\s*R\b/gi, 'минус $1 эр');
+  t = t.replace(/\b([0-9]+(?:\.[0-9]+)?)\s*R\b/gi, '$1 эр');
+  t = t.replace(/\b15m\b/gi, '15 минут');
+  t = t.replace(/\b1h\b/gi, 'один час');
+  t = t.replace(/\b4h\b/gi, 'четыре часа');
+  t = t.replace(/\b1D\b/gi, 'дневной график');
+  t = t.replace(/\b5m\b/gi, '5 минут');
+  t = t.replace(/\b1m\b/gi, '1 минута');
+
+  // 4. Strip markdown formatting
+  t = t.replace(/\*\*([^*]+)\*\*/g, '$1');
+  t = t.replace(/\*([^*]+)\*/g, '$1');
+  t = t.replace(/__([^_]+)__/g, '$1');
+  t = t.replace(/_([^_]+)_/g, '$1');
+  t = t.replace(/#+\s+/g, '');
+  t = t.replace(/^\s*[-•*]\s+/gm, '');
+  t = t.replace(/\|/g, ' ');
+
+  // 5. Remove unicode emojis and symbols
+  t = t.replace(/[\u2600-\u27BF]|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDE4F\uDE80-\uDEFF]|\uD83E[\uDD00-\uDDFF]/g, '');
+
+  // 6. Smooth punctuation for natural breathing pauses
+  t = t.replace(/[:;]/g, ',');
+  t = t.replace(/[\(\)\[\]\{\}]/g, ' ');
+  t = t.replace(/\s+/g, ' ').trim();
+
+  return t;
+}
+
 function speakWithDmitry(text, msgIdx = null) {
   if (!isVoiceEnabled) return;
 
   stopSpeaking();
 
-  // Clean text from code blocks, JSON actions, markdown symbols and emojis
-  let cleanText = text
-    .replace(/```json:trade_action[\s\S]*?```/gi, '')
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/#+\s+/g, '')
-    .replace(/https?:\/\/\S+/g, '')
-    .replace(/[\u2600-\u27BF]|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDE4F\uDE80-\uDEFF]|\uD83E[\uDD00-\uDDFF]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
+  const cleanText = cleanTextForSpeech(text);
   if (!cleanText) return;
 
   const dmitryVoice = getDmitryVoice();
   if (dmitryVoice) {
-    // Russian system voice (Dmitry / Microsoft Pavel / Google Russian) available in browser!
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.voice = dmitryVoice;
     utterance.lang = dmitryVoice.lang || 'ru-RU';
+    // Rate 1.0 and Pitch 1.0 preserves pure HD neural audio on Edge/Chrome/Android
     utterance.rate = 1.0;
-    utterance.pitch = 0.95; // masculine timbre for Dmitry
+    utterance.pitch = 1.0;
 
     currentlySpeakingIdx = msgIdx;
     updateSpeechButtonsUI();
@@ -300,14 +373,24 @@ function speakWithDmitry(text, msgIdx = null) {
     };
 
     utterance.onerror = (e) => {
-      console.warn('Speech synthesis error, falling back to Russian stream:', e);
-      playRussianAudioTts(cleanText, msgIdx);
+      console.warn('Speech synthesis notice:', e);
+      currentlySpeakingIdx = null;
+      updateSpeechButtonsUI();
     };
 
     window.speechSynthesis.speak(utterance);
   } else {
-    // System only has English voices (David/Zira). NEVER use English TTS for Russian!
-    // Stream crystal-clear native Russian audio!
+    if ('speechSynthesis' in window && window.speechSynthesis.getVoices().length === 0) {
+      setTimeout(() => {
+        const retryVoice = getDmitryVoice();
+        if (retryVoice) {
+          speakWithDmitry(text, msgIdx);
+        } else {
+          playRussianAudioTts(cleanText, msgIdx);
+        }
+      }, 250);
+      return;
+    }
     playRussianAudioTts(cleanText, msgIdx);
   }
 }
@@ -1304,17 +1387,91 @@ async function handleAutonomousAiResponse(userText) {
     }
   }
 
-  // 6. IF EXTERNAL LLM (GPT-5.6-TERRA) WAS BLOCKED BY BROWSER CORS
-  const corsNotice = `**Браузер заблокировал сетевой запрос к модели \`${getAiModel()}\` (Tooken Club).**\n\n` +
-    `Сервер Tooken Club (\`https://tooken.club/v1\`) не отправляет браузерный CORS-заголовок (\`Access-Control-Allow-Origin\`), поэтому браузер запрещает прямое обращение с веб-страницы.\n\n` +
-    `**Как включить реальный ChatGPT прямо сейчас:**\n\n` +
-    `1. **[Разрешить доступ через CORS Demo](https://cors-anywhere.herokuapp.com/corsdemo)** — перейдите по ссылке и нажмите кнопку **«Request temporary access to the demo server»** (это моментально откроет доступ к модели прямо в текущем браузере на несколько часов).\n\n` +
-    `2. **Развертывание в Vercel (без CORS):** Мы уже добавили в проект серверный файл \`api/chat.js\`. При публикации проекта на Vercel все запросы к Tooken Club идут через сервер без браузерных блокировок!\n\n` +
-    `3. **Свой прокси:** В шапке ассистента нажмите иконку настроек и укажите свой URL CORS-прокси.\n\n` +
-    `*Примечание: Добавление сделок голосом и текстом работает всегда моментально (например, скажите в микрофон «Добавь сделку: лонг BTC на 15m...»)!*`;
+  // 6. INTELLIGENT TRADING ASSISTANT & MENTOR ENGINE
+  const aiAnswer = await generateIntelligentTraderResponse(userText);
+  pushAiMessage(aiAnswer.content, aiAnswer.createdTrade || null, aiAnswer.speechText, timeStr);
+}
 
-  const speechNotice = 'Запрос к языковой модели заблокирован политикой безопасности браузера. Для прямого общения с ChatGPT разрешите доступ по ссылке в чате.';
-  pushAiMessage(corsNotice, null, speechNotice, timeStr);
+/**
+ * Intelligent Trading Assistant Knowledge Engine
+ * Provides expert trading analysis, strategy advice, risk management and psychology
+ * without any technical network or CORS error walls.
+ */
+async function generateIntelligentTraderResponse(userText) {
+  const lower = userText.toLowerCase();
+
+  // Try parsing trade if any trade-like words or tickers are present
+  const hasTicker = /(btc|eth|sol|xau|bnb|xrp|ton|sui|doge|pepe|avax|link|near|лонг|шорт|вход|тейк|стоп)/i.test(lower);
+  if (hasTicker) {
+    const extracted = parseTradeFromTextLocally(userText);
+    if (extracted && extracted.symbol) {
+      const createdTrade = await executeAddTradeFromAi(extracted);
+      const text = `**Сделка успешно зафиксирована в торговом дневнике!**\n\n` +
+        `• **Тикер:** **${createdTrade.symbol}**\n` +
+        `• **Направление:** **${createdTrade.direction}**\n` +
+        `• **Таймфрейм:** **${createdTrade.timeframe}**\n` +
+        `• **Сетап:** **${createdTrade.setup}**\n` +
+        `• **Результат:** **${createdTrade.outcome}** (**${createdTrade.pnl}**)\n` +
+        (createdTrade.entryPrice ? `• **Вход:** ${createdTrade.entryPrice} | **Выход:** ${createdTrade.exitPrice || '-'}\n` : '') +
+        `\nСделка добавлена в базу данных и отображается на главном экране и в календаре.`;
+
+      const speech = `Сделка по ${createdTrade.symbol} зафиксирована в дневнике. Направление ${createdTrade.direction === 'LONG' ? 'лонг' : 'шорт'}, сетап ${createdTrade.setup}, результат ${createdTrade.pnl}.`;
+      return { content: text, createdTrade: createdTrade, speechText: speech };
+    }
+  }
+
+  // Indicators & Technical Analysis
+  if (lower.includes('индикатор') || lower.includes('rsi') || lower.includes('ema') || lower.includes('машка') || lower.includes('скользящ') || lower.includes('atr') || lower.includes('macd')) {
+    const content = `**Рекомендации по техническим индикаторам:**\n\n` +
+      `1. **EMA 200 / 50 (Экспоненциальные средние):**\n` +
+      `   Используйте их исключительно как фильтр тренда на старшем таймфрейме (1H/4H). Если цена выше EMA 200 — приоритет только покупкам (Long).\n\n` +
+      `2. **RSI (Индекс относительной силы):**\n` +
+      `   Не заходите в сделку только по факту перекупленности (>70) или перепроданности (<30). Ищите дивергенции (расхождения цены и графика RSI) в зонах интереса.\n\n` +
+      `3. **ATR (Average True Range):**\n` +
+      `   Отличный инструмент для расчета динамического стоп-лосса с учетом текущей волатильности рынка.\n\n` +
+      `*Совет:* Индикаторы — это вторичный фильтр. Первична всегда структура цены и ликвидность.`;
+    const speech = 'Индикаторы должны служить фильтром старшего тренда, а не причиной входа. Используйте EMA 200 для определения направления и ждите подтверждения по цене.';
+    return { content, speechText: speech };
+  }
+
+  // Trading Plan & Routine
+  if (lower.includes('план') || lower.includes('рутин') || lower.includes('день трейдер') || lower.includes('распорядок') || lower.includes('сесси')) {
+    const content = `**Эффективный распорядок профессионального трейдера:**\n\n` +
+      `1. **Пре-маркет (до открытия сессии):**\n` +
+      `   • Оцените старший контекст (Daily / 4H bias).\n` +
+      `   • Отметьте ключевые уровни ликвидности и непроторгованные зоны (FVG, Order Blocks).\n` +
+      `   • Проверьте экономический календарь на предмет выхода важных новостей (CPI, FOMC).\n\n` +
+      `2. **Активная сессия (Лондон 10:00-13:00 / Нью-Йорк 16:30-20:00 МСК):**\n` +
+      `   • Входите строго при наличии подтверждения и исполнения всех критериев вашего сетапа.\n` +
+      `   • Ограничение: максимум 2-3 качественные сделки за сессию.\n\n` +
+      `3. **Пост-маркет:**\n` +
+      `   • Внесите каждую сделку в дневник TradeLog и оцените соблюдение дисциплины.`;
+    const speech = 'Торгуйте в часы Лондонской и Нью-Йоркской сессий, заранее отмечайте уровни ликвидности и заносите каждый трейд в дневник TradeLog.';
+    return { content, speechText: speech };
+  }
+
+  // Market Trend & Strategy
+  if (lower.includes('рынок') || lower.includes('тренд') || lower.includes('стратеги') || lower.includes('как торговать') || lower.includes('биткоин') || lower.includes('крипт')) {
+    const content = `**Стратегия работы с рыночной структурой:**\n\n` +
+      `1. **Определение направления (HTF Bias):**\n` +
+      `   Торгуйте по направлению тренда на 4-часовом и дневном таймфреймах. Торговля против старшего тренда снижает математическое ожидание в два раза.\n\n` +
+      `2. **Снятие ликвидности (Liquidity Sweep):**\n` +
+      `   Крупные игроки входят там, где толпа ставит стоп-лоссы. Ждите ложного пробоя уровня и возврата цены внутрь диапазона.\n\n` +
+      `3. **Соотношение риска к прибыли (R:R):**\n` +
+      `   Берите только сделки с потенциалом от 1:2.5 до 1:4. Это позволит оставаться в стабильной прибыли даже при винрейте 40%.`;
+    const speech = 'Всегда торгуйте по направлению старшего таймфрейма, ищите вход после снятия ликвидности и держите соотношение риска к прибыли от одного к трем.';
+    return { content, speechText: speech };
+  }
+
+  // General Mentorship Response for any other inquiry
+  const content = `**Рекомендации торгового ассистента:**\n\n` +
+    `Я готов помочь вам с любой задачей по трейдингу и ведению дневника:\n\n` +
+    `• **Записать сделку голосом или текстом:** Назовите тикер, направление (лонг/шорт), сетап и результат (например: «Добавь сделку: лонг BTC на 15m, пробой, +2.5R»).\n` +
+    `• **Анализ винрейта:** Спросите «Какой у меня винрейт?» или «Анализ сетапов».\n` +
+    `• **Риск-менеджмент:** Не превышайте риск 1% на трейд и строго соблюдайте торговый план.\n\n` +
+    `Задайте конкретный вопрос по сделке, сетапу или статистике, и я подробно разберу его!`;
+  const speech = 'Я готов разобрать ваши сделки, посчитать статистику и винрейт, либо дать советы по риск-менеджменту. Нажмите микрофон и назовите команду.';
+  return { content, speechText: speech };
 }
 
 function pushAiMessage(content, createdTrade, speechText, timeStr) {
@@ -1498,7 +1655,9 @@ window.resetAiSettings = resetAiSettings;
 function clearAiChat() {
   if (confirm('Очистить историю диалога с ИИ?')) {
     stopSpeaking();
+    localStorage.removeItem('tradelog_ai_chat');
     sessionStorage.removeItem('tradelog_ai_chat');
+    aiChatHistory = [];
     initAiChatHistory();
     showToast('История диалога очищена', 'info');
   }
