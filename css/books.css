@@ -677,46 +677,73 @@ body.modal-open::-webkit-scrollbar,
   bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 36px) !important;
 }
 
-/* Journal tab typography harmony in Paper / Books theme */
+/* Journal tab typography: clean modern font matching Home and Settings tabs */
+.apple-journal-title,
 html:not([data-theme]) .apple-journal-title,
 [data-theme="books"] .apple-journal-title {
-  font-family: var(--font-editorial);
-  font-size: 60px;
-  font-weight: 500;
-  letter-spacing: -2.5px;
-  line-height: 1.12;
+  font-family: var(--font-main) !important;
+  font-size: 1.35rem !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.015em !important;
+  line-height: 1.25 !important;
   color: var(--text-primary);
 }
 
 @media (max-width: 768px) {
+  .apple-journal-title,
   html:not([data-theme]) .apple-journal-title,
   [data-theme="books"] .apple-journal-title {
-    font-size: 34px;
-    letter-spacing: -1.4px;
+    font-size: 1.22rem !important;
+    letter-spacing: -0.01em !important;
   }
 }
 
+.apple-group-header,
 html:not([data-theme]) .apple-group-header,
-[data-theme="books"] .apple-group-header,
+[data-theme="books"] .apple-group-header {
+  font-family: var(--font-main) !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  color: var(--text-muted);
+}
+
+.apple-card-title,
+.apple-view-title,
+.apple-edit-title,
 html:not([data-theme]) .apple-card-title,
 [data-theme="books"] .apple-card-title,
 html:not([data-theme]) .apple-view-title,
 [data-theme="books"] .apple-view-title,
 html:not([data-theme]) .apple-edit-title,
 [data-theme="books"] .apple-edit-title {
-  font-family: var(--font-editorial);
-  letter-spacing: -0.4px;
+  font-family: var(--font-main) !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--text-primary);
 }
 
+.apple-card-body,
+.apple-view-text,
+.apple-edit-textarea,
 html:not([data-theme]) .apple-card-body,
 [data-theme="books"] .apple-card-body,
 html:not([data-theme]) .apple-view-text,
 [data-theme="books"] .apple-view-text,
 html:not([data-theme]) .apple-edit-textarea,
 [data-theme="books"] .apple-edit-textarea {
-  font-family: var(--font-main);
+  font-family: var(--font-main) !important;
+  font-size: 0.88rem !important;
+  line-height: 1.5 !important;
+  color: var(--text-secondary);
 }
 
+.apple-card-date,
+.apple-card-subdate,
+.apple-view-subdate,
+.apple-composer-date-text,
 html:not([data-theme]) .apple-card-date,
 [data-theme="books"] .apple-card-date,
 html:not([data-theme]) .apple-card-subdate,
@@ -725,14 +752,21 @@ html:not([data-theme]) .apple-view-subdate,
 [data-theme="books"] .apple-view-subdate,
 html:not([data-theme]) .apple-composer-date-text,
 [data-theme="books"] .apple-composer-date-text {
-  font-family: var(--font-main);
+  font-family: var(--font-main) !important;
+  font-size: 0.78rem !important;
+  color: var(--text-muted);
 }
 
+.apple-tag-pill,
+.apple-composer-tag-chip,
+.apple-pill-btn,
 html:not([data-theme]) .apple-tag-pill,
 [data-theme="books"] .apple-tag-pill,
 html:not([data-theme]) .apple-composer-tag-chip,
 [data-theme="books"] .apple-composer-tag-chip,
 html:not([data-theme]) .apple-pill-btn,
 [data-theme="books"] .apple-pill-btn {
-  font-family: var(--font-main);
+  font-family: var(--font-main) !important;
+  font-size: 0.8rem !important;
+  font-weight: 550 !important;
 }

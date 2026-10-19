@@ -4672,11 +4672,12 @@ main.app-container {
 
 .apple-journal-title {
   font-family: var(--font-main);
-  font-size: 2.1rem;
-  font-weight: 700;
+  font-size: 1.35rem;
+  font-weight: 650;
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
 }
 
 /* Unified Filter Bar: Category Pills + Three Dots Menu Button on same row */

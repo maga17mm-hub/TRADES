@@ -368,7 +368,7 @@ async function createCloudVault(vaultData) {
  * Helper to parse or fetch full content from a gist file object,
  * properly handling GitHub Gist file truncation (> 1MB).
  */
-async function getGistFileJson(file, headers) {
+async function getGistFileJson(file) {
   if (!file) return null;
   // If file content is provided and not truncated, parse directly
   if (file.content && !file.truncated) {
@@ -379,7 +379,10 @@ async function getGistFileJson(file, headers) {
   // If file is truncated (> 1MB) or content is absent, fetch from raw_url
   if (file.raw_url) {
     try {
-      const rawRes = await fetch(file.raw_url, { headers });
+      // NOTE: Never send custom Authorization or Accept headers to gist.githubusercontent.com in browser fetch.
+      // GitHub raw storage rejects CORS preflight with 403 Forbidden when custom headers are sent,
+      // but serves files with Access-Control-Allow-Origin: * when requested without custom headers.
+      const rawRes = await fetch(file.raw_url, { cache: 'no-cache' });
       if (rawRes.ok) {
         return await rawRes.json();
       }
@@ -401,6 +404,8 @@ async function getGistFileJson(file, headers) {
 function cleanVaultId(raw) {
   if (!raw) return '';
   let str = String(raw).trim();
+  // Strip invisible unicode characters (zero-width spaces, BOM, non-breaking spaces)
+  str = str.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
   str = str.replace(/^["']|["']$/g, '').trim();
   if (str.toUpperCase().startsWith('TL-') || str.toUpperCase().startsWith('TL_')) {
     str = str.substring(3).trim();
@@ -440,7 +445,7 @@ async function fetchCloudVault(identifier) {
       if (res.ok) {
         const gist = await res.json();
         const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
-        const data = await getGistFileJson(file, headers);
+        const data = await getGistFileJson(file);
         if (data && typeof data === 'object') {
           if (!data.vaultId) data.vaultId = gist.id;
           return data;
@@ -471,7 +476,7 @@ async function fetchCloudVault(identifier) {
             if (singleRes.ok) {
               const gist = await singleRes.json();
               const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
-              const data = await getGistFileJson(file, headers);
+              const data = await getGistFileJson(file);
               if (data) {
                 if (!data.vaultId) data.vaultId = gist.id;
                 return data;
@@ -491,7 +496,7 @@ async function fetchCloudVault(identifier) {
                 if (singleRes.ok) {
                   const gist = await singleRes.json();
                   const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
-                  const data = await getGistFileJson(file, headers);
+                  const data = await getGistFileJson(file);
                   if (data) {
                     const uEmail = (data.userEmail || '').toLowerCase();
                     const uName = (data.userName || '').toLowerCase();
@@ -728,8 +733,11 @@ async function handleLoginSubmit(e) {
 
     // Verify password hash (case-insensitive email support + local fallback)
     const email = vaultData.userEmail || '';
+    const trimmedPass = password.trim();
     const computedHash = await hashString(password + ':' + email);
     const computedHashLower = await hashString(password + ':' + email.toLowerCase());
+    const computedHashTrimmed = await hashString(trimmedPass + ':' + email);
+    const computedHashLowerTrimmed = await hashString(trimmedPass + ':' + email.toLowerCase());
 
     let localSavedPass = null;
     let localSavedHash = null;
@@ -747,9 +755,11 @@ async function handleLoginSubmit(e) {
     const isPasswordValid = (!vaultData.passwordHash) || 
                             (vaultData.passwordHash === computedHash) || 
                             (vaultData.passwordHash === computedHashLower) || 
-                            (vaultData.savedPassword && vaultData.savedPassword === password) ||
-                            (localSavedPass && localSavedPass === password) ||
-                            (localSavedHash && (localSavedHash === computedHash || localSavedHash === computedHashLower));
+                            (vaultData.passwordHash === computedHashTrimmed) || 
+                            (vaultData.passwordHash === computedHashLowerTrimmed) || 
+                            (vaultData.savedPassword && (vaultData.savedPassword === password || vaultData.savedPassword === trimmedPass)) ||
+                            (localSavedPass && (localSavedPass === password || localSavedPass === trimmedPass)) ||
+                            (localSavedHash && (localSavedHash === computedHash || localSavedHash === computedHashLower || localSavedHash === computedHashTrimmed || localSavedHash === computedHashLowerTrimmed));
 
     if (!isPasswordValid) {
       if (passwordInput) {
