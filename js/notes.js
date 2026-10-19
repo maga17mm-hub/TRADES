@@ -1,14 +1,15 @@
 /**
  * ============================================================================
- * TradeLog Journal Thoughts & Voice Memos Module (Apple Notes iOS Style)
- * Manages personal trader reflections, emotions, market psychology, and audio recordings.
- * Stored completely offline in IndexedDB (journal_thoughts).
+ * TradeLog Journal Thoughts & Voice Memos Module (Apple Journal iOS Style)
+ * Manages trader reflections, psychology, market analysis, and voice memos.
+ * Stored offline in IndexedDB (journal_thoughts) with full cloud sync support.
  * ============================================================================
  */
 
 let allJournalThoughts = [];
 let currentOpenThoughtId = null;
 let isEditingThought = false;
+let filterOnlyBookmarked = false;
 
 // Audio Recording State
 let thoughtMediaRecorder = null;
@@ -57,16 +58,107 @@ window.renderJournalThoughtsFeed = loadAndRenderJournal;
 window.loadAndRenderJournal = loadAndRenderJournal;
 
 /**
- * Filter thoughts and render the iOS Notes list
+ * Group thoughts into Apple Journal timeline headers ("Сегодня", "Вчера", "Сентябрь 2025 г.")
+ */
+function groupThoughtsByDate(thoughts) {
+  const groups = {};
+  const now = new Date();
+  const todayStr = now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toDateString();
+
+  for (const t of thoughts) {
+    const d = new Date(t.createdAt || Date.now());
+    let groupKey = '';
+    if (d.toDateString() === todayStr) {
+      groupKey = 'Сегодня';
+    } else if (d.toDateString() === yesterdayStr) {
+      groupKey = 'Вчера';
+    } else {
+      const monthName = d.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+      groupKey = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+    }
+    if (!groups[groupKey]) {
+      groups[groupKey] = [];
+    }
+    groups[groupKey].push(t);
+  }
+  return groups;
+}
+
+/**
+ * Extract Title and Body from thought
+ */
+function getThoughtTitleAndBody(thought) {
+  if (thought.title && thought.title.trim()) {
+    return {
+      title: thought.title.trim(),
+      body: (thought.text || '').trim()
+    };
+  }
+
+  const text = (thought.text || '').trim();
+  if (!text) {
+    return {
+      title: 'Голосовая мысль',
+      body: thought.audioDuration ? `Голосовая запись (${thought.audioDuration} сек)` : 'Голосовая запись'
+    };
+  }
+
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const firstLine = lines[0] || '';
+  if (firstLine.length <= 40) {
+    const remaining = text.substring(firstLine.length).trim();
+    return {
+      title: firstLine,
+      body: remaining || firstLine
+    };
+  }
+
+  const words = firstLine.split(/\s+/);
+  return {
+    title: words.slice(0, 5).join(' ') + '...',
+    body: text
+  };
+}
+
+/**
+ * Format Full Date for Apple Journal Card Footer ("Вторник, 16 сент. 2025 г.")
+ */
+function formatAppleJournalCardDate(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const str = d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Format Sub-date for Apple Journal Header ("16.09, 18:42")
+ */
+function formatAppleJournalSubDate(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  return `${day}.${month}, ${hours}:${mins}`;
+}
+
+/**
+ * Render Apple Journal Feed
  */
 function renderJournalThoughtsList() {
   const container = document.getElementById('journalThoughtsFeed');
-  const countBadge = document.getElementById('journalCountBadge');
-
   if (!container) return;
 
-  // Filter by tag and search query
+  // Filter thoughts
   let filtered = [...allJournalThoughts];
+
+  if (filterOnlyBookmarked) {
+    filtered = filtered.filter(t => !!t.isBookmarked);
+  }
 
   if (journalFilterTag && journalFilterTag !== 'all') {
     filtered = filtered.filter(t => {
@@ -81,20 +173,33 @@ function renderJournalThoughtsList() {
   if (journalSearchQuery && journalSearchQuery.trim()) {
     const q = journalSearchQuery.trim().toLowerCase();
     filtered = filtered.filter(t => {
+      const titleMatch = (t.title || '').toLowerCase().includes(q);
       const textMatch = (t.text || '').toLowerCase().includes(q);
       const tagMatch = (t.tag || '').toLowerCase().includes(q);
-      return textMatch || tagMatch;
+      return titleMatch || textMatch || tagMatch;
     });
   }
 
-  // Update count badge
-  if (countBadge) {
-    countBadge.textContent = formatThoughtCountRu(filtered.length);
-  }
-
-  // Empty State
+  // Empty state
   if (filtered.length === 0) {
-    if (allJournalThoughts.length === 0) {
+    if (filterOnlyBookmarked) {
+      container.innerHTML = `
+        <div class="ios-notes-empty-state">
+          <div class="ios-notes-empty-icon">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </div>
+          <h3 class="ios-notes-empty-title">Нет избранных записей</h3>
+          <p class="ios-notes-empty-desc">
+            Нажмите на значок закладки в любой записи, чтобы добавить её в избранное.
+          </p>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleFilterOnlyBookmarked()" style="margin-top: 14px;">
+            Показать все записи
+          </button>
+        </div>
+      `;
+    } else if (allJournalThoughts.length === 0) {
       container.innerHTML = `
         <div class="ios-notes-empty-state">
           <div class="ios-notes-empty-icon">
@@ -106,9 +211,9 @@ function renderJournalThoughtsList() {
               <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
           </div>
-          <h3 class="ios-notes-empty-title">Ваш дневник мыслей пуст</h3>
+          <h3 class="ios-notes-empty-title">Ваш дневник пуст</h3>
           <p class="ios-notes-empty-desc">
-            Сохраните идею, разберите сделку или запишите голосовую заметку. Ваша история начинается здесь.
+            Сохраните идею, разберите сетап или запишите голосовую мысль. Нажмите на плюс в правом нижнем углу.
           </p>
         </div>
       `;
@@ -123,106 +228,318 @@ function renderJournalThoughtsList() {
           </div>
           <h3 class="ios-notes-empty-title">Ничего не найдено</h3>
           <p class="ios-notes-empty-desc">
-            По запросу «${safeEscape(journalSearchQuery)}» мыслей не найдено. Попробуйте сбросить поиск или выбрать другую категорию.
+            По запросу «${safeEscape(journalSearchQuery)}» записей не найдено.
           </p>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="clearJournalSearch()" style="margin-top: 14px;">
+            Сбросить поиск
+          </button>
         </div>
       `;
     }
     return;
   }
 
-  // Render Note Cards
-  container.innerHTML = filtered.map(thought => {
-    const { title, snippet } = getThoughtTitleAndSnippet(thought);
-    const dateStr = formatThoughtShortDate(thought.createdAt);
-    const tag = (thought.tag && thought.tag !== 'Мысли') ? thought.tag : 'Запись';
-    const hasAudio = !!thought.audioData;
-    const audioDurationText = thought.audioDuration ? `${thought.audioDuration} сек` : 'Голос';
+  // Group by date headers
+  const grouped = groupThoughtsByDate(filtered);
+  let html = '';
 
-    return `
-      <div class="ios-note-card" onclick="openThoughtDetail('${thought.id}')">
-        <div class="ios-note-card-main">
-          <div class="ios-note-card-title">${safeEscape(title)}</div>
-          <div class="ios-note-card-subline">
-            <span class="ios-note-card-date">${dateStr}</span>
-            <span class="ios-note-card-snippet">${safeEscape(snippet)}</span>
-          </div>
-        </div>
-        <div class="ios-note-card-aside">
+  for (const [groupName, thoughtsList] of Object.entries(grouped)) {
+    html += `<h2 class="apple-group-header">${safeEscape(groupName)}</h2>`;
+
+    for (const thought of thoughtsList) {
+      const { title, body } = getThoughtTitleAndBody(thought);
+      const subdate = formatAppleJournalSubDate(thought.createdAt);
+      const fullDate = formatAppleJournalCardDate(thought.createdAt);
+      const isBookmarked = !!thought.isBookmarked;
+      const hasAudio = !!thought.audioData;
+      const audioDurationText = thought.audioDuration ? `${thought.audioDuration} сек` : 'Голос';
+
+      html += `
+        <div class="apple-journal-card" onclick="openThoughtDetail('${thought.id}')">
+          <div class="apple-card-title">${safeEscape(title)}</div>
+          <div class="apple-card-subdate">${subdate}</div>
+          <div class="apple-card-body">${safeEscape(body)}</div>
+
           ${hasAudio ? `
-            <span class="ios-note-audio-chip" title="Голосовая заметка">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.76rem; color: #7b8cf8; background: rgba(123, 140, 248, 0.12); border-radius: 12px; padding: 3px 10px; margin-bottom: 10px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
                 <line x1="12" y1="19" x2="12" y2="23"></line>
                 <line x1="8" y1="23" x2="16" y2="23"></line>
               </svg>
-              <span>${audioDurationText}</span>
-            </span>
+              <span>Голосовая запись (${audioDurationText})</span>
+            </div>
           ` : ''}
-          <span class="ios-note-tag-chip">${safeEscape(tag)}</span>
-          <span class="ios-note-chevron">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </span>
+
+          <div class="apple-card-footer">
+            <span class="apple-card-date">${fullDate}</span>
+            <div class="apple-card-actions">
+              <button type="button" class="apple-card-menu-btn ${isBookmarked ? 'active' : ''}" onclick="toggleThoughtBookmark(event, '${thought.id}')" title="${isBookmarked ? 'В избранном' : 'Добавить в избранное'}" aria-label="Закладка">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="${isBookmarked ? '#ff453a' : 'none'}" stroke="${isBookmarked ? '#ff453a' : 'currentColor'}" stroke-width="2">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </button>
+              <button type="button" class="apple-card-menu-btn" onclick="openThoughtCardMenu(event, '${thought.id}')" title="Меню действий" aria-label="Меню">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="1.5"></circle>
+                  <circle cx="6" cy="12" r="1.5"></circle>
+                  <circle cx="18" cy="12" r="1.5"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    `;
-  }).join('');
-}
-
-/**
- * Extract Title and Short Excerpt Snippet (couple of words) from thought
- */
-function getThoughtTitleAndSnippet(thought) {
-  const text = (thought.text || '').trim();
-  if (!text) {
-    return {
-      title: 'Голосовая мысль',
-      snippet: thought.audioDuration ? `Голосовая запись (${thought.audioDuration} сек)` : 'Голосовая запись'
-    };
-  }
-
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const firstLine = lines[0] || '';
-  const words = firstLine.split(/\s+/);
-
-  let title = '';
-  let snippet = '';
-
-  if (words.length <= 5 && firstLine.length <= 40) {
-    title = firstLine;
-    const remainingText = text.substring(firstLine.length).trim();
-    if (remainingText) {
-      snippet = remainingText.replace(/\r?\n/g, ' ').substring(0, 70);
-    } else {
-      snippet = 'Нет дополнительного текста';
+      `;
     }
-  } else {
-    title = words.slice(0, 5).join(' ') + '...';
-    snippet = words.slice(5).join(' ').substring(0, 70);
   }
 
-  return { title, snippet };
+  container.innerHTML = html;
 }
 
 /**
- * Open Note in Detail View (View Mode)
+ * Filter by tag pill
+ */
+function setJournalTagFilter(tag, el) {
+  journalFilterTag = tag || 'all';
+  const pills = document.querySelectorAll('.apple-tag-pill');
+  pills.forEach(p => p.classList.remove('active'));
+  if (el) {
+    el.classList.add('active');
+  }
+  renderJournalThoughtsList();
+}
+window.setJournalTagFilter = setJournalTagFilter;
+
+/**
+ * Toggle Search Bar
+ */
+function toggleJournalSearchUI() {
+  const wrap = document.getElementById('appleJournalSearchWrap');
+  if (!wrap) return;
+  const isHidden = (wrap.style.display === 'none' || !wrap.style.display);
+  wrap.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) {
+    const input = document.getElementById('appleJournalSearchInput');
+    if (input) input.focus();
+  }
+}
+window.toggleJournalSearchUI = toggleJournalSearchUI;
+
+/**
+ * Search Input Handler
+ */
+function handleJournalSearch(val) {
+  journalSearchQuery = val || '';
+  renderJournalThoughtsList();
+}
+window.handleJournalSearch = handleJournalSearch;
+
+/**
+ * Clear Search Input
+ */
+function clearJournalSearch() {
+  journalSearchQuery = '';
+  const input = document.getElementById('appleJournalSearchInput');
+  if (input) input.value = '';
+  renderJournalThoughtsList();
+}
+window.clearJournalSearch = clearJournalSearch;
+
+/**
+ * Bookmark toggle for a note card
+ */
+async function toggleThoughtBookmark(event, id) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
+  const thought = allJournalThoughts.find(t => String(t.id) === String(id));
+  if (!thought) return;
+
+  thought.isBookmarked = !thought.isBookmarked;
+
+  try {
+    if (typeof updateJournalThought === 'function') {
+      await updateJournalThought(thought);
+    }
+    renderJournalThoughtsList();
+    showToast(thought.isBookmarked ? 'Добавлено в избранное' : 'Удалено из избранного', 'info');
+    if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
+  } catch (err) {
+    console.error('Failed to toggle bookmark:', err);
+  }
+}
+window.toggleThoughtBookmark = toggleThoughtBookmark;
+
+/**
+ * Filter only bookmarked toggle
+ */
+function toggleFilterOnlyBookmarked() {
+  filterOnlyBookmarked = !filterOnlyBookmarked;
+  closeAppleJournalMenu();
+  renderJournalThoughtsList();
+  showToast(filterOnlyBookmarked ? 'Показаны только избранные записи' : 'Показаны все записи', 'info');
+}
+window.toggleFilterOnlyBookmarked = toggleFilterOnlyBookmarked;
+
+/**
+ * Context Menu: Card Menu
+ */
+function openThoughtCardMenu(event, id) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
+  const thought = allJournalThoughts.find(t => String(t.id) === String(id));
+  if (!thought) return;
+
+  const overlay = document.getElementById('appleJournalMenuOverlay');
+  const popup = document.getElementById('appleJournalMenuPopup');
+  if (!overlay || !popup) return;
+
+  const isBookmarked = !!thought.isBookmarked;
+
+  popup.innerHTML = `
+    <button type="button" class="apple-menu-item" onclick="closeAppleJournalMenu(); toggleThoughtBookmark(null, '${thought.id}')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="${isBookmarked ? '#ff453a' : 'none'}" stroke="${isBookmarked ? '#ff453a' : 'currentColor'}" stroke-width="2">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>${isBookmarked ? 'Удалить из избранного' : 'Добавить в избранное'}</span>
+    </button>
+    <button type="button" class="apple-menu-item" onclick="closeAppleJournalMenu(); editThoughtFromCard('${thought.id}')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+      </svg>
+      <span>Править запись</span>
+    </button>
+    <div class="apple-menu-divider"></div>
+    <button type="button" class="apple-menu-item danger" onclick="closeAppleJournalMenu(); deleteThoughtDirect('${thought.id}')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+      <span>Удалить запись</span>
+    </button>
+  `;
+
+  overlay.style.display = 'flex';
+}
+window.openThoughtCardMenu = openThoughtCardMenu;
+
+/**
+ * Context Menu: Top Bar Menu
+ */
+function openJournalTopMenu(event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
+  const overlay = document.getElementById('appleJournalMenuOverlay');
+  const popup = document.getElementById('appleJournalMenuPopup');
+  if (!overlay || !popup) return;
+
+  popup.innerHTML = `
+    <button type="button" class="apple-menu-item" onclick="closeAppleJournalMenu(); openNewThoughtComposer();">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      <span>Новая запись</span>
+    </button>
+    <button type="button" class="apple-menu-item" onclick="toggleFilterOnlyBookmarked()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="${filterOnlyBookmarked ? '#ff453a' : 'none'}" stroke="${filterOnlyBookmarked ? '#ff453a' : 'currentColor'}" stroke-width="2">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>${filterOnlyBookmarked ? 'Показать все записи' : 'Только избранные'}</span>
+    </button>
+    <div class="apple-menu-divider"></div>
+    <button type="button" class="apple-menu-item" onclick="closeAppleJournalMenu(); exportJournalThoughtsJson();">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      <span>Экспорт записей дневника</span>
+    </button>
+  `;
+
+  overlay.style.display = 'flex';
+}
+window.openJournalTopMenu = openJournalTopMenu;
+
+/**
+ * Close Context Menu
+ */
+function closeAppleJournalMenu() {
+  const overlay = document.getElementById('appleJournalMenuOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+window.closeAppleJournalMenu = closeAppleJournalMenu;
+
+/**
+ * Edit note directly from card context menu
+ */
+async function editThoughtFromCard(id) {
+  await openThoughtDetail(id);
+  toggleThoughtEditMode();
+}
+window.editThoughtFromCard = editThoughtFromCard;
+
+/**
+ * Delete note directly
+ */
+async function deleteThoughtDirect(id) {
+  if (!confirm('Удалить эту запись из дневника?')) return;
+
+  try {
+    if (typeof deleteJournalThought === 'function') {
+      await deleteJournalThought(id);
+    }
+    showToast('Запись удалена', 'info');
+    await loadAndRenderJournal();
+    if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
+  } catch (err) {
+    console.error('Failed to delete thought:', err);
+    showToast('Не удалось удалить мысль', 'error');
+  }
+}
+window.deleteThoughtDirect = deleteThoughtDirect;
+
+/**
+ * Export journal thoughts as JSON
+ */
+function exportJournalThoughtsJson() {
+  try {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(allJournalThoughts, null, 2));
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute('href', dataStr);
+    dlAnchorElem.setAttribute('download', `tradelog-journal-${new Date().toISOString().slice(0, 10)}.json`);
+    dlAnchorElem.click();
+    showToast('Записи дневника экспортированы в JSON', 'success');
+  } catch (e) {
+    showToast('Не удалось экспортировать записи', 'error');
+  }
+}
+window.exportJournalThoughtsJson = exportJournalThoughtsJson;
+
+/**
+ * Open Note Detail View
  */
 async function openThoughtDetail(id) {
-  const thought = allJournalThoughts.find(t => String(t.id) === String(id));
+  let thought = allJournalThoughts.find(t => String(t.id) === String(id));
+  if (!thought && typeof getJournalThought === 'function') {
+    try {
+      thought = await getJournalThought(id);
+    } catch (e) {}
+  }
+
   if (!thought) {
-    if (typeof getJournalThought === 'function') {
-      try {
-        const dbThought = await getJournalThought(id);
-        if (dbThought) {
-          showThoughtDetailScreen(dbThought);
-          return;
-        }
-      } catch (e) {}
-    }
-    showToast('Мысль не найдена', 'error');
+    showToast('Запись не найдена', 'error');
     return;
   }
 
@@ -231,7 +548,7 @@ async function openThoughtDetail(id) {
 window.openThoughtDetail = openThoughtDetail;
 
 /**
- * Display the detail screen for a note
+ * Show Note Detail Screen
  */
 function showThoughtDetailScreen(thought) {
   currentOpenThoughtId = thought.id;
@@ -239,23 +556,75 @@ function showThoughtDetailScreen(thought) {
   currentRecordedAudioDataUrl = null;
   currentRecordedAudioDuration = 0;
 
-  // Toggle screens
   const listView = document.getElementById('journalListView');
   const detailView = document.getElementById('journalDetailView');
   if (listView) listView.style.display = 'none';
   if (detailView) detailView.style.display = 'block';
 
-  // Configure topbar
-  updateDetailTopbar(false, true);
+  // Configure top action bar: actions menu + 'Править' pill
+  const topActions = document.getElementById('appleDetailTopActions');
+  if (topActions) {
+    topActions.innerHTML = `
+      <button type="button" class="apple-circle-btn" onclick="openThoughtCardMenu(event, '${thought.id}')" title="Действия" aria-label="Меню">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="1.5"></circle>
+          <circle cx="6" cy="12" r="1.5"></circle>
+          <circle cx="18" cy="12" r="1.5"></circle>
+        </svg>
+      </button>
+      <button type="button" class="apple-pill-btn" onclick="toggleThoughtEditMode()">
+        Править
+      </button>
+    `;
+  }
 
-  // Render content
   renderThoughtViewMode(thought);
-
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 /**
- * Open Composer to Add New Thought (+)
+ * Render View Mode (Clean reading mode like Apple Journal)
+ */
+function renderThoughtViewMode(thought) {
+  const container = document.getElementById('journalDetailContent');
+  if (!container) return;
+
+  const { title, body } = getThoughtTitleAndBody(thought);
+  const subdate = formatAppleJournalSubDate(thought.createdAt);
+  const fullDate = formatAppleJournalCardDate(thought.createdAt);
+  const tag = (thought.tag && thought.tag !== 'Мысли') ? thought.tag : 'Запись';
+
+  const audioHtml = thought.audioData ? `
+    <div style="margin-top: 24px; padding: 14px 16px; background: rgba(28, 24, 38, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 18px; width: 100%;">
+      <div style="font-size: 0.78rem; font-weight: 600; color: rgba(255, 255, 255, 0.7); display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+        <span>Голосовая запись (${thought.audioDuration || 0} сек)</span>
+      </div>
+      <audio controls src="${thought.audioData}" class="thought-native-audio" style="width: 100% !important; min-width: 100% !important; height: 44px !important; outline: none; display: block;"></audio>
+    </div>
+  ` : '';
+
+  container.innerHTML = `
+    <div class="apple-view-card">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <span class="apple-tag-pill active" style="font-size: 0.75rem; padding: 3px 12px; pointer-events: none;">${safeEscape(tag)}</span>
+        <span style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.45);">${fullDate}</span>
+      </div>
+      <h1 class="apple-view-title">${safeEscape(title)}</h1>
+      <div class="apple-view-subdate">${subdate}</div>
+      <div class="apple-view-text">${safeEscape(body)}</div>
+      ${audioHtml}
+    </div>
+  `;
+}
+
+/**
+ * Open Composer to Create New Note (+)
  */
 function openNewThoughtComposer() {
   currentOpenThoughtId = null;
@@ -263,21 +632,29 @@ function openNewThoughtComposer() {
   currentRecordedAudioDataUrl = null;
   currentRecordedAudioDuration = 0;
 
-  // Toggle screens
   const listView = document.getElementById('journalListView');
   const detailView = document.getElementById('journalDetailView');
   if (listView) listView.style.display = 'none';
   if (detailView) detailView.style.display = 'block';
 
-  // Configure topbar (In composer mode: Save button visible, Delete button hidden)
-  updateDetailTopbar(true, false);
+  // Configure topbar: Aa prompt + checkmark circle save button
+  const topActions = document.getElementById('appleDetailTopActions');
+  if (topActions) {
+    topActions.innerHTML = `
+      <button type="button" class="apple-circle-btn" onclick="insertPromptHelper()" title="Подсказка для записи" aria-label="Подсказка">
+        <span style="font-weight: 700; font-size: 0.95rem;">Aa</span>
+      </button>
+      <button type="button" class="apple-check-btn" onclick="saveCurrentThought()" title="Сохранить запись" aria-label="Сохранить">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </button>
+    `;
+  }
 
-  // Render empty composer form
   renderThoughtComposerMode(null);
-
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  // Focus textarea
   setTimeout(() => {
     const textarea = document.getElementById('iosNoteEditText');
     if (textarea) textarea.focus();
@@ -286,7 +663,135 @@ function openNewThoughtComposer() {
 window.openNewThoughtComposer = openNewThoughtComposer;
 
 /**
- * Back to Notes List Screen
+ * Render Composer / Edit Mode with Apple Capsule Bar
+ */
+function renderThoughtComposerMode(existingThought) {
+  const container = document.getElementById('journalDetailContent');
+  if (!container) return;
+
+  const initialTitle = existingThought ? (existingThought.title || '') : '';
+  const initialText = existingThought ? (existingThought.text || '') : '';
+  const initialTag = existingThought ? (existingThought.tag || 'Запись') : 'Запись';
+  const existingAudio = existingThought ? existingThought.audioData : null;
+  const existingDuration = existingThought ? (existingThought.audioDuration || 0) : 0;
+
+  currentRecordedAudioDataUrl = existingAudio || null;
+  currentRecordedAudioDuration = existingDuration || 0;
+
+  container.innerHTML = `
+    <div class="apple-composer-wrap">
+      
+      <!-- Top meta row: Category Tag & Date -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <select id="iosNoteEditTag" class="form-select form-select-sm" style="width: auto; min-width: 130px; max-width: 165px; height: 32px; min-height: 32px; padding: 2px 22px 2px 10px; font-size: 0.78rem; border-radius: 16px; background: rgba(255, 255, 255, 0.08); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.12);">
+          <option value="Запись" ${(initialTag === 'Запись' || initialTag === 'Мысли') ? 'selected' : ''}>Запись</option>
+          <option value="Психология" ${initialTag === 'Психология' ? 'selected' : ''}>Психология</option>
+          <option value="Анализ рынка" ${initialTag === 'Анализ рынка' ? 'selected' : ''}>Анализ рынка</option>
+          <option value="Торговый план" ${initialTag === 'Торговый план' ? 'selected' : ''}>Торговый план</option>
+          <option value="Ошибки" ${initialTag === 'Ошибки' ? 'selected' : ''}>Ошибки</option>
+        </select>
+        <span style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.5);">${formatAppleJournalSubDate(existingThought?.createdAt || new Date().toISOString())}</span>
+      </div>
+
+      <!-- Title Input -->
+      <input type="text" id="iosNoteEditTitle" class="apple-edit-title" placeholder="Заголовок записи..." value="${safeEscape(initialTitle)}" />
+
+      <!-- Main Textarea -->
+      <textarea id="iosNoteEditText" class="apple-edit-textarea" placeholder="Начните писать свои мысли, анализ или наблюдения...">${safeEscape(initialText)}</textarea>
+
+      <!-- Audio Preview Box -->
+      <div id="thoughtAudioPreviewBox" style="margin-top: 10px; display: ${currentRecordedAudioDataUrl ? 'block' : 'none'};">
+        ${renderAudioPreviewCardHtml(currentRecordedAudioDataUrl, currentRecordedAudioDuration)}
+      </div>
+
+      <!-- Floating Bottom Capsule Toolbar -->
+      <div class="apple-floating-capsule-bar">
+        <button type="button" class="apple-capsule-btn" onclick="insertPromptHelper()" title="Шаблон рефлексии" aria-label="Шаблон">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 4V2"></path>
+            <path d="M15 16v-2"></path>
+            <path d="M8 9h2"></path>
+            <path d="M20 9h2"></path>
+            <path d="M17.8 11.8L19 13"></path>
+            <path d="M15 9h0"></path>
+            <path d="M17.8 6.2L19 5"></path>
+            <path d="M3 21l9-9"></path>
+            <path d="M12.2 6.2L11 5"></path>
+          </svg>
+        </button>
+        <button type="button" class="apple-capsule-btn" onclick="insertCurrentTimeSnippet()" title="Вставить отметку времени" aria-label="Время">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </button>
+        <button type="button" id="appleCapsuleMicBtn" class="apple-capsule-btn ${isRecordingThoughtAudio ? 'recording' : ''}" onclick="toggleThoughtAudioRecording()" title="Записать голос" aria-label="Микрофон">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+        </button>
+        <button type="button" class="apple-capsule-btn" onclick="cycleJournalTag()" title="Сменить категорию" aria-label="Категория">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+            <line x1="7" y1="7" x2="7.01" y2="7"></line>
+          </svg>
+        </button>
+        <button type="button" class="apple-capsule-btn" onclick="insertTraderReflectionPrompt()" title="Урок и психология" aria-label="Урок">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+        </button>
+      </div>
+
+    </div>
+  `;
+}
+
+/**
+ * Toggle Edit Mode ("Править" <-> Edit View)
+ */
+async function toggleThoughtEditMode() {
+  if (isEditingThought) {
+    await saveCurrentThought();
+  } else {
+    const thought = allJournalThoughts.find(t => String(t.id) === String(currentOpenThoughtId));
+    if (!thought) return;
+
+    isEditingThought = true;
+
+    // Configure topbar for edit mode
+    const topActions = document.getElementById('appleDetailTopActions');
+    if (topActions) {
+      topActions.innerHTML = `
+        <button type="button" class="apple-circle-btn" onclick="insertPromptHelper()" title="Подсказка для записи" aria-label="Подсказка">
+          <span style="font-weight: 700; font-size: 0.95rem;">Aa</span>
+        </button>
+        <button type="button" class="apple-check-btn" onclick="saveCurrentThought()" title="Сохранить запись" aria-label="Сохранить">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+      `;
+    }
+
+    renderThoughtComposerMode(thought);
+
+    setTimeout(() => {
+      const textarea = document.getElementById('iosNoteEditText');
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+    }, 100);
+  }
+}
+window.toggleThoughtEditMode = toggleThoughtEditMode;
+
+/**
+ * Return to Journal List
  */
 function backToJournalList() {
   if (isRecordingThoughtAudio) {
@@ -309,258 +814,28 @@ function backToJournalList() {
 window.backToJournalList = backToJournalList;
 
 /**
- * Toggle Edit Mode ("Править" <-> "Сохранить")
- */
-async function toggleThoughtEditMode() {
-  if (isEditingThought) {
-    // If currently editing, save!
-    await saveCurrentThought();
-  } else {
-    // Switch to edit mode for current note
-    const thought = allJournalThoughts.find(t => String(t.id) === String(currentOpenThoughtId));
-    if (!thought) return;
-
-    isEditingThought = true;
-    updateDetailTopbar(true, true);
-    renderThoughtComposerMode(thought);
-
-    setTimeout(() => {
-      const textarea = document.getElementById('iosNoteEditText');
-      if (textarea) {
-        textarea.focus();
-        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-      }
-    }, 100);
-  }
-}
-window.toggleThoughtEditMode = toggleThoughtEditMode;
-
-/**
- * Update the Topbar (Править / Сохранить button and Delete button)
- */
-function updateDetailTopbar(editing, canDelete) {
-  const toggleBtn = document.getElementById('journalEditToggleBtn');
-  const toggleLabel = document.getElementById('journalEditToggleLabel');
-  const deleteBtn = document.getElementById('journalDeleteBtn');
-
-  if (toggleBtn && toggleLabel) {
-    if (editing) {
-      toggleBtn.classList.remove('btn-secondary');
-      toggleBtn.classList.add('btn-primary');
-      toggleBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-        <span id="journalEditToggleLabel">Сохранить</span>
-      `;
-    } else {
-      toggleBtn.classList.remove('btn-primary');
-      toggleBtn.classList.add('btn-secondary');
-      toggleBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-        </svg>
-        <span id="journalEditToggleLabel">Править</span>
-      `;
-    }
-  }
-
-  if (deleteBtn) {
-    deleteBtn.style.display = canDelete ? 'inline-flex' : 'none';
-  }
-}
-
-/**
- * Render View Mode (Clean reading layout)
- */
-function renderThoughtViewMode(thought) {
-  const container = document.getElementById('journalDetailContent');
-  if (!container) return;
-
-  const dateCreated = formatThoughtFullDate(thought.createdAt);
-  const dateUpdated = thought.updatedAt && thought.updatedAt !== thought.createdAt 
-    ? `· Изменено ${formatThoughtFullDate(thought.updatedAt)}` 
-    : '';
-  const tag = (thought.tag && thought.tag !== 'Мысли') ? thought.tag : 'Запись';
-
-  const audioHtml = thought.audioData ? `
-    <div class="ios-note-audio-box" style="margin-top: 16px; padding: 12px 14px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: 14px; width: 100%;">
-      <div style="font-size: 0.74rem; font-weight: 600; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-          <line x1="12" y1="19" x2="12" y2="23"></line>
-          <line x1="8" y1="23" x2="16" y2="23"></line>
-        </svg>
-        <span>Голосовая мысль</span>
-      </div>
-      <audio controls src="${thought.audioData}" class="thought-native-audio" style="width: 100% !important; min-width: 100% !important; height: 44px !important; outline: none; display: block;"></audio>
-    </div>
-  ` : '';
-
-  const textHtml = thought.text 
-    ? `<div class="ios-note-view-text">${safeEscape(thought.text)}</div>` 
-    : `<div class="ios-note-view-text" style="color: var(--text-muted); font-style: italic;">Текстовая запись отсутствует (только голосовая заметка)</div>`;
-
-  container.innerHTML = `
-    <div class="ios-note-view-card">
-      <div class="ios-note-view-meta">
-        <span class="ios-note-tag-chip" style="font-size: 0.78rem; padding: 4px 10px;">${safeEscape(tag)}</span>
-        <span class="ios-note-view-date">${dateCreated} ${dateUpdated}</span>
-      </div>
-
-      ${textHtml}
-      ${audioHtml}
-
-      <div style="margin-top: 28px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.05); display: flex; justify-content: flex-end; gap: 10px;">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleThoughtEditMode()" style="display: inline-flex; align-items: center; gap: 6px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-          </svg>
-          <span>Редактировать запись</span>
-        </button>
-      </div>
-    </div>
-  `;
-}
-
-/**
- * Render Composer / Edit Mode (Input textarea, category picker, voice memo recorder)
- */
-function renderThoughtComposerMode(existingThought) {
-  const container = document.getElementById('journalDetailContent');
-  if (!container) return;
-
-  const initialText = existingThought ? (existingThought.text || '') : '';
-  const initialTag = existingThought ? (existingThought.tag || 'Запись') : 'Запись';
-  const existingAudio = existingThought ? existingThought.audioData : null;
-  const existingDuration = existingThought ? (existingThought.audioDuration || 0) : 0;
-
-  // Set initial audio state
-  currentRecordedAudioDataUrl = existingAudio || null;
-  currentRecordedAudioDuration = existingDuration || 0;
-
-  container.innerHTML = `
-    <div class="ios-note-edit-card">
-      
-      <!-- Category Tag Row (Left-aligned) -->
-      <div style="display: flex; align-items: center; justify-content: flex-start; margin-bottom: 12px;">
-        <select id="iosNoteEditTag" class="form-select form-select-sm" style="width: auto; min-width: 130px; max-width: 165px; height: 32px; min-height: 32px; padding: 2px 22px 2px 10px; font-size: 0.76rem; border-radius: 14px;">
-          <option value="Запись" ${(initialTag === 'Запись' || initialTag === 'Мысли') ? 'selected' : ''}>Запись</option>
-          <option value="Психология" ${initialTag === 'Психология' ? 'selected' : ''}>Психология</option>
-          <option value="Анализ рынка" ${initialTag === 'Анализ рынка' ? 'selected' : ''}>Анализ рынка</option>
-          <option value="Торговый план" ${initialTag === 'Торговый план' ? 'selected' : ''}>Торговый план</option>
-          <option value="Ошибки" ${initialTag === 'Ошибки' ? 'selected' : ''}>Ошибки</option>
-        </select>
-      </div>
-
-      <!-- Main Textarea -->
-      <div style="margin-bottom: 16px;">
-        <textarea id="iosNoteEditText" class="ios-note-textarea" placeholder="Напишите свои мысли по рынку...">${safeEscape(initialText)}</textarea>
-      </div>
-
-      <!-- Voice Memo Section -->
-      <div class="thought-record-box" style="margin-bottom: 20px; padding: 14px 16px;">
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <button type="button" id="thoughtRecordBtn" class="btn btn-secondary thought-mic-btn" onclick="toggleThoughtAudioRecording()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-              <line x1="12" y1="19" x2="12" y2="23"></line>
-              <line x1="8" y1="23" x2="16" y2="23"></line>
-            </svg>
-            <span id="thoughtRecordBtnText">Записать голосовую мысль</span>
-          </button>
-
-          <!-- Animated Recording Waves & Live Timer -->
-          <div id="thoughtRecordWave" class="record-wave-container" style="display: none;">
-            <span class="record-pulse-dot" style="margin-right: 4px;"></span>
-            <span style="font-size: 0.72rem; font-weight: 600; color: #ef4444; margin-right: 6px;">Идёт запись</span>
-            <div class="wave-bars-wrapper">
-              <div class="wave-bar"></div>
-              <div class="wave-bar"></div>
-              <div class="wave-bar"></div>
-              <div class="wave-bar"></div>
-              <div class="wave-bar"></div>
-              <div class="wave-bar"></div>
-              <div class="wave-bar"></div>
-            </div>
-            <span id="thoughtRecordWaveTimer" style="font-family: var(--font-mono); font-size: 0.76rem; font-weight: 700; color: #ef4444; margin-left: 6px;">00:00</span>
-          </div>
-        </div>
-
-        <!-- Audio Preview Box -->
-        <div id="thoughtAudioPreviewBox" style="margin-top: 10px; display: ${currentRecordedAudioDataUrl ? 'block' : 'none'};">
-          ${renderAudioPreviewCardHtml(currentRecordedAudioDataUrl, currentRecordedAudioDuration)}
-        </div>
-      </div>
-
-      <!-- Action Buttons Row -->
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="cancelThoughtEdit()">
-          Отмена
-        </button>
-        <button type="button" class="btn btn-primary thought-save-btn" onclick="saveCurrentThought()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          <span>Сохранить запись</span>
-        </button>
-      </div>
-
-    </div>
-  `;
-}
-
-/**
- * Cancel Edit / Composer
- */
-function cancelThoughtEdit() {
-  if (isRecordingThoughtAudio) {
-    stopThoughtAudioRecording();
-  }
-
-  if (currentOpenThoughtId) {
-    // Return to view mode for existing thought
-    isEditingThought = false;
-    updateDetailTopbar(false, true);
-    const thought = allJournalThoughts.find(t => t.id === Number(currentOpenThoughtId));
-    if (thought) {
-      renderThoughtViewMode(thought);
-    } else {
-      backToJournalList();
-    }
-  } else {
-    // Was creating a new thought, return to list
-    backToJournalList();
-  }
-}
-window.cancelThoughtEdit = cancelThoughtEdit;
-
-/**
- * Save Current Thought (New or Existing)
+ * Save Current Thought (Title, Body, Tag, Audio)
  */
 async function saveCurrentThought() {
   if (isRecordingThoughtAudio) {
     stopThoughtAudioRecording();
   }
 
+  const titleInput = document.getElementById('iosNoteEditTitle');
   const textInput = document.getElementById('iosNoteEditText');
   const tagSelect = document.getElementById('iosNoteEditTag');
 
+  const title = titleInput ? titleInput.value.trim() : '';
   const text = textInput ? textInput.value.trim() : '';
   const tag = tagSelect ? tagSelect.value : 'Запись';
 
-  if (!text && !currentRecordedAudioDataUrl) {
+  if (!title && !text && !currentRecordedAudioDataUrl) {
     showToast('Введите текст или запишите голосовую мысль', 'warning');
     return;
   }
 
   try {
     if (currentOpenThoughtId) {
-      // Update existing thought
       const existing = await getJournalThought(currentOpenThoughtId);
       if (!existing) {
         showToast('Ошибка: исходная мысль не найдена', 'error');
@@ -569,6 +844,7 @@ async function saveCurrentThought() {
 
       const updated = {
         ...existing,
+        title: title,
         text: text,
         tag: tag,
         audioData: currentRecordedAudioDataUrl || null,
@@ -577,21 +853,17 @@ async function saveCurrentThought() {
       };
 
       await updateJournalThought(updated);
-      showToast('Мысль успешно обновлена!', 'success');
+      showToast('Запись успешно обновлена', 'success');
 
-      // Refresh cache
       await loadAndRenderJournal();
       if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
 
-      // Return to view mode with updated thought
-      const refreshed = allJournalThoughts.find(t => t.id === Number(currentOpenThoughtId)) || updated;
-      isEditingThought = false;
-      updateDetailTopbar(false, true);
-      renderThoughtViewMode(refreshed);
+      const refreshed = allJournalThoughts.find(t => String(t.id) === String(currentOpenThoughtId)) || updated;
+      showThoughtDetailScreen(refreshed);
 
     } else {
-      // Create new thought
       const newThought = {
+        title: title,
         text: text,
         tag: tag,
         audioData: currentRecordedAudioDataUrl || null,
@@ -600,9 +872,8 @@ async function saveCurrentThought() {
       };
 
       await addJournalThought(newThought);
-      showToast('Запись добавлена в дневник!', 'success');
+      showToast('Запись сохранена в дневник', 'success');
 
-      // Return to list screen so user sees the newly added thought at the top
       backToJournalList();
       if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
     }
@@ -641,7 +912,7 @@ async function handleCurrentThoughtDelete() {
 window.handleCurrentThoughtDelete = handleCurrentThoughtDelete;
 
 /**
- * Audio Recording Logic
+ * Audio Recording Implementation
  */
 async function toggleThoughtAudioRecording() {
   if (isRecordingThoughtAudio) {
@@ -729,55 +1000,32 @@ function updateThoughtRecordTimer() {
   if (btnText) {
     btnText.textContent = `Остановить (${mins}:${secs})`;
   }
-  const waveTimer = document.getElementById('thoughtRecordWaveTimer');
-  if (waveTimer) {
-    waveTimer.textContent = `${mins}:${secs}`;
-  }
 }
 
 function updateThoughtRecordUI(recording) {
-  const btn = document.getElementById('thoughtRecordBtn');
-  const wave = document.getElementById('thoughtRecordWave');
-
-  if (btn) {
+  const micBtn = document.getElementById('appleCapsuleMicBtn');
+  if (micBtn) {
     if (recording) {
-      btn.classList.add('recording');
-      btn.innerHTML = `
-        <span class="record-pulse-dot"></span>
-        <span id="thoughtRecordBtnText">Остановить (00:00)</span>
-      `;
+      micBtn.classList.add('recording');
     } else {
-      btn.classList.remove('recording');
-      btn.innerHTML = `
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-          <line x1="12" y1="19" x2="12" y2="23"></line>
-          <line x1="8" y1="23" x2="16" y2="23"></line>
-        </svg>
-        <span id="thoughtRecordBtnText">Записать голосовую мысль</span>
-      `;
+      micBtn.classList.remove('recording');
     }
-  }
-
-  if (wave) {
-    wave.style.display = recording ? 'inline-flex' : 'none';
   }
 }
 
 function renderAudioPreviewCardHtml(dataUrl, duration) {
   if (!dataUrl) return '';
   return `
-    <div class="audio-note-preview-card" style="width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: 14px; margin-top: 10px;">
+    <div class="audio-note-preview-card" style="width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: rgba(28, 24, 38, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; margin-top: 10px;">
       <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-        <span style="font-size: 0.74rem; font-weight: 600; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px;">
+        <span style="font-size: 0.76rem; font-weight: 600; color: rgba(255, 255, 255, 0.7); display: inline-flex; align-items: center; gap: 6px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
             <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
             <line x1="12" y1="19" x2="12" y2="23"></line>
             <line x1="8" y1="23" x2="16" y2="23"></line>
           </svg>
-          <span>Голосовая мысль</span>
+          <span>Голосовая мысль (${duration} сек)</span>
         </span>
         <button type="button" class="btn btn-secondary btn-sm" onclick="removeCurrentThoughtAudio()" title="Удалить аудиозапись" style="height: 28px; min-height: 28px; padding: 0 10px; font-size: 0.72rem; border-radius: 14px; display: inline-flex; align-items: center; gap: 4px; color: var(--loss); border-color: rgba(244, 63, 94, 0.25);">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -814,82 +1062,49 @@ function removeCurrentThoughtAudio() {
 window.removeCurrentThoughtAudio = removeCurrentThoughtAudio;
 
 /**
- * Search & Filtering Handlers
+ * Capsule bar helpers: prompts, time mark, tags
  */
-function handleJournalSearch(val) {
-  journalSearchQuery = val || '';
-  const clearBtn = document.getElementById('journalSearchClearBtn');
-  if (clearBtn) {
-    clearBtn.style.display = journalSearchQuery ? 'inline-flex' : 'none';
-  }
-  renderJournalThoughtsList();
+function insertPromptHelper() {
+  const textarea = document.getElementById('iosNoteEditText');
+  if (!textarea) return;
+
+  const template = `\n---\nСетап: \nКонтекст рынка: \nПсихологическое состояние: \nГлавный вывод: \n`;
+  textarea.value = (textarea.value ? textarea.value.trim() + '\n' : '') + template;
+  textarea.focus();
+  showToast('Шаблон рефлексии вставлен', 'info');
 }
-window.handleJournalSearch = handleJournalSearch;
+window.insertPromptHelper = insertPromptHelper;
 
-function clearJournalSearch() {
-  journalSearchQuery = '';
-  const input = document.getElementById('journalSearchInput');
-  const clearBtn = document.getElementById('journalSearchClearBtn');
-  if (input) input.value = '';
-  if (clearBtn) clearBtn.style.display = 'none';
-  renderJournalThoughtsList();
+function insertCurrentTimeSnippet() {
+  const textarea = document.getElementById('iosNoteEditText');
+  if (!textarea) return;
+
+  const nowStr = `\n[${formatAppleJournalSubDate(new Date().toISOString())}]\n`;
+  textarea.value = (textarea.value ? textarea.value.trim() + '\n' : '') + nowStr;
+  textarea.focus();
 }
-window.clearJournalSearch = clearJournalSearch;
+window.insertCurrentTimeSnippet = insertCurrentTimeSnippet;
 
-function filterJournalThoughts(tag) {
-  journalFilterTag = tag || 'all';
-  renderJournalThoughtsList();
+function insertTraderReflectionPrompt() {
+  const textarea = document.getElementById('iosNoteEditText');
+  if (!textarea) return;
+
+  const reflection = `\nУрок дня: Соблюдал ли я правила риска? Что помогло или помешало?\n`;
+  textarea.value = (textarea.value ? textarea.value.trim() + '\n' : '') + reflection;
+  textarea.focus();
 }
-window.filterJournalThoughts = filterJournalThoughts;
+window.insertTraderReflectionPrompt = insertTraderReflectionPrompt;
 
-/**
- * Format Russian Plural for Thoughts Count
- */
-function formatThoughtCountRu(count) {
-  const n = Math.abs(count) % 100;
-  const n1 = n % 10;
-  if (n > 10 && n < 20) return `${count} мыслей`;
-  if (n1 > 1 && n1 < 5) return `${count} мысли`;
-  if (n1 === 1) return `${count} мысль`;
-  return `${count} мыслей`;
+function cycleJournalTag() {
+  const select = document.getElementById('iosNoteEditTag');
+  if (!select) return;
+  const options = ['Запись', 'Психология', 'Анализ рынка', 'Торговый план', 'Ошибки'];
+  const currentIndex = options.indexOf(select.value);
+  const nextIndex = (currentIndex + 1) % options.length;
+  select.value = options[nextIndex];
+  showToast(`Категория: ${options[nextIndex]}`, 'info');
 }
-
-/**
- * Format Short Date for Notes Feed Row
- */
-function formatThoughtShortDate(isoString) {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  const now = new Date();
-
-  const isToday = date.toDateString() === now.toDateString();
-  const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-
-  if (isToday) {
-    return timeStr;
-  }
-
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (date.toDateString() === yesterday.toDateString()) {
-    return `Вчера`;
-  }
-
-  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-}
-
-/**
- * Format Full Date for Detail View
- */
-function formatThoughtFullDate(isoString) {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  return date.toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  }) + ' · ' + date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-}
+window.cycleJournalTag = cycleJournalTag;
 
 /**
  * HTML Escape Helper

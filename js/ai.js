@@ -141,26 +141,57 @@ function getDmitryVoice() {
   const voices = window.speechSynthesis.getVoices() || [];
   if (!voices || voices.length === 0) return null;
 
-  // Helper: Strictly reject Milena and unwanted female voices
-  const isExcluded = (v) => {
-    const n = (v.name || '').toLowerCase();
-    return n.includes('milena') || n.includes('милена') ||
-           n.includes('katya') || n.includes('катя') ||
-           n.includes('svetlana') || n.includes('светлана') ||
-           n.includes('irina') || n.includes('ирина') ||
-           n.includes('dariya') || n.includes('дарья') ||
-           n.includes('female');
-  };
+// Helper: Strictly reject Milena and all known female voices
+function isFemaleRussianVoice(v) {
+  if (!v) return false;
+  const n = (v.name || '').toLowerCase();
+  return n.includes('milena') || n.includes('милена') ||
+         n.includes('katya') || n.includes('катя') ||
+         n.includes('svetlana') || n.includes('светлана') ||
+         n.includes('irina') || n.includes('ирина') ||
+         n.includes('dariya') || n.includes('дарья') ||
+         n.includes('daria') || n.includes('tatiana') ||
+         n.includes('татьяна') || n.includes('tatyana') ||
+         n.includes('elena') || n.includes('елена') ||
+         n.includes('olga') || n.includes('ольга') ||
+         n.includes('anna') || n.includes('анна') ||
+         n.includes('victoria') || n.includes('виктория') ||
+         n.includes('viktoriya') || n.includes('alena') ||
+         n.includes('алена') || n.includes('алёна') ||
+         n.includes('ksenia') || n.includes('ксения') ||
+         n.includes('natalia') || n.includes('наталья') ||
+         n.includes('vera') || n.includes('вера') ||
+         n.includes('female') || n.includes('женск') ||
+         n.includes('siri voice 1');
+}
 
-  // 0. User-selected preferred voice from Settings (ignoring Milena)
+// Helper: Detect verified male Russian voice
+function isMaleRussianVoice(v) {
+  if (!v) return false;
+  const n = (v.name || '').toLowerCase();
+  return n.includes('dmitry') || n.includes('дмитрий') ||
+         n.includes('pavel') || n.includes('павел') ||
+         n.includes('yuri') || n.includes('юрий') ||
+         n.includes('aleksandr') || n.includes('александр') ||
+         n.includes('ivan') || n.includes('иван') ||
+         n.includes('boris') || n.includes('борис') ||
+         n.includes('male') || n.includes('мужск');
+}
+
+function getDmitryVoice() {
+  if (!('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices() || [];
+  if (!voices || voices.length === 0) return null;
+
+  // 0. User-selected preferred voice from Settings (ignoring any female voice)
   let preferredVoiceName = localStorage.getItem('tradelog_selected_voice');
   if (preferredVoiceName) {
-    if (preferredVoiceName.toLowerCase().includes('milena') || preferredVoiceName.toLowerCase().includes('милена')) {
+    if (isFemaleRussianVoice({ name: preferredVoiceName })) {
       localStorage.removeItem('tradelog_selected_voice');
       preferredVoiceName = null;
     } else {
       const userVoice = voices.find(v => v.name === preferredVoiceName);
-      if (userVoice && !isExcluded(userVoice)) return userVoice;
+      if (userVoice && !isFemaleRussianVoice(userVoice)) return userVoice;
     }
   }
 
@@ -171,7 +202,7 @@ function getDmitryVoice() {
     return (l.startsWith('ru') || l.includes('ru')) &&
            (n.includes('dmitry') || n.includes('дмитрий')) &&
            (n.includes('natural') || n.includes('neural') || n.includes('online')) &&
-           !isExcluded(v);
+           !isFemaleRussianVoice(v);
   });
   if (voice) return voice;
 
@@ -181,7 +212,7 @@ function getDmitryVoice() {
     const l = (v.lang || '').toLowerCase();
     return (l.startsWith('ru') || l.includes('ru')) && 
            (n.includes('dmitry') || n.includes('дмитрий')) &&
-           !isExcluded(v);
+           !isFemaleRussianVoice(v);
   });
   if (voice) return voice;
 
@@ -191,40 +222,22 @@ function getDmitryVoice() {
     const l = (v.lang || '').toLowerCase();
     return (l.startsWith('ru') || l.includes('ru')) && 
            (n.includes('natural') || n.includes('neural') || n.includes('online')) && 
-           !isExcluded(v);
+           !isFemaleRussianVoice(v);
   });
   if (voice) return voice;
 
-  // 4. Any Russian male voice (Pavel / Юрий / Александр)
+  // 4. Any verified Russian male voice (Pavel / Павел, Yuri / Юрий on iOS, Aleksandr, Ivan)
   voice = voices.find(v => {
-    const n = v.name.toLowerCase();
     const l = (v.lang || '').toLowerCase();
-    return (l.startsWith('ru') || l.includes('ru')) && 
-           (n.includes('pavel') || n.includes('павел') || n.includes('yuri') || n.includes('юрий') || n.includes('male') || n.includes('александр')) &&
-           !isExcluded(v);
+    return (l.startsWith('ru') || l.includes('ru')) && isMaleRussianVoice(v) && !isFemaleRussianVoice(v);
   });
   if (voice) return voice;
 
-  // 5. Google Russian (high quality natural on Android/Chrome)
-  voice = voices.find(v => {
-    const n = v.name.toLowerCase();
-    const l = (v.lang || '').toLowerCase();
-    return (l.startsWith('ru') || l.includes('ru')) && n.includes('google') && !isExcluded(v);
-  });
-  if (voice) return voice;
-
-  // 6. Any other Russian voice (strictly excluding Milena/female)
+  // 5. Any Russian voice that is NOT female (e.g. Google Russian which we will pitch-shift to male baritone)
   voice = voices.find(v => {
     const l = (v.lang || '').toLowerCase();
     const n = v.name.toLowerCase();
-    return (l.startsWith('ru') || l.includes('ru') || n.includes('russian') || n.includes('русский')) && !isExcluded(v);
-  });
-  if (voice) return voice;
-
-  // 7. Last resort Russian voice if no others match (still excluding Milena)
-  voice = voices.find(v => {
-    const l = (v.lang || '').toLowerCase();
-    return (l.startsWith('ru') || l.includes('ru')) && !isExcluded(v);
+    return (l.startsWith('ru') || l.includes('ru') || n.includes('russian') || n.includes('русский')) && !isFemaleRussianVoice(v);
   });
   if (voice) return voice;
 
@@ -237,8 +250,8 @@ function getAvailableRussianVoices() {
   return voices.filter(v => {
     const l = (v.lang || '').toLowerCase();
     const n = (v.name || '').toLowerCase();
-    // Strictly exclude Milena
-    if (n.includes('milena') || n.includes('милена')) return false;
+    // Strictly exclude all female voices
+    if (isFemaleRussianVoice(v)) return false;
     return l.startsWith('ru') || l.includes('ru') || n.includes('russian') || n.includes('русский') || n.includes('dmitry');
   });
 }
@@ -405,13 +418,20 @@ function speakWithDmitry(text, msgIdx = null) {
   if (dmitryVoice) {
     utterance.voice = dmitryVoice;
     utterance.lang = dmitryVoice.lang || 'ru-RU';
+    if (isMaleRussianVoice(dmitryVoice)) {
+      utterance.pitch = 0.95;
+      utterance.rate = 1.0;
+    } else {
+      // Pitch-shift generic voices down to Dmitry's deep male baritone
+      utterance.pitch = 0.74;
+      utterance.rate = 0.96;
+    }
   } else {
     utterance.lang = 'ru-RU';
+    // Deep baritone pitch-shift for OS fallback
+    utterance.pitch = 0.74;
+    utterance.rate = 0.96;
   }
-
-  // Rate 1.0 and Pitch 1.0 preserves natural pitch
-  utterance.rate = 1.0;
-  utterance.pitch = 1.0;
 
   // Crucial: keep reference on window to prevent Chromium/WebKit garbage-collection mid-sentence
   window._activeDmitryUtterance = utterance;

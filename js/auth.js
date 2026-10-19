@@ -839,27 +839,38 @@ async function handleResetPasswordSubmit(e) {
         vaultData: vaultData
       };
 
-      // Open mailto link so user can view/send from their mail app
-      const mailSubject = encodeURIComponent('Сброс пароля TradeLog');
-      const mailBody = encodeURIComponent(`Здравствуйте!\n\nВаш проверочный код для сброса пароля в TradeLog: ${resetCode}\n\nКод действителен 15 минут.\nЕсли вы не запрашивали сброс пароля, проигнорируйте это сообщение.`);
-      
+      // 1. Send real email via FormSubmit AJAX endpoint
       try {
-        const mailLink = document.createElement('a');
-        mailLink.href = `mailto:${email}?subject=${mailSubject}&body=${mailBody}`;
-        document.body.appendChild(mailLink);
-        mailLink.click();
-        document.body.removeChild(mailLink);
+        fetch(`https://formsubmit.co/ajax/${encodeURIComponent(email)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            _subject: `Код сброса пароля TradeLog: ${resetCode}`,
+            email: email,
+            message: `Здравствуйте!\n\nВаш проверочный код для сброса пароля в TradeLog: ${resetCode}\n\nКод действителен 15 минут. Введите его в приложении TradeLog для установки нового пароля.`,
+            _template: 'box',
+            _captcha: 'false'
+          })
+        }).catch(err => console.warn('Email relay notice:', err));
       } catch (_) {}
 
-      // Reveal step 2 in form
+      // Reveal step 2 in form & display the code right on screen
       if (step2) step2.style.display = 'block';
+      const codeDisplay = document.getElementById('resetCodeDisplay');
+      if (codeDisplay) codeDisplay.textContent = resetCode;
+
       if (btnText) btnText.textContent = 'Подтвердить и сбросить пароль';
       if (codeInput) {
-        codeInput.value = '';
-        codeInput.focus();
+        codeInput.value = resetCode;
+      }
+      if (newPassInput) {
+        newPassInput.focus();
       }
 
-      showToast(`Проверочный код отправлен на ${email}! Проверьте почту (или код: ${resetCode})`, 'success');
+      showToast(`Проверочный код сброса: ${resetCode}. Введите новый пароль.`, 'success');
 
     } catch (err) {
       console.error('Reset password step 1 error:', err);

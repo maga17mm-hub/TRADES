@@ -635,17 +635,18 @@ body.modal-open::-webkit-scrollbar,
   .form-grid { gap: 19px; }
   .form-grid-2 { grid-template-columns: 1fr; }
   .form-input, .form-textarea, .form-select { font-size: 16px; }
+  .ai-modal-overlay { padding: 0 !important; align-items: flex-end !important; }
   .ai-modal-card { height: 100dvh !important; max-height: 100dvh !important; border-radius: 26px 26px 0 0 !important; padding: 0 !important; margin: 0 !important; }
-  .ai-modal-header { padding: 6px 14px !important; min-height: 42px !important; gap: 8px !important; flex-wrap: nowrap !important; align-items: center !important; }
+  .ai-modal-header { padding: max(14px, env(safe-area-inset-top, 14px)) 16px 8px 16px !important; min-height: 52px !important; gap: 8px !important; flex-wrap: nowrap !important; align-items: center !important; }
   .ai-header-title { font-size: 19px !important; line-height: 1.2 !important; }
   .ai-header-subtitle { display: none !important; }
   .ai-header-controls { margin-left: auto; display: flex !important; align-items: center !important; gap: 5px !important; }
   .ai-header-controls .btn-icon-only { width: 34px; min-width: 34px; min-height: 34px; padding: 0; }
   .ai-header-controls .ai-voice-btn { min-height: 34px; padding: 4px 8px !important; }
-  .ai-quick-pills-row { padding: 3px 10px 5px 10px !important; margin-top: 0 !important; gap: 6px !important; }
-  .ai-chat-messages { flex: 1 1 auto !important; min-height: 0 !important; overflow-y: auto !important; padding: 8px 12px !important; }
+  .ai-quick-pills-row { padding: 2px 10px 4px 10px !important; margin: 0 !important; border-top: none !important; gap: 6px !important; }
+  .ai-chat-messages { flex: 1 1 auto !important; min-height: 0 !important; overflow-y: auto !important; padding: 6px 12px !important; }
   .ai-settings-card .form-input { font-size: 16px !important; }
-  .ai-chat-input-bar { padding: 5px 8px max(2px, env(safe-area-inset-bottom, 2px)) 8px !important; margin: 0 !important; gap: 7px; }
+  .ai-chat-input-bar { padding: 3px 8px max(2px, env(safe-area-inset-bottom, 2px)) 8px !important; margin: 0 !important; gap: 7px; }
   .ai-fab-btn { width: 42px; height: 42px; right: 16px; }
   .bottom-nav { background: color-mix(in srgb, var(--bg-primary) 90%, transparent) !important; border-top: 1px solid var(--border-subtle) !important; backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); }
   .bottom-nav-inner { background: transparent !important; box-shadow: none !important; border: 0 !important; }
@@ -660,4 +661,14 @@ body.modal-open::-webkit-scrollbar,
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+[data-theme="books"] .apple-journal-root {
+  background: #110e17 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="books"] .apple-journal-card {
+  background: #1e1927 !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
 }
