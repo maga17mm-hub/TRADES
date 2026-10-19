@@ -199,6 +199,20 @@ function switchAuthTab(tab) {
     if (loginForm) loginForm.style.display = 'block';
     if (regForm) regForm.style.display = 'none';
     if (resetForm) resetForm.style.display = 'none';
+
+    // Auto-fill login key if available locally and field is currently empty
+    const loginSyncKey = document.getElementById('loginSyncKey');
+    if (loginSyncKey && !loginSyncKey.value) {
+      try {
+        const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
+        if (localUserRaw) {
+          const u = JSON.parse(localUserRaw);
+          if (u && (u.vaultId || u.email)) {
+            loginSyncKey.value = u.vaultId || u.email;
+          }
+        }
+      } catch (_) {}
+    }
   } else if (tab === 'register') {
     if (tabLoginBtn) tabLoginBtn.classList.remove('active');
     if (tabRegBtn) tabRegBtn.classList.add('active');
@@ -351,9 +365,58 @@ async function createCloudVault(vaultData) {
 }
 
 /**
- * Fetch Cloud Vault by Sync Key (Public Read with fallback)
+ * Helper to parse or fetch full content from a gist file object,
+ * properly handling GitHub Gist file truncation (> 1MB).
  */
-async function fetchCloudVault(vaultId) {
+async function getGistFileJson(file, headers) {
+  if (!file) return null;
+  // If file content is provided and not truncated, parse directly
+  if (file.content && !file.truncated) {
+    try {
+      return JSON.parse(file.content);
+    } catch (_) {}
+  }
+  // If file is truncated (> 1MB) or content is absent, fetch from raw_url
+  if (file.raw_url) {
+    try {
+      const rawRes = await fetch(file.raw_url, { headers });
+      if (rawRes.ok) {
+        return await rawRes.json();
+      }
+    } catch (rawErr) {
+      console.warn('Error fetching raw_url for gist file:', rawErr);
+    }
+  }
+  if (file.content) {
+    try {
+      return JSON.parse(file.content);
+    } catch (_) {}
+  }
+  return null;
+}
+
+/**
+ * Sanitize / extract clean Vault ID or email from user input
+ */
+function cleanVaultId(raw) {
+  if (!raw) return '';
+  let str = String(raw).trim();
+  str = str.replace(/^["']|["']$/g, '').trim();
+  if (str.toUpperCase().startsWith('TL-') || str.toUpperCase().startsWith('TL_')) {
+    str = str.substring(3).trim();
+  }
+  const urlMatch = str.match(/gist\.github(?:usercontent)?\.com\/[^/]+\/([a-f0-9]{20,40})/i);
+  if (urlMatch) {
+    return urlMatch[1].toLowerCase();
+  }
+  return str;
+}
+window.cleanVaultId = cleanVaultId;
+
+/**
+ * Fetch Cloud Vault by Sync Key or Email (Public/Private Read with fallback & truncation support)
+ */
+async function fetchCloudVault(identifier) {
   const token = getVaultToken();
   const headers = {
     'Accept': 'application/vnd.github.v3+json',
@@ -363,40 +426,105 @@ async function fetchCloudVault(vaultId) {
     headers['Authorization'] = 'token ' + token;
   }
 
-  // 1. Try GitHub Gists API
-  try {
-    const res = await fetch(`${GITHUB_GISTS_API}/${vaultId}`, {
-      method: 'GET',
-      headers: headers
-    });
+  const cleanId = cleanVaultId(identifier);
+  const isEmailInput = cleanId.includes('@');
 
-    if (res.ok) {
-      const gist = await res.json();
-      const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
-      if (file && file.content) {
-        return JSON.parse(file.content);
+  // 1. If not an email, try direct fetch by Gist ID
+  if (!isEmailInput && /^[a-f0-9]{20,40}$/i.test(cleanId)) {
+    try {
+      const res = await fetch(`${GITHUB_GISTS_API}/${cleanId}`, {
+        method: 'GET',
+        headers: headers
+      });
+
+      if (res.ok) {
+        const gist = await res.json();
+        const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
+        const data = await getGistFileJson(file, headers);
+        if (data && typeof data === 'object') {
+          if (!data.vaultId) data.vaultId = gist.id;
+          return data;
+        }
+      } else if (res.status !== 404) {
+        console.warn(`Gist direct fetch status: ${res.status}`);
       }
-    } else if (res.status === 404) {
-      // Continue to fallback
-    } else {
-      throw new Error(`Ошибка загрузки профиля: ${res.status}`);
-    }
-  } catch (err) {
-    if (!err.message.includes('404')) {
-      console.warn('Gist fetch error, trying fallback:', err);
+    } catch (err) {
+      console.warn('Gist direct fetch error, trying search fallback:', err);
     }
   }
 
-  // 2. Fallback to restful-api if legacy key
+  // 2. Search all gists owned by this user/token by ID, email, or name
+  if (token) {
+    try {
+      const listRes = await fetch(`${GITHUB_GISTS_API}?per_page=50`, {
+        method: 'GET',
+        headers: headers
+      });
+
+      if (listRes.ok) {
+        const gists = await listRes.json();
+        if (Array.isArray(gists)) {
+          // Pass A: direct ID match in list
+          const matchingGist = gists.find(g => g.id.toLowerCase() === cleanId.toLowerCase());
+          if (matchingGist) {
+            const singleRes = await fetch(`${GITHUB_GISTS_API}/${matchingGist.id}`, { headers });
+            if (singleRes.ok) {
+              const gist = await singleRes.json();
+              const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
+              const data = await getGistFileJson(file, headers);
+              if (data) {
+                if (!data.vaultId) data.vaultId = gist.id;
+                return data;
+              }
+            }
+          }
+
+          // Pass B: match by Email or Name
+          for (const g of gists) {
+            const desc = (g.description || '').toLowerCase();
+            const targetLower = cleanId.toLowerCase();
+            const descMatches = isEmailInput ? false : (desc.includes(`[${targetLower}]`) || desc.includes(targetLower));
+
+            if (descMatches || isEmailInput) {
+              try {
+                const singleRes = await fetch(`${GITHUB_GISTS_API}/${g.id}`, { headers });
+                if (singleRes.ok) {
+                  const gist = await singleRes.json();
+                  const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
+                  const data = await getGistFileJson(file, headers);
+                  if (data) {
+                    const uEmail = (data.userEmail || '').toLowerCase();
+                    const uName = (data.userName || '').toLowerCase();
+                    if (isEmailInput && uEmail === targetLower) {
+                      if (!data.vaultId) data.vaultId = gist.id;
+                      return data;
+                    }
+                    if (!isEmailInput && (uName === targetLower || uEmail === targetLower || descMatches)) {
+                      if (!data.vaultId) data.vaultId = gist.id;
+                      return data;
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (listErr) {
+      console.warn('Gists search error:', listErr);
+    }
+  }
+
+  // 3. Fallback to restful-api if legacy key
   try {
-    const fallbackRes = await fetch(`https://api.restful-api.dev/objects/${vaultId}`);
+    const fallbackRes = await fetch(`https://api.restful-api.dev/objects/${cleanId}`);
     if (fallbackRes.ok) {
       const remoteObj = await fallbackRes.json();
       return remoteObj.data || {};
     }
   } catch (e) {}
 
-  throw new Error('Профиль с таким кодом не найден. Проверьте правильность кода.');
+  throw new Error('Профиль с таким кодом или email не найден. Проверьте правильность введённых данных.');
 }
 
 /**
@@ -404,6 +532,7 @@ async function fetchCloudVault(vaultId) {
  */
 async function updateCloudVault(vaultId, vaultData) {
   const token = getVaultToken();
+  const cleanId = cleanVaultId(vaultId);
   const payload = {
     files: {
       "tradelog_vault.json": {
@@ -412,7 +541,7 @@ async function updateCloudVault(vaultId, vaultData) {
     }
   };
 
-  const res = await fetch(`${GITHUB_GISTS_API}/${vaultId}`, {
+  const res = await fetch(`${GITHUB_GISTS_API}/${cleanId}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -426,7 +555,7 @@ async function updateCloudVault(vaultId, vaultData) {
   if (!res.ok) {
     // If not found in Gist, try legacy restful-api update
     try {
-      await fetch(`https://api.restful-api.dev/objects/${vaultId}`, {
+      await fetch(`https://api.restful-api.dev/objects/${cleanId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: `TradeLog_${vaultData.userName}`, data: vaultData })
@@ -575,12 +704,10 @@ async function handleLoginSubmit(e) {
   let syncKey = syncKeyInput ? syncKeyInput.value.trim() : '';
   const password = passwordInput ? passwordInput.value : '';
 
-  if (syncKey.startsWith('TL-')) {
-    syncKey = syncKey.substring(3).trim();
-  }
+  syncKey = cleanVaultId(syncKey);
 
   if (!syncKey) {
-    showToast('Введите Код профиля (Sync Key) с вашего телефона', 'warning');
+    showToast('Введите Код профиля (Sync Key) или email', 'warning');
     return;
   }
   if (!password) {
@@ -644,11 +771,13 @@ async function handleLoginSubmit(e) {
     }
 
     // Save profile locally on this device
+    const resolvedVaultId = vaultData.vaultId || cleanVaultId(syncKey);
+    const resolvedEmail = vaultData.userEmail || (cleanVaultId(syncKey).includes('@') ? cleanVaultId(syncKey) : '');
     const userProfile = {
       userId: vaultData.userId || 'usr_' + Date.now().toString(36),
       name: vaultData.userName || 'Трейдер',
-      email: vaultData.userEmail || '',
-      vaultId: syncKey,
+      email: resolvedEmail,
+      vaultId: resolvedVaultId,
       passwordHash: vaultData.passwordHash || computedHash,
       savedPassword: password,
       registeredAt: vaultData.updatedAt || new Date().toISOString(),
@@ -803,7 +932,7 @@ async function handleResetPasswordSubmit(e) {
 
   const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
   let syncKey = syncKeyInput ? syncKeyInput.value.trim() : '';
-  if (syncKey.startsWith('TL-')) syncKey = syncKey.substring(3).trim();
+  syncKey = cleanVaultId(syncKey);
 
   if (!email || !email.includes('@')) {
     showToast('Введите корректный email адрес вашего профиля', 'warning');
@@ -824,12 +953,6 @@ async function handleResetPasswordSubmit(e) {
     }
   }
 
-  if (!syncKey) {
-    showToast('Введите Код профиля (Sync Key), чтобы сбросить пароль от вашего аккаунта', 'warning');
-    if (syncKeyInput) syncKeyInput.focus();
-    return;
-  }
-
   // STEP 1: Generate & send code if not generated yet or expired
   if (!resetPasswordState || resetPasswordState.email !== email || Date.now() > resetPasswordState.expires) {
     if (submitBtn) submitBtn.disabled = true;
@@ -837,7 +960,10 @@ async function handleResetPasswordSubmit(e) {
     try {
       let vaultData = null;
       try {
-        vaultData = await fetchCloudVault(syncKey);
+        vaultData = await fetchCloudVault(syncKey || email);
+        if (vaultData && vaultData.vaultId) {
+          syncKey = vaultData.vaultId;
+        }
       } catch (err) {
         console.warn('fetchCloudVault error for key:', syncKey, err);
       }
@@ -861,7 +987,7 @@ async function handleResetPasswordSubmit(e) {
       }
 
       if (!vaultData) {
-        showToast(`Профиль с кодом "${syncKey}" не найден. Проверьте правильность кода профиля.`, 'error');
+        showToast(`Профиль с кодом "${syncKey || email}" не найден. Проверьте правильность данных.`, 'error');
         if (submitBtn) submitBtn.disabled = false;
         return;
       }
@@ -1203,18 +1329,78 @@ async function triggerManualSync() {
 window.triggerManualSync = triggerManualSync;
 
 /**
+ * Safe clipboard copy with fallback
+ */
+function copyTextToClipboardSafe(text, successMsg) {
+  if (!text) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(successMsg, 'success');
+    }).catch(() => {
+      fallbackCopy(text, successMsg);
+    });
+  } else {
+    fallbackCopy(text, successMsg);
+  }
+}
+
+function fallbackCopy(text, successMsg) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (successful) {
+      showToast(successMsg, 'success');
+      return;
+    }
+  } catch (_) {}
+  prompt('Скопируйте значение:', text);
+}
+
+/**
+ * Paste from clipboard into specified input element
+ */
+async function pasteToInput(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        el.value = cleanVaultId(text.trim());
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        showToast('Код вставлен', 'success');
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('Clipboard read failed:', err);
+  }
+  el.focus();
+  el.select();
+  showToast('Вставьте код вручную (Ctrl+V или долгое нажатие)', 'info');
+}
+window.pasteToInput = pasteToInput;
+
+/**
  * Copy Sync Key to Clipboard
  */
 function copySyncKeyToClipboard() {
   const user = getCurrentUser();
-  if (!user || !user.vaultId) return;
+  if (!user || !user.vaultId) {
+    showToast('Код профиля ещё не создан', 'warning');
+    return;
+  }
 
   const textToCopy = user.vaultId;
-  navigator.clipboard.writeText(textToCopy).then(() => {
-    showToast('Код профиля скопирован! Вставьте его на компьютере для входа.', 'success');
-  }).catch(() => {
-    prompt('Ваш код профиля для входа на компьютере:', textToCopy);
-  });
+  copyTextToClipboardSafe(textToCopy, 'Код профиля скопирован! Вставьте его при входе.');
 }
 window.copySyncKeyToClipboard = copySyncKeyToClipboard;
 
@@ -1268,15 +1454,7 @@ function copyProfilePasswordToClipboard() {
     return;
   }
 
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(actualPassword).then(() => {
-      showToast('Пароль профиля скопирован в буфер обмена!', 'success');
-    }).catch(() => {
-      prompt('Ваш пароль от профиля:', actualPassword);
-    });
-  } else {
-    prompt('Ваш пароль от профиля:', actualPassword);
-  }
+  copyTextToClipboardSafe(actualPassword, 'Пароль профиля скопирован в буфер обмена!');
 }
 window.copyProfilePasswordToClipboard = copyProfilePasswordToClipboard;
 

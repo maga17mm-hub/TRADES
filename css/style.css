@@ -4671,6 +4671,7 @@ main.app-container {
 }
 
 .apple-journal-title {
+  font-family: var(--font-main);
   font-size: 2.1rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -4733,6 +4734,7 @@ main.app-container {
 }
 
 .apple-tag-pill {
+  font-family: var(--font-main);
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
@@ -4759,6 +4761,7 @@ main.app-container {
 }
 
 .apple-group-header {
+  font-family: var(--font-main);
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -4793,6 +4796,7 @@ main.app-container {
 }
 
 .apple-card-title {
+  font-family: var(--font-main);
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -4803,6 +4807,7 @@ main.app-container {
 }
 
 .apple-card-subdate {
+  font-family: var(--font-main);
   font-size: 0.92rem;
   color: var(--text-muted);
   margin-bottom: 8px;
@@ -4810,6 +4815,7 @@ main.app-container {
 }
 
 .apple-card-body {
+  font-family: var(--font-main);
   font-size: 0.92rem;
   line-height: 1.5;
   color: var(--text-secondary);
@@ -4829,6 +4835,7 @@ main.app-container {
 }
 
 .apple-card-date {
+  font-family: var(--font-main);
   font-size: 0.78rem;
   color: var(--text-muted);
   font-weight: 500;
@@ -4911,6 +4918,7 @@ main.app-container {
 }
 
 .apple-pill-btn {
+  font-family: var(--font-main);
   border-radius: 20px;
   padding: 6px 14px;
   background: var(--bg-card);
@@ -4971,6 +4979,7 @@ main.app-container {
 }
 
 .apple-view-title {
+  font-family: var(--font-main);
   font-size: 1.45rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -4979,6 +4988,7 @@ main.app-container {
 }
 
 .apple-view-subdate {
+  font-family: var(--font-main);
   font-size: 0.95rem;
   color: var(--text-muted);
   margin-bottom: 18px;
@@ -4986,6 +4996,7 @@ main.app-container {
 }
 
 .apple-view-text {
+  font-family: var(--font-main);
   font-size: 1.05rem;
   line-height: 1.65;
   color: var(--text-secondary);
@@ -5002,6 +5013,7 @@ main.app-container {
 }
 
 .apple-composer-tag-chip {
+  font-family: var(--font-main);
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
@@ -5023,6 +5035,7 @@ main.app-container {
 }
 
 .apple-composer-date-text {
+  font-family: var(--font-main);
   font-size: 0.9rem;
   color: var(--text-muted);
   font-weight: 500;
@@ -5040,7 +5053,7 @@ main.app-container {
   outline: none;
   padding: 0;
   letter-spacing: -0.3px;
-  font-family: inherit;
+  font-family: var(--font-main);
   touch-action: manipulation;
 }
 
@@ -5060,7 +5073,7 @@ main.app-container {
   resize: none;
   padding: 0;
   margin-bottom: 80px;
-  font-family: inherit;
+  font-family: var(--font-main);
   touch-action: manipulation;
 }
 
