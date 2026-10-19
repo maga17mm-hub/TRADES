@@ -5,7 +5,36 @@ import {readFileSync} from 'node:fs';
 import {ApiError, authenticate, digest, handleAccount, passwordMatches} from '../cloudflare/accounts.mjs';
 import worker, {checkOrigin} from '../cloudflare/index.mjs';
 import {sendSmtp} from '../cloudflare/smtp.mjs';
-import {synthesize} from '../cloudflare/speech.mjs';
+import {synthesize, splitSpeechText} from '../cloudflare/speech.mjs';
+import {transcribe} from '../cloudflare/transcribe.mjs';
+
+test('long Cyrillic, emoji and XML characters stay within the speech byte budget without lost text', () => {
+  const text = ('Дневник & сделки <BTC> 😀. '.repeat(80) + 'я'.repeat(1900));
+  const pieces = splitSpeechText(text);
+  assert.ok(pieces.length > 3);
+  assert.equal(pieces.join(''), text);
+  for (const piece of pieces) {
+    const escaped = piece.replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'}[char]));
+    assert.ok(Buffer.byteLength(escaped) <= 1800);
+    assert.ok(!/^[\uDC00-\uDFFF]|[\uD800-\uDBFF]$/.test(piece));
+  }
+  assert.deepEqual(splitSpeechText('\0Привет\u000B'), ['Привет']);
+});
+
+test('server transcription validates audio, uses Russian Whisper and reports silence and free quota errors', async () => {
+  const audio = Buffer.alloc(160, 1).toString('base64');
+  await assert.rejects(transcribe({audio}, {}), error => error.status === 503);
+  await assert.rejects(transcribe({audio: 'not base64'}, {AI: {}}), error => error.status === 400);
+  await assert.rejects(transcribe({audio: 'A'.repeat(5600001)}, {AI: {}}), error => error.status === 400);
+  const env = {AI: {run: async (model, input) => {
+    assert.equal(model, '@cf/openai/whisper-large-v3-turbo');
+    assert.equal(input.language, 'ru'); assert.equal(input.audio, audio);
+    return {text: '  Запиши сделку по биткоину, лонг, прибыль 2,5р.  '};
+  }}};
+  assert.equal((await transcribe({audio}, env)).text, 'Запиши сделку по биткоину, лонг, прибыль 2,5р.');
+  await assert.rejects(transcribe({audio}, {AI: {run: async () => ({text: ' '})}}), error => error.status === 422);
+  await assert.rejects(transcribe({audio}, {AI: {run: async () => {throw new Error('daily neurons quota exceeded');}}}), error => error.status === 502 && /бесплатный лимит/.test(error.message));
+});
 
 test('neural speech preserves binary audio and waits for delayed Blob frames before turn.end', async () => {
   const originalFetch = globalThis.fetch;

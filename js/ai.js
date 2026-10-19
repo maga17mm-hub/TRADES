@@ -2,12 +2,12 @@
  * ============================================================================
  * TradeLog AI Assistant (Raycast Midnight Theme)
  * Powered by Tooken Club (gpt-5.6-terra)
- * Voice: Microsoft Edge DmitryNeural & Voice Command Input (Web Speech API)
+ * Voice: local Piper Dmitri neural synthesis and server Whisper recognition.
  * 
  * Features:
  * - Natural language trade logging ("добавь сделку лонг по BTC...")
  * - Speech-to-Text: Speak commands via microphone in Russian
- * - Text-to-Speech: Neural voice "Дмитрий" (ru-RU-DmitryNeural / Dmitry Natural)
+ * - Text-to-Speech: Neural voice "Дмитрий" (Piper), with explicit device/Edge options
  * - Automatic extraction of Symbol, Direction, Setup, Timeframe, Outcome, PnL
  * - Journal performance analytics & trading psychology feedback
  * - Offline / CORS-resilient fallback parser
@@ -342,15 +342,36 @@ let dmitryKeepAliveTimer = null;
 let speechAbortController = null;
 let speechObjectUrl = null;
 let speechGeneration = 0;
+let voicePlaybackContext = null;
+let currentPiperSource = null;
+const piperPlaybackSources = new Set();
 
-async function speakWithDmitry(text, msgIdx = null) {
-  if (!isVoiceEnabled) return;
+function unlockVoicePlayback() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  try {
+    if (voicePlaybackContext?.state === 'closed') voicePlaybackContext = null;
+    voicePlaybackContext ||= new AudioContext();
+    voicePlaybackContext.resume().catch(() => {});
+  } catch (_) {}
+}
+
+function setVoiceStatus(text = '') {
+  for (const id of ['aiVoiceStatus', 'settingsVoiceStatus']) {
+    const element = document.getElementById(id);
+    if (element) { if (element.textContent !== text) element.textContent = text; element.hidden = !text; }
+  }
+}
+
+async function speakWithDmitry(text, msgIdx = null, force = false) {
+  if (!isVoiceEnabled && !force) return;
   stopSpeaking();
+  unlockVoicePlayback();
   const cleanText = cleanTextForSpeech(text).slice(0, 2500);
   if (!cleanText) return;
   const selected = localStorage.getItem('tradelog_selected_voice');
   // System voices remain an explicit option; they are never presented as neural Dmitry.
-  if (selected && window.speechSynthesis) {
+  if (selected && selected !== 'edge-dmitry' && window.speechSynthesis) {
     const voice = window.speechSynthesis.getVoices().find(item => item.name === selected);
     if (voice) {
       const utterance = new SpeechSynthesisUtterance(cleanText);
@@ -366,27 +387,88 @@ async function speakWithDmitry(text, msgIdx = null) {
   const generation = speechGeneration;
   speechAbortController = new AbortController();
   const controller = speechAbortController;
-  const timer = setTimeout(() => controller.abort(), 50000);
+  const timer = setTimeout(() => controller.abort(), selected === 'edge-dmitry' ? 100000 : 300000);
   currentlySpeakingIdx = msgIdx;
   updateSpeechButtonsUI();
+  let playbackFailure = null;
   try {
-    const response = await tradeLogApiFetch('/api/speech', {
-      method: 'POST', credentials: 'same-origin', cache: 'no-store',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({text: cleanText}), signal: controller.signal
-    });
-    if (!response.ok || !response.headers.get('Content-Type')?.includes('audio/')) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || 'Голос Дмитрия недоступен. Проверьте подключение к серверу.');
+    let blob;
+    if (selected !== 'edge-dmitry') {
+      if (!window.DmitryPiper) throw new Error('Модуль голоса не загрузился. Обновите страницу.');
+      setVoiceStatus('Подготавливаю голос Дмитрия…');
+      if (voicePlaybackContext) {
+        let queue = Promise.resolve(), nextStart = 0, queued = 0, ended = 0, complete = false;
+        await window.DmitryPiper.synthesize(cleanText, {
+          signal: controller.signal,
+          onProgress: text => { if (generation === speechGeneration && !piperPlaybackSources.size) setVoiceStatus(text); },
+          onChunk: audio => {
+            queued++;
+            queue = queue.then(async () => {
+              if (generation !== speechGeneration) return;
+              const buffer = await voicePlaybackContext.decodeAudioData(audio);
+              if (generation !== speechGeneration) return;
+              await voicePlaybackContext.resume();
+              if (voicePlaybackContext.state !== 'running') throw new DOMException('Нужно разрешить воспроизведение', 'NotAllowedError');
+              const source = voicePlaybackContext.createBufferSource();
+              source.buffer = buffer; source.connect(voicePlaybackContext.destination);
+              piperPlaybackSources.add(source);
+              const startAt = Math.max(voicePlaybackContext.currentTime + 0.02, nextStart);
+              nextStart = startAt + buffer.duration;
+              source.onended = () => {
+                piperPlaybackSources.delete(source); source.disconnect(); ended++;
+                if (complete && ended === queued && generation === speechGeneration) stopSpeaking();
+              };
+              source.start(startAt); setVoiceStatus('Дмитрий говорит…');
+            }).catch(error => { playbackFailure = error; controller.abort(); });
+          }
+        });
+        await queue;
+        if (playbackFailure) throw playbackFailure;
+        if (generation !== speechGeneration) return;
+        complete = true;
+        if (!queued) throw new Error('Не удалось создать озвучку. Нажмите кнопку ещё раз.');
+        if (ended === queued) stopSpeaking();
+        return;
+      }
+      blob = await window.DmitryPiper.synthesize(cleanText, {
+        signal: controller.signal,
+        onProgress: text => { if (generation === speechGeneration) setVoiceStatus(text); }
+      });
+    } else {
+      const response = await tradeLogApiFetch('/api/speech', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text: cleanText}), signal: controller.signal
+      });
+      if (!response.ok || !response.headers.get('Content-Type')?.includes('audio/')) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Голос Дмитрия недоступен. Проверьте подключение к серверу.');
+      }
+      blob = await response.blob();
     }
-    const blob = await response.blob();
     if (generation !== speechGeneration) return;
+    setVoiceStatus();
+    if (voicePlaybackContext) {
+      const buffer = await voicePlaybackContext.decodeAudioData(await blob.arrayBuffer());
+      if (generation !== speechGeneration) return;
+      await voicePlaybackContext.resume();
+      if (voicePlaybackContext.state !== 'running') throw new DOMException('Нужно разрешить воспроизведение', 'NotAllowedError');
+      currentPiperSource = voicePlaybackContext.createBufferSource();
+      currentPiperSource.buffer = buffer;
+      currentPiperSource.connect(voicePlaybackContext.destination);
+      currentPiperSource.onended = () => { if (generation === speechGeneration) stopSpeaking(); };
+      currentPiperSource.start();
+      setVoiceStatus('Дмитрий говорит…');
+      return;
+    }
     speechObjectUrl = URL.createObjectURL(blob);
     currentTtsAudio = new Audio(speechObjectUrl);
     currentTtsAudio.onended = () => { if (generation === speechGeneration) stopSpeaking(); };
     await currentTtsAudio.play();
+    setVoiceStatus('Дмитрий говорит…');
   } catch (error) {
     if (generation !== speechGeneration) return;
+    error = playbackFailure || error;
     stopSpeaking();
     if (error.name !== 'AbortError') showToast(error.name === 'NotAllowedError'
       ? 'Нажмите кнопку озвучки у ответа, чтобы включить звук.' : error.message, 'warning');
@@ -397,6 +479,10 @@ window.speakWithDmitry = speakWithDmitry;
 function stopSpeaking() {
   speechGeneration++;
   speechAbortController?.abort(); speechAbortController = null;
+  for (const source of piperPlaybackSources) { try { source.stop(); source.disconnect(); } catch (_) {} }
+  piperPlaybackSources.clear();
+  if (currentPiperSource) { try { currentPiperSource.stop(); currentPiperSource.disconnect(); } catch (_) {} currentPiperSource = null; }
+  setVoiceStatus();
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   if (currentTtsAudio) { currentTtsAudio.pause(); currentTtsAudio.src = ''; currentTtsAudio = null; }
   if (speechObjectUrl) { URL.revokeObjectURL(speechObjectUrl); speechObjectUrl = null; }
@@ -412,7 +498,7 @@ function toggleSpeakMessage(idx) {
   } else {
     const msg = aiChatHistory[idx];
     if (msg && msg.content) {
-      speakWithDmitry(msg.content, idx);
+      speakWithDmitry(msg.content, idx, true);
     }
   }
 }
@@ -497,6 +583,47 @@ let recognitionSession = 0;
 let recognitionShouldSend = false;
 let recognitionFinalText = '';
 let recognitionPrefix = '';
+let voiceRecorder = null;
+let voiceTranscribing = false;
+let transcriptionController = null;
+
+async function transcribeRecording(blob, session) {
+  if (session !== recognitionSession) return;
+  isListening = false;
+  voiceTranscribing = true;
+  updateMicButtonUI(false);
+  const controller = new AbortController();
+  transcriptionController = controller;
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += 32768)
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
+    if (session !== recognitionSession) return;
+    const response = await tradeLogApiFetch('/api/transcribe', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, cache: 'no-store',
+      body: JSON.stringify({audio: btoa(binary)}), signal: controller.signal
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Не удалось распознать запись.');
+    if (session !== recognitionSession) return;
+    if (!result.text?.trim()) throw new Error('Речь не распознана. Попробуйте ещё раз.');
+    const input = document.getElementById('aiChatInput');
+    if (input) input.value = [recognitionPrefix, result.text.trim()].filter(Boolean).join(' ');
+    voiceTranscribing = false;
+    updateMicButtonUI(false);
+    await handleAiSubmit();
+  } catch (error) {
+    if (session === recognitionSession) showToast(error.name === 'AbortError'
+      ? 'Распознавание заняло слишком много времени. Попробуйте ещё раз.' : error.message, 'warning');
+  } finally {
+    clearTimeout(timeout);
+    if (session === recognitionSession) {
+      voiceTranscribing = false; transcriptionController = null; updateMicButtonUI(false);
+    }
+  }
+}
 
 function initSpeechRecognition() {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -548,18 +675,35 @@ function initSpeechRecognition() {
 }
 
 function toggleVoiceRecording() {
-  if (isListening) stopListening(true);
+  if (voiceTranscribing) stopListening(false);
+  else if (isListening) stopListening(true);
   else startListening();
 }
 window.toggleVoiceRecording = toggleVoiceRecording;
 
 function startListening() {
-  if (isAiGenerating || isListening) return;
+  if (isAiGenerating || isListening || voiceTranscribing) return;
   stopSpeaking();
+  unlockVoicePlayback();
   recognitionSession++;
   recognitionFinalText = '';
   recognitionPrefix = document.getElementById('aiChatInput')?.value.trim() || '';
   recognitionShouldSend = true;
+  if (window.TradeVoiceRecorder?.supported()) {
+    const session = recognitionSession;
+    isListening = true; updateMicButtonUI(true);
+    voiceRecorder = window.TradeVoiceRecorder.create({
+      onAudio: blob => transcribeRecording(blob, session),
+      onError: error => {
+        if (session !== recognitionSession) return;
+        isListening = false; updateMicButtonUI(false);
+        showToast(error.name === 'NotAllowedError' ? 'Разрешите сайту доступ к микрофону.'
+          : error.name === 'NotFoundError' ? 'Микрофон не найден. Проверьте подключение.' : error.message, 'warning');
+      }
+    });
+    voiceRecorder.start();
+    return;
+  }
   speechRecognizer = initSpeechRecognition();
   if (!speechRecognizer) return showToast('Для голосового ввода откройте сайт в Chrome, Edge или Safari с поддержкой распознавания речи.', 'warning');
   try {
@@ -576,7 +720,10 @@ function stopListening(send = false) {
   recognitionShouldSend = send;
   isListening = false; updateMicButtonUI(false);
   if (!send) recognitionSession++; // Closing the modal cancels delayed recognition events.
+  if (!send) { transcriptionController?.abort(); transcriptionController = null; voiceTranscribing = false; }
+  if (voiceRecorder) { voiceRecorder.stop(send); voiceRecorder = null; }
   try { speechRecognizer?.[send ? 'stop' : 'abort'](); } catch (_) {}
+  updateMicButtonUI(false);
 }
 
 
@@ -585,6 +732,8 @@ function updateMicButtonUI(listening) {
   const inputEl = document.getElementById('aiChatInput');
 
   if (micBtn) {
+    micBtn.setAttribute('aria-busy', String(voiceTranscribing));
+    micBtn.classList.toggle('transcribing', voiceTranscribing);
     if (listening) {
       micBtn.classList.add('listening');
       micBtn.title = 'Идет запись... Нажмите, чтобы остановить';
@@ -592,13 +741,14 @@ function updateMicButtonUI(listening) {
       micBtn.classList.remove('listening');
       micBtn.title = 'Голосовой ввод (нажмите и говорите команду)';
     }
+    if (voiceTranscribing) micBtn.title = 'Распознаю запись… Нажмите для отмены';
   }
 
   if (inputEl) {
     if (listening) {
       inputEl.placeholder = 'Слушаю вас...';
     } else {
-      inputEl.placeholder = '';
+      inputEl.placeholder = voiceTranscribing ? 'Распознаю запись…' : '';
     }
   }
 }
@@ -607,6 +757,7 @@ function updateMicButtonUI(listening) {
  * UI: Open & Close AI Modal
  */
 function openAiAssistant(initialPrompt = '') {
+  unlockVoicePlayback();
   const modal = document.getElementById('aiAssistantModal');
   if (!modal) return;
 

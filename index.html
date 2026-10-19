@@ -19,8 +19,8 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
   <!-- Fonts & Styles -->
-  <link rel="stylesheet" href="./css/style.css?v=33">
-  <link rel="stylesheet" href="./css/books.css?v=33">
+  <link rel="stylesheet" href="./css/style.css?v=35">
+  <link rel="stylesheet" href="./css/books.css?v=35">
   <script>
     // Apply the saved appearance before paint; existing theme choices are retained.
     try { document.documentElement.dataset.theme = localStorage.getItem("tradelog_theme") || "books"; }
@@ -967,6 +967,7 @@
       </div>
 
       <!-- Scrollable Chat Messages Feed -->
+      <div id="aiVoiceStatus" role="status" aria-live="polite" hidden style="padding: 6px 18px; font-size: 0.78rem; color: var(--text-secondary);"></div>
       <div id="aiChatMessages" class="ai-chat-messages">
         <!-- Rendered dynamically -->
       </div>
@@ -1353,15 +1354,17 @@
             Голос и акцент
           </label>
           <select id="settingsVoiceSelect" class="form-select" onchange="handleVoiceSelectChange(this)" style="font-size: 0.86rem; padding: 10px 14px; border-radius: var(--radius-sm);">
-            <option value="">Дмитрий — нейросетевой (Microsoft Edge)</option>
+            <option value="">Дмитрий — нейросетевой (Piper)</option>
+            <option value="edge-dmitry">Дмитрий Microsoft — через интернет</option>
           </select>
           <span class="form-helper" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px; display: block;">
-            Дмитрий доступен через интернет. Другие голоса устройства можно выбрать вручную.
+            Дмитрий Piper работает на устройстве. При первом включении загрузится около 70 МБ, затем голос сохранится для следующих запусков.
           </span>
         </div>
 
         <!-- Buttons row -->
         <div style="display: flex; gap: 10px; flex-direction: column; margin-top: 4px;">
+          <div id="settingsVoiceStatus" role="status" aria-live="polite" hidden style="margin-bottom: 10px; font-size: 0.78rem; color: var(--text-secondary);"></div>
           <button type="button" class="btn btn-secondary btn-md" onclick="testDmitryVoice()" style="width: 100%; justify-content: center; gap: 8px;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -1393,12 +1396,14 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="./js/db.js?v=33"></script>
-  <script src="./js/backend.js?v=33"></script>
-  <script src="./js/auth.js?v=33"></script>
-  <script src="./js/notes.js?v=33"></script>
-  <script src="./js/app.js?v=33"></script>
-  <script src="./js/trade-parser.js?v=33"></script>
-  <script src="./js/ai.js?v=33"></script>
+  <script src="./js/db.js?v=35"></script>
+  <script src="./js/backend.js?v=35"></script>
+  <script src="./js/auth.js?v=35"></script>
+  <script src="./js/notes.js?v=35"></script>
+  <script src="./js/app.js?v=35"></script>
+  <script src="./js/trade-parser.js?v=35"></script>
+  <script src="./js/voice-recorder.js?v=35"></script>
+  <script src="./js/piper-engine.js?v=35"></script>
+  <script src="./js/ai.js?v=35"></script>
 </body>
 </html>

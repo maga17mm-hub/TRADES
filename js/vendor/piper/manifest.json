@@ -1,0 +1,43 @@
+{
+  "id": "ru_RU-dmitri-medium-v1",
+  "revision": "c10ece1aade47bb51c153c893d14e5bf8e5b7117",
+  "files": {
+    "piper_phonemize.data.gz": {
+      "size": 9067873,
+      "sha256": "c6ad3ca38fc7537013f258b17f1d54ab792cd333cb029d1d91214762cc6337a3"
+    },
+    "piper_phonemize.wasm.gz": {
+      "size": 222810,
+      "sha256": "667b260587e2250b68cd880952e6e15e87e31c12a15c8ce7742619dc2fae0e31"
+    },
+    "ort-wasm-simd.wasm.gz": {
+      "size": 2816839,
+      "sha256": "ba5955bf1755cd322aea6798a07e403eb051fdbeb474096d7d231a9dc0c7c075"
+    },
+    "dmitri.onnx.gz.part0": {
+      "size": 18000000,
+      "sha256": "6c2ba09180ed6164e35a0dec836ea16bf50aa0f9dcb631c8f1da3028d62e6206"
+    },
+    "dmitri.onnx.gz.part1": {
+      "size": 18000000,
+      "sha256": "1ff263dd21895138b24e51ea486f4e81ad4cd515af2ce20e4d659c55778de039"
+    },
+    "dmitri.onnx.gz.part2": {
+      "size": 18000000,
+      "sha256": "fbbcd4a6076af016f0d95b2780094f7da296b6af04dabf6054a59d440b497382"
+    },
+    "dmitri.onnx.gz.part3": {
+      "size": 4326715,
+      "sha256": "7ba24d7258c4b7082adabcceaace433742538a94669c39bc1794f25eab2ce5aa"
+    }
+  },
+  "model": {
+    "parts": [
+      "dmitri.onnx.gz.part0",
+      "dmitri.onnx.gz.part1",
+      "dmitri.onnx.gz.part2",
+      "dmitri.onnx.gz.part3"
+    ],
+    "rawSha256": "f073356ebc4bd0f80c5af58df2953a5988bd5bdab1eb38635ce960b071fbefcb"
+  }
+}

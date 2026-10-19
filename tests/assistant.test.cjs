@@ -33,7 +33,7 @@ class Recognition {
   stop() { this.onend?.(); }
   abort() { this.onend?.(); }
 }
-const context = {console, setTimeout, clearTimeout, AbortController, URL, Date,
+const context = {console, setTimeout, clearTimeout, AbortController, URL, Date, btoa: text => Buffer.from(text, 'binary').toString('base64'),
   localStorage: storage, sessionStorage: storage, TradeVoiceParser: parser,
   document: {addEventListener() {}, querySelectorAll: () => [], getElementById: id => id === 'aiChatInput' ? input : null,
     body: {classList: {remove() {}}, style: {}}, documentElement: {classList: {remove() {}}}},
@@ -75,6 +75,47 @@ async function main() {
   cancelled.onend();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(saved.length, 3, 'Closing must cancel delayed dictation');
-  console.log('PASS: 5 parser scenarios, 4 intent guards, offline save, follow-up, STT once and cancellation');
+  let capture;
+  context.TradeVoiceRecorder = {supported: () => true, create: callbacks => {
+    capture = callbacks; return {start() {}, stop() {}};
+  }};
+  const blob = new Blob([Buffer.alloc(150)]);
+  context.tradeLogApiFetch = async (path, options) => {
+    assert.equal(path, '/api/transcribe');
+    assert.ok(JSON.parse(options.body).audio.length >= 100);
+    return Response.json({text: cases[0][0]});
+  };
+  input.value = '';
+  context.startListening();
+  await capture.onAudio(blob);
+  assert.equal(saved.length, 4, 'Server transcription must create a real trade');
+  let reply;
+  context.tradeLogApiFetch = async () => new Promise(resolve => { reply = resolve; });
+  input.value = '';
+  context.startListening();
+  const pending = capture.onAudio(blob);
+  await new Promise(resolve => setImmediate(resolve));
+  context.stopListening(false);
+  reply(Response.json({text: cases[0][0]}));
+  await pending;
+  assert.equal(saved.length, 4, 'Closing while transcription is pending must not submit a late trade');
+  let synthesized = 0, played = 0;
+  const starts = [];
+  context.DmitryPiper = {synthesize: async (_, options) => {
+    synthesized++; options.onChunk(new ArrayBuffer(44)); options.onChunk(new ArrayBuffer(44)); return null;
+  }};
+  context.AudioContext = class {
+    constructor() { this.state = 'running'; this.currentTime = 0; }
+    async resume() {}
+    async decodeAudioData() { return {duration: 1}; }
+    createBufferSource() { return {connect() {}, disconnect() {}, start(time) { played++; starts.push(time); }, stop() {}}; }
+  };
+  const oldFetches = fetches;
+  await context.speakWithDmitry('Проверка голоса', null, true);
+  assert.equal(synthesized, 1, 'Manual speech must work even when automatic voice is off');
+  assert.equal(played, 2); assert.ok(starts[1] >= starts[0] + 1, 'Speech chunks must play in order without overlap');
+  assert.equal(fetches, oldFetches, 'Default Piper must not call Microsoft speech API');
+  context.stopSpeaking();
+  console.log('PASS: parser, intent guards, real save, native STT, server STT and cancellation during transcription');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

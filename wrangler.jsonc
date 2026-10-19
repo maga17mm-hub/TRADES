@@ -6,6 +6,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": false,
+  "ai": {"binding": "AI"},
   "services": [{"binding": "VOICE_SIGNATURE", "service": "tradelog-voice-signature"}],
   "triggers": {"crons": ["23 3 * * *"]},
   "assets": {"directory": "./dist", "binding": "ASSETS", "run_worker_first": ["/api/*"]},

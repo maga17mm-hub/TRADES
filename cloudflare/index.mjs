@@ -1,5 +1,6 @@
 import {ApiError, authenticate, cleanup, handleAccount, rateLimit, required} from './accounts.mjs';
 import {synthesize} from './speech.mjs';
+import {transcribe} from './transcribe.mjs';
 
 function json(data, status = 200, cookie) {
   const headers = {'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'};
@@ -17,7 +18,7 @@ export function checkOrigin(request) {
 export async function api(request, env) {
   const url = new URL(request.url);
   if (url.pathname === '/api/status' && request.method === 'GET')
-    return json({server: true, mail: !!(env.SMTP_USER && env.SMTP_PASSWORD), ai: !!env.AI_API_KEY, voice: 'ru-RU-DmitryNeural'});
+    return json({server: true, mail: !!(env.SMTP_USER && env.SMTP_PASSWORD), ai: !!env.AI_API_KEY, voice: 'ru_RU-dmitri-medium', transcription: !!env.AI});
   if (request.method !== 'POST') return json({error: 'Используйте POST.'}, 405);
   checkOrigin(request);
   const text = await request.text();
@@ -36,6 +37,11 @@ export async function api(request, env) {
     return json(data, 200, cookie);
   }
   const account = await authenticate(request, env);
+  if (url.pathname === '/api/transcribe') {
+    await rateLimit(env, 'transcribe:' + account.id, 10, 60);
+    await rateLimit(env, 'transcribe-day:' + account.id, 100, 86400);
+    return json(await transcribe(body, env));
+  }
   if (url.pathname === '/api/speech') {
     await rateLimit(env, 'speech:' + account.id, 30, 60);
     const speech = typeof body.text === 'string' ? body.text.trim() : '';

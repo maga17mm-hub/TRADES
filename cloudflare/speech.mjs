@@ -7,31 +7,71 @@ const clientIdentifier = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
 const decoder = new TextDecoder();
 const escapeXml = value => value.replace(/[&<>"']/g, character => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'}[character]));
 
+export function splitSpeechText(text, maxBytes = 1800) {
+  const encoder = new TextEncoder();
+  const pieces = [];
+  let chunk = '', bytes = 0;
+  for (const word of text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').match(/\S+\s*|\s+/gu) || []) {
+    const size = encoder.encode(escapeXml(word)).length;
+    if (chunk && bytes + size > maxBytes) { pieces.push(chunk); chunk = ''; bytes = 0; }
+    for (const character of word) {
+      const characterBytes = encoder.encode(escapeXml(character)).length;
+      if (bytes + characterBytes > maxBytes) { pieces.push(chunk); chunk = ''; bytes = 0; }
+      chunk += character; bytes += characterBytes;
+    }
+  }
+  if (chunk.trim()) pieces.push(chunk);
+  return pieces;
+}
+
 export async function synthesize(text, env) {
   const signatureResponse = await env.VOICE_SIGNATURE.fetch('https://voice-signature.internal/');
   if (!signatureResponse.ok) throw new ApiError('Сервис голоса временно недоступен.', 502);
   const signature = await signatureResponse.json();
+  const parts = [];
+  for (const chunk of splitSpeechText(text)) {
+    let audio;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try { audio = await synthesizeChunk(chunk, signature); break; }
+      catch (error) {
+        if (attempt === 1) throw error;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    parts.push(audio);
+  }
+  if (!parts.length) throw new ApiError('Для озвучки нужен текст.');
+  const result = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
+  let offset = 0;
+  for (const part of parts) { result.set(part, offset); offset += part.length; }
+  return result;
+}
+
+async function synthesizeChunk(text, signature) {
   const url = new URL(endpoint);
   url.searchParams.set('TrustedClientToken', clientIdentifier);
   url.searchParams.set('Sec-MS-GEC', signature.token);
   url.searchParams.set('Sec-MS-GEC-Version', signature.version);
   url.searchParams.set('ConnectionId', crypto.randomUUID().replace(/-/g, ''));
-  const response = await fetch(url, {headers: {
+  const controller = new AbortController();
+  const connectionTimer = setTimeout(() => controller.abort(), 8000);
+  let response;
+  try { response = await fetch(url, {signal: controller.signal, headers: {
     Upgrade: 'websocket', 'Sec-WebSocket-Version': '13',
     Origin: 'chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
     Cookie: 'muid=' + crypto.randomUUID().replace(/-/g, '').toUpperCase() + ';'
-  }});
+  }}); } finally { clearTimeout(connectionTimer); }
   const socket = response.webSocket;
   if (!socket) throw new ApiError('Сервис голоса Дмитрия временно недоступен.', 502);
   return new Promise((resolve, reject) => {
     const chunks = [];
     let length = 0, complete = false;
     let messages = Promise.resolve();
-    const timer = setTimeout(() => fail(), 35000);
+    const timer = setTimeout(() => fail('timeout'), 20000);
     function fail(reason = 'connection') {
       if (complete) return;
-      console.error('Speech failed:', typeof reason === 'string' ? reason : 'socket-error');
+      console.error('Speech failed:', typeof reason === 'string' ? reason : 'socket-error', 'textBytes', new TextEncoder().encode(text).length, 'audioBytes', length);
       complete = true; clearTimeout(timer); socket.close();
       reject(new ApiError('Дмитрий не вернул аудио. Попробуйте ещё раз.', 502));
     }

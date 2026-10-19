@@ -1,25 +1,29 @@
-const CACHE_NAME = 'tradelog-v33';
+const CACHE_NAME = 'tradelog-v35';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './css/style.css',
-  './css/style.css?v=33',
+  './css/style.css?v=35',
   './css/books.css',
-  './css/books.css?v=33',
+  './css/books.css?v=35',
   './js/db.js',
-  './js/db.js?v=33',
+  './js/db.js?v=35',
   './js/auth.js',
   './js/backend.js',
-  './js/backend.js?v=33',
-  './js/auth.js?v=33',
+  './js/backend.js?v=35',
+  './js/auth.js?v=35',
   './js/app.js',
-  './js/app.js?v=33',
+  './js/app.js?v=35',
   './js/trade-parser.js',
-  './js/trade-parser.js?v=33',
+  './js/trade-parser.js?v=35',
   './js/ai.js',
-  './js/ai.js?v=33',
+  './js/voice-recorder.js',
+  './js/voice-recorder.js?v=35',
+  './js/piper-engine.js?v=35',
+  './js/piper-worker.js?v=35',
+  './js/ai.js?v=35',
   './js/notes.js',
-  './js/notes.js?v=33',
+  './js/notes.js?v=35',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -77,6 +81,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin || /\/api\//.test(url.pathname)) return;
+  // Large voice files have their own verified IndexedDB cache in the voice worker.
+  if (/\/js\/vendor\/piper\/.*(?:\.gz|\.part\d+)$/.test(url.pathname)) return;
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
 

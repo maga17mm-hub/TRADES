@@ -5,9 +5,14 @@
     "build": "node tools/build.cjs",
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy --config cloudflare/voice-signature/wrangler.jsonc && wrangler deploy",
-    "test": "node tests/assistant.test.cjs && node --test tests/cloudflare.test.mjs"
+    "test": "node tests/assistant.test.cjs && node --test tests/cloudflare.test.mjs tests/voice-recorder.test.cjs tests/piper-engine.test.cjs",
+    "check:voice-assets": "node tests/voice-assets.cjs"
   },
   "devDependencies": {
     "wrangler": "4.151.2"
+  },
+  "dependencies": {
+    "@diffusionstudio/piper-wasm": "1.0.0",
+    "onnxruntime-web": "1.18.0"
   }
 }

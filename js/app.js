@@ -63,7 +63,7 @@ const lightboxCaptionEl = document.getElementById('lightboxCaption');
 const recordTradeFormEl = document.getElementById('recordTradeForm');
 
 // App Build Version for auto cache invalidation
-const CURRENT_APP_BUILD = 'v33';
+const CURRENT_APP_BUILD = 'v35';
 
 function checkAppBuildVersion() {
   try {
@@ -2325,7 +2325,8 @@ function populateSettingsVoiceList() {
     selectedVoice = '';
   }
 
-  select.innerHTML = '<option value="">Дмитрий — нейросетевой (Microsoft Edge)</option>';
+  select.innerHTML = '<option value="">Дмитрий — нейросетевой (Piper)</option><option value="edge-dmitry">Дмитрий Microsoft — через интернет</option>';
+  if (selectedVoice === 'edge-dmitry') select.value = selectedVoice;
 
   voices.forEach(v => {
     const nameLower = (v.name || '').toLowerCase();
@@ -2353,7 +2354,7 @@ window.handleVoiceSelectChange = handleVoiceSelectChange;
 
 function testDmitryVoice() {
   if (typeof speakWithDmitry === 'function') {
-    speakWithDmitry('Привет! Голос Дмитрия готов к работе. Я озвучиваю ответы и фиксирую сделки в вашем дневнике.');
+    speakWithDmitry('Привет! Голос Дмитрия готов к работе. Я озвучиваю ответы и фиксирую сделки в вашем дневнике.', null, true);
   }
 }
 window.testDmitryVoice = testDmitryVoice;

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Проверка Дмитрия Piper</title>
+<style>body{max-width:720px;margin:40px auto;padding:20px;font:17px system-ui;background:#faf9f6;color:#242424}button{padding:12px;margin:8px 8px 8px 0}output{display:block;margin:20px 0}audio{display:block;width:100%;margin:20px 0}</style>
+<h1>Проверка Дмитрия Piper</h1>
+<p>Синтез нейросетевого голоса на устройстве. Первый запуск загружает модель, последующие используют локальный кеш.</p>
+<button id="short">Проверить короткую фразу</button><button id="long">Проверить длинный ответ</button><button id="cancel">Отменить</button>
+<output role="status">Готов к проверке</output><p id="stage"></p><audio controls></audio><a hidden download="dmitry-piper-test.wav">Скачать тестовую озвучку</a>
+<script src="../js/piper-engine.js?v=35"></script>
+<script>
+let controller, objectUrl;
+async function run(text) {
+  controller?.abort(); controller = new AbortController();
+  const current = controller, status = document.querySelector('output'), started = performance.now();
+  try {
+    const blob = await DmitryPiper.synthesize(text, {signal: current.signal, onProgress: message => {status.textContent = message; document.querySelector('#stage').textContent = 'Последний этап: ' + message;}});
+    if (current.signal.aborted) return;
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = URL.createObjectURL(blob);
+    document.querySelector('audio').src = objectUrl;
+    const link = document.querySelector('a'); link.href = objectUrl; link.hidden = false;
+    const data = new DataView(await blob.arrayBuffer());
+    if (data.getUint32(0, false) !== 0x52494646) throw new Error('Некорректный WAV');
+    const seconds = (blob.size - 44) / (data.getUint32(24, true) * 2);
+    status.textContent = `Готово. WAV: ${blob.size} байт, ${seconds.toFixed(1)} секунд аудио. Синтез: ${((performance.now()-started)/1000).toFixed(1)} с.`;
+  } catch(error) { status.textContent = current.signal.aborted ? 'Проверка отменена' : error.message; }
+}
+document.querySelector('#short').onclick = () => run('Запиши сделку по биткоину, лонг, прибыль два с половиной эр.');
+document.querySelector('#long').onclick = () => run('Привет! Я помогу тебе вести дневник сделок. Укажи актив, направление позиции и результат. При необходимости я уточню недостающие данные. '.repeat(18).slice(0,2500));
+document.querySelector('#cancel').onclick = () => controller?.abort();
+</script></html>
