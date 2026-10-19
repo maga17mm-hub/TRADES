@@ -599,13 +599,30 @@ async function handleLoginSubmit(e) {
   try {
     const vaultData = await fetchCloudVault(syncKey);
 
-    // Verify password hash
+    // Verify password hash (case-insensitive email support + local fallback)
     const email = vaultData.userEmail || '';
     const computedHash = await hashString(password + ':' + email);
+    const computedHashLower = await hashString(password + ':' + email.toLowerCase());
+
+    let localSavedPass = null;
+    let localSavedHash = null;
+    try {
+      const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
+      if (localUserRaw) {
+        const lu = JSON.parse(localUserRaw);
+        if (lu && (lu.vaultId === syncKey || lu.email?.toLowerCase() === email.toLowerCase())) {
+          localSavedPass = lu.savedPassword;
+          localSavedHash = lu.passwordHash;
+        }
+      }
+    } catch (_) {}
 
     const isPasswordValid = (!vaultData.passwordHash) || 
                             (vaultData.passwordHash === computedHash) || 
-                            (vaultData.savedPassword && vaultData.savedPassword === password);
+                            (vaultData.passwordHash === computedHashLower) || 
+                            (vaultData.savedPassword && vaultData.savedPassword === password) ||
+                            (localSavedPass && localSavedPass === password) ||
+                            (localSavedHash && (localSavedHash === computedHash || localSavedHash === computedHashLower));
 
     if (!isPasswordValid) {
       if (passwordInput) {
@@ -692,9 +709,10 @@ async function handleLoginSubmit(e) {
     if (localUserRaw) {
       try {
         const localUser = JSON.parse(localUserRaw);
-        if (localUser && (localUser.vaultId === syncKey || localUser.email === syncKey)) {
+        if (localUser && (localUser.vaultId === syncKey || localUser.email?.toLowerCase() === syncKey.toLowerCase())) {
           const computedLocalHash = await hashString(password + ':' + (localUser.email || ''));
-          const isLocalMatch = (localUser.passwordHash && localUser.passwordHash === computedLocalHash) ||
+          const computedLocalHashLower = await hashString(password + ':' + (localUser.email || '').toLowerCase());
+          const isLocalMatch = (localUser.passwordHash && (localUser.passwordHash === computedLocalHash || localUser.passwordHash === computedLocalHashLower)) ||
                                (localUser.savedPassword && localUser.savedPassword === password);
           if (!isLocalMatch) {
             if (passwordInput) {
@@ -924,31 +942,40 @@ async function handleResetPasswordSubmit(e) {
       }
     }
 
-    // 2. Update local profile if saved on this device
+    // 2. Set authenticated user locally and auto-login
+    let localUser = null;
     const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
     if (localUserRaw) {
       try {
-        const localUser = JSON.parse(localUserRaw);
-        if (localUser && (localUser.email === email || localUser.vaultId === targetVaultId)) {
-          localUser.passwordHash = newHash;
-          localUser.savedPassword = newPassword;
-          localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(localUser));
-          currentUser = localUser;
-        }
+        localUser = JSON.parse(localUserRaw);
       } catch (_) {}
     }
 
-    resetPasswordState = null;
-    showToast('Пароль успешно сброшен и обновлён! Теперь войдите с новым паролем.', 'success');
+    if (!localUser) {
+      localUser = {
+        userId: 'usr_' + Date.now().toString(36),
+        name: 'Трейдер',
+        email: email,
+        vaultId: targetVaultId || ''
+      };
+    }
 
-    // Switch to login tab and prefill
-    switchAuthTab('login');
-    const loginSync = document.getElementById('loginSyncKey');
-    const loginPass = document.getElementById('loginPassword');
-    if (loginSync && targetVaultId) loginSync.value = targetVaultId;
-    if (loginPass) {
-      loginPass.value = newPassword;
-      loginPass.focus();
+    localUser.email = email;
+    if (targetVaultId) localUser.vaultId = targetVaultId;
+    localUser.passwordHash = newHash;
+    localUser.savedPassword = newPassword;
+    localUser.lastSyncAt = new Date().toISOString();
+
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(localUser));
+    currentUser = localUser;
+
+    resetPasswordState = null;
+    updateProfileUI();
+    closeProfileModal();
+    showToast('Пароль успешно сброшен! Вы успешно вошли в аккаунт.', 'success');
+
+    if (targetVaultId && typeof syncWithCloud === 'function') {
+      syncWithCloud(true).catch(err => console.warn('Auto-sync error after reset:', err));
     }
 
   } catch (err) {

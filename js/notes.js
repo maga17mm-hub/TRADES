@@ -595,8 +595,8 @@ function renderThoughtViewMode(thought) {
   const tag = (thought.tag && thought.tag !== 'Мысли') ? thought.tag : 'Запись';
 
   const audioHtml = thought.audioData ? `
-    <div style="margin-top: 24px; padding: 14px 16px; background: rgba(28, 24, 38, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 18px; width: 100%;">
-      <div style="font-size: 0.78rem; font-weight: 600; color: rgba(255, 255, 255, 0.7); display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+    <div style="margin-top: 24px; padding: 14px 16px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 18px; width: 100%;">
+      <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
           <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
@@ -637,22 +637,17 @@ function openNewThoughtComposer() {
   if (listView) listView.style.display = 'none';
   if (detailView) detailView.style.display = 'block';
 
-  // Configure topbar: Capsule (Aa + ...) + checkmark circle save button
+  // Configure topbar: three dots menu + checkmark save button
   const topActions = document.getElementById('appleDetailTopActions');
   if (topActions) {
     topActions.innerHTML = `
-      <div class="apple-composer-capsule">
-        <button type="button" class="apple-capsule-item-btn" onclick="insertPromptHelper()" title="Подсказка для записи" aria-label="Подсказка">
-          Aa
-        </button>
-        <button type="button" class="apple-capsule-item-btn" onclick="openComposerToolsMenu(event)" title="Инструменты" aria-label="Инструменты">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="1.5"></circle>
-            <circle cx="6" cy="12" r="1.5"></circle>
-            <circle cx="18" cy="12" r="1.5"></circle>
-          </svg>
-        </button>
-      </div>
+      <button type="button" class="apple-circle-btn" onclick="openComposerToolsMenu(event)" title="Меню действий" aria-label="Меню">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="1.5"></circle>
+          <circle cx="6" cy="12" r="1.5"></circle>
+          <circle cx="18" cy="12" r="1.5"></circle>
+        </svg>
+      </button>
       <button type="button" class="apple-check-btn" onclick="saveCurrentThought()" title="Сохранить запись" aria-label="Сохранить">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6">
           <polyline points="20 6 9 17 4 12"></polyline>
@@ -777,22 +772,17 @@ async function toggleThoughtEditMode() {
 
     isEditingThought = true;
 
-    // Configure topbar for edit mode: Capsule (Aa + ...) + checkmark save button
+    // Configure topbar for edit mode: three dots menu + checkmark save button
     const topActions = document.getElementById('appleDetailTopActions');
     if (topActions) {
       topActions.innerHTML = `
-        <div class="apple-composer-capsule">
-          <button type="button" class="apple-capsule-item-btn" onclick="insertPromptHelper()" title="Подсказка для записи" aria-label="Подсказка">
-            Aa
-          </button>
-          <button type="button" class="apple-capsule-item-btn" onclick="openComposerToolsMenu(event)" title="Инструменты" aria-label="Инструменты">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="1.5"></circle>
-              <circle cx="6" cy="12" r="1.5"></circle>
-              <circle cx="18" cy="12" r="1.5"></circle>
-            </svg>
-          </button>
-        </div>
+        <button type="button" class="apple-circle-btn" onclick="openComposerToolsMenu(event)" title="Меню действий" aria-label="Меню">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="1.5"></circle>
+            <circle cx="6" cy="12" r="1.5"></circle>
+            <circle cx="18" cy="12" r="1.5"></circle>
+          </svg>
+        </button>
         <button type="button" class="apple-check-btn" onclick="saveCurrentThought()" title="Сохранить запись" aria-label="Сохранить">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6">
             <polyline points="20 6 9 17 4 12"></polyline>
@@ -1043,9 +1033,9 @@ function updateThoughtRecordUI(recording) {
 function renderAudioPreviewCardHtml(dataUrl, duration) {
   if (!dataUrl) return '';
   return `
-    <div class="audio-note-preview-card" style="width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: rgba(28, 24, 38, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; margin-top: 10px;">
+    <div class="audio-note-preview-card" style="width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 16px; margin-top: 10px;">
       <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-        <span style="font-size: 0.76rem; font-weight: 600; color: rgba(255, 255, 255, 0.7); display: inline-flex; align-items: center; gap: 6px;">
+        <span style="font-size: 0.76rem; font-weight: 600; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
             <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
@@ -1181,33 +1171,6 @@ function openComposerToolsMenu(event) {
       </svg>
       <span>Записать голосовую мысль</span>
     </button>
-    <button type="button" class="apple-menu-item" onclick="closeAppleJournalMenu(); insertCurrentTimeSnippet();">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <polyline points="12 6 12 12 16 14"></polyline>
-      </svg>
-      <span>Вставить отметку времени</span>
-    </button>
-    <button type="button" class="apple-menu-item" onclick="closeAppleJournalMenu(); insertTraderReflectionPrompt();">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-      </svg>
-      <span>Урок и психология</span>
-    </button>
-    <button type="button" class="apple-menu-item" onclick="closeAppleJournalMenu(); insertPromptHelper();">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M15 4V2"></path>
-        <path d="M15 16v-2"></path>
-        <path d="M8 9h2"></path>
-        <path d="M20 9h2"></path>
-        <path d="M17.8 11.8L19 13"></path>
-        <path d="M15 9h0"></path>
-        <path d="M17.8 6.2L19 5"></path>
-        <path d="M3 21l9-9"></path>
-        <path d="M12.2 6.2L11 5"></path>
-      </svg>
-      <span>Шаблон разбора сделки</span>
-    </button>
     <div class="apple-menu-divider"></div>
     <button type="button" class="apple-menu-item" onclick="cycleJournalTag();">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1216,24 +1179,14 @@ function openComposerToolsMenu(event) {
       </svg>
       <span>Категория: <strong id="menuCurrentTagLabel">${safeEscape(currentTag)}</strong></span>
     </button>
-    <button type="button" class="apple-menu-item" onclick="closeAppleJournalMenu(); toggleBottomCapsuleBar();">
+    <div class="apple-menu-divider"></div>
+    <button type="button" class="apple-menu-item danger" onclick="closeAppleJournalMenu(); ${currentOpenThoughtId ? `deleteThoughtDirect('${currentOpenThoughtId}')` : `backToJournalList()`};">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="3" y="16" width="18" height="5" rx="2"></rect>
-        <path d="M5 12h14"></path>
-        <path d="M5 8h14"></path>
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
       </svg>
-      <span>Панель инструментов снизу</span>
+      <span>Удалить запись</span>
     </button>
-    ${currentOpenThoughtId ? `
-      <div class="apple-menu-divider"></div>
-      <button type="button" class="apple-menu-item danger" onclick="closeAppleJournalMenu(); deleteThoughtDirect('${currentOpenThoughtId}');">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-        <span>Удалить запись</span>
-      </button>
-    ` : ''}
   `;
 
   overlay.style.display = 'flex';

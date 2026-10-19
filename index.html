@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>TradeLog — Дневник Трейдера</title>
 
   <!-- PWA & Mobile Meta Tags -->
@@ -19,8 +19,8 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
   <!-- Fonts & Styles -->
-  <link rel="stylesheet" href="./css/style.css?v=28">
-  <link rel="stylesheet" href="./css/books.css?v=28">
+  <link rel="stylesheet" href="./css/style.css?v=29">
+  <link rel="stylesheet" href="./css/books.css?v=29">
   <script>
     // Apply the saved appearance before paint; existing theme choices are retained.
     try { document.documentElement.dataset.theme = localStorage.getItem("tradelog_theme") || "books"; }
@@ -285,60 +285,28 @@
       <!-- SUB-VIEW 1: Notes List (Главный список заметок) -->
       <div id="journalListView" class="ios-notes-list-view">
 
-        <!-- Apple Journal Topbar -->
-        <div class="apple-journal-topbar">
-          <div class="apple-topbar-actions">
-            <button type="button" class="apple-circle-btn" onclick="triggerManualSync()" title="Синхронизация" aria-label="Синхронизация">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-              </svg>
-            </button>
-            <button type="button" id="journalSearchToggleBtn" class="apple-circle-btn" onclick="toggleJournalSearchUI()" title="Поиск записей" aria-label="Поиск">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </button>
-            <button type="button" class="apple-circle-btn" onclick="openJournalTopMenu(event)" title="Меню действий" aria-label="Меню">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="1.5"></circle>
-                <circle cx="6" cy="12" r="1.5"></circle>
-                <circle cx="18" cy="12" r="1.5"></circle>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <!-- Optional Search Bar (Collapsible) -->
-        <div id="appleJournalSearchWrap" class="apple-journal-search-wrap" style="display: none;">
-          <div class="apple-search-box">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" id="appleJournalSearchInput" class="apple-search-input" placeholder="Поиск в записях..." oninput="handleJournalSearch(this.value)">
-            <button type="button" class="apple-search-clear" onclick="clearJournalSearch()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <!-- Category Picker Row -->
-        <div class="apple-journal-tags-scroll">
-          <button type="button" class="apple-tag-pill active" onclick="setJournalTagFilter('all', this)">Все</button>
-          <button type="button" class="apple-tag-pill" onclick="setJournalTagFilter('Запись', this)">Записи</button>
-          <button type="button" class="apple-tag-pill" onclick="setJournalTagFilter('Психология', this)">Психология</button>
-          <button type="button" class="apple-tag-pill" onclick="setJournalTagFilter('Анализ рынка', this)">Анализ рынка</button>
-          <button type="button" class="apple-tag-pill" onclick="setJournalTagFilter('Торговый план', this)">Торговый план</button>
-          <button type="button" class="apple-tag-pill" onclick="setJournalTagFilter('Ошибки', this)">Ошибки</button>
-        </div>
-
-        <!-- Large Title Header -->
+        <!-- Large Title Header (В самом верху под TradeLog) -->
         <div class="apple-journal-header">
           <h1 class="apple-journal-title">Дневник</h1>
+        </div>
+
+        <!-- Filter Bar: Category Pills + Three Dots Menu Button on the same row -->
+        <div class="apple-journal-filter-bar">
+          <div class="apple-journal-tags-scroll">
+            <button type="button" class="apple-tag-pill active" onclick="setJournalTagFilter('all', this)">Все</button>
+            <button type="button" class="apple-tag-pill" onclick="setJournalTagFilter('Запись', this)">Записи</button>
+            <button type="button" class="apple-tag-pill" onclick="setJournalTagFilter('Психология', this)">Психология</button>
+            <button type="button" class="apple-tag-pill" onclick="setJournalTagFilter('Анализ рынка', this)">Анализ рынка</button>
+            <button type="button" class="apple-tag-pill" onclick="setJournalTagFilter('Торговый план', this)">Торговый план</button>
+            <button type="button" class="apple-tag-pill" onclick="setJournalTagFilter('Ошибки', this)">Ошибки</button>
+          </div>
+          <button type="button" class="apple-circle-btn apple-journal-menu-btn" onclick="openJournalTopMenu(event)" title="Меню действий" aria-label="Меню">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="1.5"></circle>
+              <circle cx="6" cy="12" r="1.5"></circle>
+              <circle cx="18" cy="12" r="1.5"></circle>
+            </svg>
+          </button>
         </div>
 
         <!-- Notes Feed / History List -->
@@ -1419,10 +1387,10 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="./js/db.js?v=28"></script>
-  <script src="./js/auth.js?v=28"></script>
-  <script src="./js/notes.js?v=28"></script>
-  <script src="./js/app.js?v=28"></script>
-  <script src="./js/ai.js?v=28"></script>
+  <script src="./js/db.js?v=29"></script>
+  <script src="./js/auth.js?v=29"></script>
+  <script src="./js/notes.js?v=29"></script>
+  <script src="./js/app.js?v=29"></script>
+  <script src="./js/ai.js?v=29"></script>
 </body>
 </html>

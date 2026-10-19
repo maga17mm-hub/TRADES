@@ -136,11 +136,6 @@ function saveAiChatHistory() {
  * VOICE SYNTHESIS: Нейросетевой голос «Дмитрий» (TTS)
  * ============================================================================
  */
-function getDmitryVoice() {
-  if (!('speechSynthesis' in window)) return null;
-  const voices = window.speechSynthesis.getVoices() || [];
-  if (!voices || voices.length === 0) return null;
-
 // Helper: Strictly reject Milena and all known female voices
 function isFemaleRussianVoice(v) {
   if (!v) return false;

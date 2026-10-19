@@ -1780,14 +1780,17 @@ html.lightbox-open {
 /* Toast Notifications */
 .toast-container {
   position: fixed;
-  bottom: calc(20px + var(--safe-bottom));
+  bottom: calc(var(--bottom-nav-height, 70px) + env(safe-area-inset-bottom, 0px) + 26px) !important;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 150;
+  z-index: 2500 !important;
   display: flex;
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
+  width: calc(100% - 32px);
+  max-width: 420px;
+  align-items: center;
 }
 
 .toast {
@@ -4654,20 +4657,53 @@ main.app-container {
 }
 
 #tabJournalView {
-  margin-top: -24px;
+  margin-top: 0;
 }
 
 @media (max-width: 767px) {
   #tabJournalView {
-    margin-top: -34px;
+    margin-top: 0;
   }
 }
 
-.apple-journal-topbar {
+.apple-journal-header {
+  padding: 6px 18px 6px 18px;
+}
+
+.apple-journal-title {
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+/* Unified Filter Bar: Category Pills + Three Dots Menu Button on same row */
+.apple-journal-filter-bar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 2px 4px 4px 4px;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 18px 14px 18px;
+}
+
+.apple-journal-filter-bar .apple-journal-tags-scroll {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.apple-journal-filter-bar .apple-journal-tags-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.apple-journal-menu-btn {
+  flex-shrink: 0;
 }
 
 .apple-circle-btn {
@@ -4676,64 +4712,34 @@ main.app-container {
   min-width: 38px;
   min-height: 38px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: none;
-  color: #ffffff;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
   user-select: none;
 }
 
 .apple-circle-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--bg-secondary);
+  border-color: var(--border-medium);
 }
 
 .apple-circle-btn:active {
   transform: scale(0.94);
 }
 
-.apple-topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.apple-journal-header {
-  padding: 2px 18px 8px 18px;
-}
-
-.apple-journal-title {
-  font-size: 2.1rem;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0;
-  letter-spacing: -0.5px;
-}
-
-.apple-journal-tags-scroll {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 0 18px 14px 18px;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.apple-journal-tags-scroll::-webkit-scrollbar {
-  display: none;
-}
-
 .apple-tag-pill {
-  background: rgba(255, 255, 255, 0.08);
-  border: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
   border-radius: 16px;
   padding: 6px 14px;
   font-size: 0.8rem;
   font-weight: 550;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s ease;
@@ -4742,40 +4748,8 @@ main.app-container {
 .apple-tag-pill.active,
 .apple-tag-pill:hover {
   background: #7b8cf8;
+  border-color: #7b8cf8;
   color: #ffffff;
-}
-
-.apple-journal-search-wrap {
-  padding: 0 18px 12px 18px;
-}
-
-.apple-search-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.07);
-  border-radius: 14px;
-  padding: 8px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.apple-search-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: #ffffff;
-  font-size: 0.9rem;
-  outline: none;
-}
-
-.apple-search-clear {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .apple-journal-feed {
@@ -4787,7 +4761,7 @@ main.app-container {
 .apple-group-header {
   font-size: 1.15rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 22px 0 10px 0;
   letter-spacing: -0.3px;
 }
@@ -4797,19 +4771,20 @@ main.app-container {
 }
 
 .apple-journal-card {
-  background: #1c1825;
+  background: var(--bg-card);
   border-radius: 22px;
   padding: 18px 20px 14px 20px;
   margin-bottom: 14px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border-subtle);
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
   user-select: none;
 }
 
 .apple-journal-card:hover {
-  background: #231e2e;
+  background: var(--bg-card-hover, var(--bg-secondary));
+  border-color: var(--border-medium);
   transform: translateY(-1px);
 }
 
@@ -4820,7 +4795,7 @@ main.app-container {
 .apple-card-title {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -4829,7 +4804,7 @@ main.app-container {
 
 .apple-card-subdate {
   font-size: 0.92rem;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--text-muted);
   margin-bottom: 8px;
   font-weight: 500;
 }
@@ -4837,7 +4812,7 @@ main.app-container {
 .apple-card-body {
   font-size: 0.92rem;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--text-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
@@ -4855,7 +4830,7 @@ main.app-container {
 
 .apple-card-date {
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -4868,7 +4843,7 @@ main.app-container {
 .apple-card-menu-btn {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   cursor: pointer;
   padding: 4px 6px;
   border-radius: 6px;
@@ -4879,7 +4854,7 @@ main.app-container {
 }
 
 .apple-card-menu-btn:hover {
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .apple-journal-fab {
@@ -4916,7 +4891,8 @@ main.app-container {
 /* Detail & Edit screens */
 .apple-journal-detail-view {
   min-height: 100vh;
-  background: #000000;
+  background: var(--bg-app);
+  color: var(--text-primary);
   padding-bottom: calc(var(--bottom-nav-height) + 40px);
 }
 
@@ -4931,50 +4907,6 @@ main.app-container {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.apple-composer-capsule {
-  display: inline-flex;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 2px 4px;
-  gap: 2px;
-}
-
-.apple-capsule-item-btn {
-  background: transparent;
-  border: none;
-  color: #ffffff;
-  padding: 6px 10px;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 0.95rem;
-  font-weight: 600;
-  transition: background 0.15s ease;
-}
-
-.apple-capsule-item-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.apple-pill-btn {
-  border-radius: 20px;
-  padding: 6px 18px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #ffffff;
-  border: none;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.apple-pill-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
 }
 
 .apple-check-btn {
@@ -5000,17 +4932,22 @@ main.app-container {
   padding: 10px 18px 110px 18px;
 }
 
+.apple-composer-wrap {
+  width: 100%;
+  background: transparent;
+}
+
 .apple-view-title {
   font-size: 1.45rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 6px;
   letter-spacing: -0.3px;
 }
 
 .apple-view-subdate {
   font-size: 0.95rem;
-  color: #8e8e93;
+  color: var(--text-muted);
   margin-bottom: 18px;
   font-weight: 500;
 }
@@ -5018,7 +4955,7 @@ main.app-container {
 .apple-view-text {
   font-size: 1.05rem;
   line-height: 1.65;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -5032,12 +4969,12 @@ main.app-container {
 }
 
 .apple-composer-tag-chip {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.85);
-  padding: 4px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 5px 14px;
   border-radius: 14px;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 550;
   cursor: pointer;
   display: inline-flex;
@@ -5047,14 +4984,14 @@ main.app-container {
 }
 
 .apple-composer-tag-chip:hover {
-  background: rgba(123, 140, 248, 0.18);
+  background: var(--bg-secondary);
   color: #7b8cf8;
-  border-color: rgba(123, 140, 248, 0.35);
+  border-color: #7b8cf8;
 }
 
 .apple-composer-date-text {
   font-size: 0.9rem;
-  color: #8e8e93;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -5063,17 +5000,19 @@ main.app-container {
   background: transparent;
   border: none;
   font-size: 1.45rem;
+  font-size: 20px !important;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 8px;
   outline: none;
   padding: 0;
   letter-spacing: -0.3px;
   font-family: inherit;
+  touch-action: manipulation;
 }
 
 .apple-edit-title::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
 }
 
 .apple-edit-textarea {
@@ -5081,21 +5020,22 @@ main.app-container {
   min-height: 380px;
   background: transparent;
   border: none;
-  font-size: 1.05rem;
+  font-size: 16px !important; /* CRITICAL: 16px minimum prevents iOS viewport zoom on tap/focus */
   line-height: 1.65;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-primary);
   outline: none;
   resize: none;
   padding: 0;
   margin-bottom: 80px;
   font-family: inherit;
+  touch-action: manipulation;
 }
 
 .apple-edit-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--text-muted);
 }
 
-/* Floating Bottom Capsule Toolbar in Composer - Emerging on click */
+/* Floating Bottom Capsule Toolbar in Composer */
 .apple-floating-capsule-bar {
   display: none;
   position: fixed;
@@ -5104,15 +5044,15 @@ main.app-container {
   transform: translateX(-50%) translateY(20px);
   width: calc(100% - 32px);
   max-width: 440px;
-  background: rgba(28, 24, 38, 0.96);
+  background: var(--bg-card);
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
   border-radius: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border-medium);
   padding: 8px 18px;
   justify-content: space-around;
   align-items: center;
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
   z-index: 1000;
   opacity: 0;
   transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -5127,7 +5067,7 @@ main.app-container {
 .apple-capsule-btn {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-secondary);
   padding: 8px;
   border-radius: 50%;
   display: flex;
@@ -5138,8 +5078,8 @@ main.app-container {
 }
 
 .apple-capsule-btn:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
 }
 
 .apple-capsule-btn.recording {
@@ -5152,22 +5092,22 @@ main.app-container {
   position: fixed;
   inset: 0;
   z-index: 1050;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
-  padding: calc(env(safe-area-inset-top, 0px) + 98px) 16px 30px 16px;
+  padding: calc(env(safe-area-inset-top, 0px) + 120px) 16px 30px 16px;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 
 .apple-menu-popup {
-  background: rgba(30, 26, 38, 0.96);
+  background: var(--bg-card);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
   border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.65);
+  border: 1px solid var(--border-medium);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.45);
   min-width: 250px;
   overflow: hidden;
   margin-top: 10px;
@@ -5190,7 +5130,7 @@ main.app-container {
   align-items: center;
   gap: 12px;
   padding: 12px 18px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 0.92rem;
   font-weight: 500;
   cursor: pointer;
@@ -5202,12 +5142,12 @@ main.app-container {
 }
 
 .apple-menu-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-secondary);
 }
 
 .apple-menu-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border-subtle);
   margin: 4px 0;
 }
 
