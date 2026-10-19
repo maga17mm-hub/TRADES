@@ -2,29 +2,11 @@
  * ============================================================================
  * TradeLog User Profile & Cloud Sync Module
  * Enables user registration, profile management, and automatic two-way cloud
- * synchronization across devices (Phone <-> Computer) using secure GitHub Gist Vaults.
+ * synchronization across devices through the private Cloudflare backend.
  * ============================================================================
  */
 
 const STORAGE_KEY_USER = 'tradelog_user_profile';
-const GITHUB_GISTS_API = 'https://api.github.com/gists';
-
-// Protected key chunks for cloud gist synchronization
-const _VAULT_KEY_CHUNKS = [
-  'Z2hvX2pLZU1XTE',
-  'lmZUNiRVRhQkNH',
-  'MjFldXU2d21PUE',
-  'xIcjNrUnYxaA=='
-];
-
-function getVaultToken() {
-  try {
-    return atob(_VAULT_KEY_CHUNKS.join(''));
-  } catch {
-    return '';
-  }
-}
-
 let currentUser = null;
 let isSyncing = false;
 let autoSyncTimeout = null;
@@ -332,75 +314,40 @@ function sanitizeThoughtsForCloud(thoughts) {
 /**
  * Create a new Cloud Vault (Gist API)
  */
+async function accountRequest(action, payload = {}, retrySession = true) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 55000);
+  try {
+    const response = await tradeLogApiFetch('/api/account', {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...payload }), signal: controller.signal
+    });
+    const data = await response.json().catch(() => null);
+    if (!data) throw new Error('Облако недоступно на этом адресе. Откройте сайт с серверными функциями.');
+    if (response.status === 401 && retrySession && ['read', 'sync'].includes(action) && currentUser?.savedPassword) {
+      await accountRequest('login', {identifier: currentUser.vaultId, password: currentUser.savedPassword}, false);
+      return accountRequest(action, payload, false);
+    }
+    if (!response.ok) throw new Error(data.error || 'Ошибка облачного сервиса');
+    if (data.sessionToken) {
+      sessionStorage.setItem(TRADELOG_SESSION_KEY, data.sessionToken);
+      delete data.sessionToken;
+    }
+    if (action === 'logout') sessionStorage.removeItem(TRADELOG_SESSION_KEY);
+    return data;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('Сервер не ответил. Повторите позже.');
+    throw error;
+  } finally { clearTimeout(timer); }
+}
+
 async function createCloudVault(vaultData) {
-  const token = getVaultToken();
-  const payload = {
-    description: `TradeLog Vault [${vaultData.userName || 'User'}]`,
-    public: false,
-    files: {
-      "tradelog_vault.json": {
-        content: JSON.stringify(vaultData)
-      }
-    }
-  };
-
-  const res = await fetch(GITHUB_GISTS_API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/vnd.github.v3+json',
-      'Authorization': 'token ' + token,
-      'User-Agent': 'TradeLog-App'
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Ошибка облака (${res.status}): ${errText}`);
-  }
-
-  const result = await res.json();
-  return result.id;
+  const { savedPassword, passwordHash, ...vault } = vaultData;
+  const data = await accountRequest('register', { vault, password: savedPassword });
+  return data.vaultId;
 }
 
-/**
- * Helper to parse or fetch full content from a gist file object,
- * properly handling GitHub Gist file truncation (> 1MB).
- */
-async function getGistFileJson(file) {
-  if (!file) return null;
-  // If file content is provided and not truncated, parse directly
-  if (file.content && !file.truncated) {
-    try {
-      return JSON.parse(file.content);
-    } catch (_) {}
-  }
-  // If file is truncated (> 1MB) or content is absent, fetch from raw_url
-  if (file.raw_url) {
-    try {
-      // NOTE: Never send custom Authorization or Accept headers to gist.githubusercontent.com in browser fetch.
-      // GitHub raw storage rejects CORS preflight with 403 Forbidden when custom headers are sent,
-      // but serves files with Access-Control-Allow-Origin: * when requested without custom headers.
-      const rawRes = await fetch(file.raw_url, { cache: 'no-cache' });
-      if (rawRes.ok) {
-        return await rawRes.json();
-      }
-    } catch (rawErr) {
-      console.warn('Error fetching raw_url for gist file:', rawErr);
-    }
-  }
-  if (file.content) {
-    try {
-      return JSON.parse(file.content);
-    } catch (_) {}
-  }
-  return null;
-}
-
-/**
- * Sanitize / extract clean Vault ID or email from user input
- */
 function cleanVaultId(raw) {
   if (!raw) return '';
   let str = String(raw).trim();
@@ -418,164 +365,15 @@ function cleanVaultId(raw) {
 }
 window.cleanVaultId = cleanVaultId;
 
-/**
- * Fetch Cloud Vault by Sync Key or Email (Public/Private Read with fallback & truncation support)
- */
 async function fetchCloudVault(identifier) {
-  const token = getVaultToken();
-  const headers = {
-    'Accept': 'application/vnd.github.v3+json',
-    'User-Agent': 'TradeLog-App'
-  };
-  if (token) {
-    headers['Authorization'] = 'token ' + token;
-  }
-
-  const cleanId = cleanVaultId(identifier);
-  const isEmailInput = cleanId.includes('@');
-
-  // 1. If not an email, try direct fetch by Gist ID
-  if (!isEmailInput && /^[a-f0-9]{20,40}$/i.test(cleanId)) {
-    try {
-      const res = await fetch(`${GITHUB_GISTS_API}/${cleanId}`, {
-        method: 'GET',
-        headers: headers
-      });
-
-      if (res.ok) {
-        const gist = await res.json();
-        const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
-        const data = await getGistFileJson(file);
-        if (data && typeof data === 'object') {
-          if (!data.vaultId) data.vaultId = gist.id;
-          return data;
-        }
-      } else if (res.status !== 404) {
-        console.warn(`Gist direct fetch status: ${res.status}`);
-      }
-    } catch (err) {
-      console.warn('Gist direct fetch error, trying search fallback:', err);
-    }
-  }
-
-  // 2. Search all gists owned by this user/token by ID, email, or name
-  if (token) {
-    try {
-      const listRes = await fetch(`${GITHUB_GISTS_API}?per_page=50`, {
-        method: 'GET',
-        headers: headers
-      });
-
-      if (listRes.ok) {
-        const gists = await listRes.json();
-        if (Array.isArray(gists)) {
-          // Pass A: direct ID match in list
-          const matchingGist = gists.find(g => g.id.toLowerCase() === cleanId.toLowerCase());
-          if (matchingGist) {
-            const singleRes = await fetch(`${GITHUB_GISTS_API}/${matchingGist.id}`, { headers });
-            if (singleRes.ok) {
-              const gist = await singleRes.json();
-              const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
-              const data = await getGistFileJson(file);
-              if (data) {
-                if (!data.vaultId) data.vaultId = gist.id;
-                return data;
-              }
-            }
-          }
-
-          // Pass B: match by Email or Name
-          for (const g of gists) {
-            const desc = (g.description || '').toLowerCase();
-            const targetLower = cleanId.toLowerCase();
-            const descMatches = isEmailInput ? false : (desc.includes(`[${targetLower}]`) || desc.includes(targetLower));
-
-            if (descMatches || isEmailInput) {
-              try {
-                const singleRes = await fetch(`${GITHUB_GISTS_API}/${g.id}`, { headers });
-                if (singleRes.ok) {
-                  const gist = await singleRes.json();
-                  const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
-                  const data = await getGistFileJson(file);
-                  if (data) {
-                    const uEmail = (data.userEmail || '').toLowerCase();
-                    const uName = (data.userName || '').toLowerCase();
-                    if (isEmailInput && uEmail === targetLower) {
-                      if (!data.vaultId) data.vaultId = gist.id;
-                      return data;
-                    }
-                    if (!isEmailInput && (uName === targetLower || uEmail === targetLower || descMatches)) {
-                      if (!data.vaultId) data.vaultId = gist.id;
-                      return data;
-                    }
-                  }
-                }
-              } catch (_) {}
-            }
-          }
-        }
-      }
-    } catch (listErr) {
-      console.warn('Gists search error:', listErr);
-    }
-  }
-
-  // 3. Fallback to restful-api if legacy key
-  try {
-    const fallbackRes = await fetch(`https://api.restful-api.dev/objects/${cleanId}`);
-    if (fallbackRes.ok) {
-      const remoteObj = await fallbackRes.json();
-      return remoteObj.data || {};
-    }
-  } catch (e) {}
-
-  throw new Error('Профиль с таким кодом или email не найден. Проверьте правильность введённых данных.');
+  return accountRequest('read', { identifier: cleanVaultId(identifier) });
 }
 
-/**
- * Update Cloud Vault
- */
 async function updateCloudVault(vaultId, vaultData) {
-  const token = getVaultToken();
-  const cleanId = cleanVaultId(vaultId);
-  const payload = {
-    files: {
-      "tradelog_vault.json": {
-        content: JSON.stringify(vaultData)
-      }
-    }
-  };
-
-  const res = await fetch(`${GITHUB_GISTS_API}/${cleanId}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/vnd.github.v3+json',
-      'Authorization': 'token ' + token,
-      'User-Agent': 'TradeLog-App'
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) {
-    // If not found in Gist, try legacy restful-api update
-    try {
-      await fetch(`https://api.restful-api.dev/objects/${cleanId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: `TradeLog_${vaultData.userName}`, data: vaultData })
-      });
-      return true;
-    } catch (e) {}
-    throw new Error(`Ошибка синхронизации облака (${res.status})`);
-  }
-
+  await accountRequest('sync', { identifier: vaultId, vault: vaultData });
   return true;
 }
 
-/**
- * Handle User Registration
- */
 async function handleRegisterSubmit(e) {
   if (e) e.preventDefault();
 
@@ -596,8 +394,8 @@ async function handleRegisterSubmit(e) {
     showToast('Введите корректный email адрес', 'warning');
     return;
   }
-  if (!password || password.length < 4) {
-    showToast('Пароль должен содержать минимум 4 символа', 'warning');
+  if (!password || password.length < 8) {
+    showToast('Пароль должен содержать минимум 8 символов', 'warning');
     return;
   }
 
@@ -644,16 +442,7 @@ async function handleRegisterSubmit(e) {
       deletedThoughtUuids: typeof getDeletedThoughtSigs === 'function' ? getDeletedThoughtSigs() : []
     };
 
-    let vaultId = null;
-
-    // Create Cloud Vault
-    try {
-      vaultId = await createCloudVault(vaultData);
-    } catch (netErr) {
-      console.warn('Cloud creation error, creating local-first profile:', netErr);
-      // Fallback local ID so user is NEVER blocked from registration
-      vaultId = 'tl_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
-    }
+    const vaultId = await createCloudVault(vaultData);
 
     if (!vaultId) {
       throw new Error('Не удалось сгенерировать код профиля');
@@ -701,192 +490,40 @@ window.handleRegisterSubmit = handleRegisterSubmit;
  */
 async function handleLoginSubmit(e) {
   if (e) e.preventDefault();
-
-  const syncKeyInput = document.getElementById('loginSyncKey');
-  const passwordInput = document.getElementById('loginPassword');
-  const submitBtn = document.getElementById('loginSubmitBtn');
-
-  let syncKey = syncKeyInput ? syncKeyInput.value.trim() : '';
-  const password = passwordInput ? passwordInput.value : '';
-
-  syncKey = cleanVaultId(syncKey);
-
-  if (!syncKey) {
-    showToast('Введите Код профиля (Sync Key) или email', 'warning');
-    return;
-  }
-  if (!password) {
-    showToast('Введите пароль от профиля', 'warning');
-    return;
-  }
-
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = `
-      <span class="btn-spinner"></span>
-      <span>Вход и загрузка данных...</span>
-    `;
-  }
-
+  const identifier = cleanVaultId(document.getElementById('loginSyncKey').value);
+  const password = document.getElementById('loginPassword').value;
+  const button = document.getElementById('loginSubmitBtn');
+  if (!identifier || !password) return showToast('Введите email или код профиля и пароль', 'warning');
+  button.disabled = true;
   try {
-    const vaultData = await fetchCloudVault(syncKey);
-
-    // Verify password hash (case-insensitive email support + local fallback)
-    const email = vaultData.userEmail || '';
-    const trimmedPass = password.trim();
-    const computedHash = await hashString(password + ':' + email);
-    const computedHashLower = await hashString(password + ':' + email.toLowerCase());
-    const computedHashTrimmed = await hashString(trimmedPass + ':' + email);
-    const computedHashLowerTrimmed = await hashString(trimmedPass + ':' + email.toLowerCase());
-
-    let localSavedPass = null;
-    let localSavedHash = null;
-    try {
-      const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
-      if (localUserRaw) {
-        const lu = JSON.parse(localUserRaw);
-        if (lu && (lu.vaultId === syncKey || lu.email?.toLowerCase() === email.toLowerCase())) {
-          localSavedPass = lu.savedPassword;
-          localSavedHash = lu.passwordHash;
-        }
-      }
-    } catch (_) {}
-
-    const isPasswordValid = (!vaultData.passwordHash) || 
-                            (vaultData.passwordHash === computedHash) || 
-                            (vaultData.passwordHash === computedHashLower) || 
-                            (vaultData.passwordHash === computedHashTrimmed) || 
-                            (vaultData.passwordHash === computedHashLowerTrimmed) || 
-                            (vaultData.savedPassword && (vaultData.savedPassword === password || vaultData.savedPassword === trimmedPass)) ||
-                            (localSavedPass && (localSavedPass === password || localSavedPass === trimmedPass)) ||
-                            (localSavedHash && (localSavedHash === computedHash || localSavedHash === computedHashLower || localSavedHash === computedHashTrimmed || localSavedHash === computedHashLowerTrimmed));
-
-    if (!isPasswordValid) {
-      if (passwordInput) {
-        passwordInput.classList.add('input-error');
-        passwordInput.focus();
-        passwordInput.select();
-      }
-      const errEl = document.getElementById('loginPasswordError');
-      if (errEl) {
-        errEl.textContent = 'Неверный пароль от профиля! Проверьте правильность введённого пароля.';
-        errEl.style.display = 'block';
-      }
-      showToast('Неверный пароль от профиля! Проверьте введённый пароль.', 'error');
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = `<span>Войти в профиль</span>`;
-      }
-      return;
-    }
-
-    // Save profile locally on this device
-    const resolvedVaultId = vaultData.vaultId || cleanVaultId(syncKey);
-    const resolvedEmail = vaultData.userEmail || (cleanVaultId(syncKey).includes('@') ? cleanVaultId(syncKey) : '');
-    const userProfile = {
-      userId: vaultData.userId || 'usr_' + Date.now().toString(36),
-      name: vaultData.userName || 'Трейдер',
-      email: resolvedEmail,
-      vaultId: resolvedVaultId,
-      passwordHash: vaultData.passwordHash || computedHash,
-      savedPassword: password,
-      registeredAt: vaultData.updatedAt || new Date().toISOString(),
-      lastSyncAt: new Date().toISOString()
-    };
-
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userProfile));
-    currentUser = userProfile;
-
-    // Merge cloud data into this device's IndexedDB!
-    let mergedTradesCount = 0;
-    let mergedThoughtsCount = 0;
-
-    if (Array.isArray(vaultData.trades) && typeof mergeCloudTrades === 'function') {
-      mergedTradesCount = await mergeCloudTrades(vaultData.trades, vaultData.deletedTradeUuids || []);
-    }
-    if (Array.isArray(vaultData.thoughts) && typeof mergeCloudThoughts === 'function') {
-      mergedThoughtsCount = await mergeCloudThoughts(vaultData.thoughts, vaultData.deletedThoughtUuids || []);
-    }
-
-    // Merge custom presets if available
-    if (vaultData.presets) {
-      if (Array.isArray(vaultData.presets.tickers) && typeof saveCustomPresets === 'function') {
-        saveCustomPresets('symbol', vaultData.presets.tickers);
-      }
-      if (Array.isArray(vaultData.presets.setups) && typeof saveCustomPresets === 'function') {
-        saveCustomPresets('setup', vaultData.presets.setups);
-      }
-      if (Array.isArray(vaultData.presets.criteria) && typeof saveCustomPresets === 'function') {
-        saveCustomPresets('criteria', vaultData.presets.criteria);
-      }
-      if (Array.isArray(vaultData.presets.timeframes) && typeof saveCustomPresets === 'function') {
-        saveCustomPresets('timeframe', vaultData.presets.timeframes);
-      }
-      if (typeof populatePresetSelects === 'function') {
-        populatePresetSelects();
-      }
-    }
-
-    // Refresh UI on all screens
-    if (typeof refreshTrades === 'function') {
-      await refreshTrades();
-    }
-    if (typeof loadAndRenderJournal === 'function') {
-      await loadAndRenderJournal();
-    }
-
-    updateProfileUI();
-    showToast(`Вход выполнен! Загружено сделок: ${vaultData.trades ? vaultData.trades.length : 0}, мыслей: ${vaultData.thoughts ? vaultData.thoughts.length : 0}`, 'success');
-
+    const vault = await accountRequest('login', { identifier, password });
+    await acceptCloudProfile(vault, password);
     closeProfileModal();
+    showToast('Вход выполнен. Данные профиля загружены.', 'success');
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { button.disabled = false; }
+}
 
-  } catch (err) {
-    console.error('Login failed:', err);
-
-    // Check if user is logging into a profile known locally on this device
-    const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
-    if (localUserRaw) {
-      try {
-        const localUser = JSON.parse(localUserRaw);
-        if (localUser && (localUser.vaultId === syncKey || localUser.email?.toLowerCase() === syncKey.toLowerCase())) {
-          const computedLocalHash = await hashString(password + ':' + (localUser.email || ''));
-          const computedLocalHashLower = await hashString(password + ':' + (localUser.email || '').toLowerCase());
-          const isLocalMatch = (localUser.passwordHash && (localUser.passwordHash === computedLocalHash || localUser.passwordHash === computedLocalHashLower)) ||
-                               (localUser.savedPassword && localUser.savedPassword === password);
-          if (!isLocalMatch) {
-            if (passwordInput) {
-              passwordInput.classList.add('input-error');
-              passwordInput.focus();
-              passwordInput.select();
-            }
-            const errEl = document.getElementById('loginPasswordError');
-            if (errEl) {
-              errEl.textContent = 'Неверный пароль от профиля! Проверьте правильность введённого пароля.';
-              errEl.style.display = 'block';
-            }
-            showToast('Неверный пароль от профиля! Проверьте введённый пароль.', 'error');
-            return;
-          }
-
-          // Local password matches!
-          localUser.savedPassword = password;
-          localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(localUser));
-          currentUser = localUser;
-          updateProfileUI();
-          showToast('Вход выполнен успешно!', 'success');
-          closeProfileModal();
-          return;
-        }
-      } catch (le) {}
-    }
-
-    showToast(err.message, 'error');
-  } finally {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = `<span>Войти в профиль</span>`;
-    }
+async function acceptCloudProfile(vault, password) {
+  currentUser = {
+    userId: vault.userId, name: vault.userName, email: vault.userEmail,
+    vaultId: vault.vaultId, savedPassword: password,
+    registeredAt: vault.createdAt, lastSyncAt: new Date().toISOString()
+  };
+  localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+  if (Array.isArray(vault.trades) && typeof mergeCloudTrades === 'function')
+    await mergeCloudTrades(vault.trades, vault.deletedTradeUuids || []);
+  if (Array.isArray(vault.thoughts) && typeof mergeCloudThoughts === 'function')
+    await mergeCloudThoughts(vault.thoughts, vault.deletedThoughtUuids || []);
+  const fields = {tickers: 'symbol', directions: 'direction', setups: 'setup', criteria: 'criteria', timeframes: 'timeframe'};
+  for (const [key, field] of Object.entries(fields)) {
+    if (Array.isArray(vault.presets?.[key]) && typeof saveCustomPresets === 'function')
+      saveCustomPresets(field, vault.presets[key]);
   }
+  if (typeof populatePresetSelects === 'function') populatePresetSelects();
+  if (typeof refreshTrades === 'function') await refreshTrades();
+  if (typeof loadAndRenderJournal === 'function') await loadAndRenderJournal();
+  updateProfileUI();
 }
 window.handleLoginSubmit = handleLoginSubmit;
 
@@ -894,6 +531,35 @@ window.handleLoginSubmit = handleLoginSubmit;
  * Open Password Reset View
  */
 let resetPasswordState = null;
+let recoveryCooldownTimer = null;
+
+function startRecoveryCooldown() {
+  clearInterval(recoveryCooldownTimer);
+  const button = document.getElementById('resetResendBtn');
+  if (!button) return;
+  const deadline = Date.now() + 60000;
+  const update = () => {
+    const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    button.disabled = remaining > 0;
+    button.textContent = remaining ? `Повторить отправку через ${remaining} с` : 'Отправить код повторно';
+    if (!remaining) clearInterval(recoveryCooldownTimer);
+  };
+  update(); recoveryCooldownTimer = setInterval(update, 1000);
+}
+
+async function resendResetCode() {
+  const button = document.getElementById('resetResendBtn');
+  if (!resetPasswordState || button?.disabled) return;
+  if (button) button.disabled = true;
+  try {
+    await accountRequest('reset-request', resetPasswordState);
+    document.getElementById('resetCode').value = '';
+    document.getElementById('resetCode').focus();
+    startRecoveryCooldown();
+    showToast('Новое письмо отправлено. Используйте код из последнего письма.', 'success');
+  } catch (error) { if (button) button.disabled = false; showToast(error.message, 'error'); }
+}
+window.resendResetCode = resendResetCode;
 
 function openResetPasswordView() {
   switchAuthTab('reset');
@@ -923,6 +589,10 @@ function openResetPasswordView() {
   const btnText = document.getElementById('resetSubmitBtnText');
   if (btnText) btnText.textContent = 'Отправить код на почту';
   resetPasswordState = null;
+  document.getElementById('resetCode').required = false;
+  document.getElementById('resetCode').value = '';
+  document.getElementById('resetNewPassword').required = false;
+  document.getElementById('resetNewPassword').value = '';
 }
 window.openResetPasswordView = openResetPasswordView;
 
@@ -931,257 +601,38 @@ window.openResetPasswordView = openResetPasswordView;
  */
 async function handleResetPasswordSubmit(e) {
   if (e) e.preventDefault();
-
-  const emailInput = document.getElementById('resetEmail');
-  const syncKeyInput = document.getElementById('resetSyncKey');
+  const button = document.getElementById('resetSubmitBtn');
+  if (button.disabled) return;
+  const email = document.getElementById('resetEmail').value.trim().toLowerCase();
+  const identifier = cleanVaultId(document.getElementById('resetSyncKey').value) || email;
   const codeInput = document.getElementById('resetCode');
-  const newPassInput = document.getElementById('resetNewPassword');
-  const submitBtn = document.getElementById('resetSubmitBtn');
-  const btnText = document.getElementById('resetSubmitBtnText');
-  const step2 = document.getElementById('resetVerificationStep');
-
-  const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
-  let syncKey = syncKeyInput ? syncKeyInput.value.trim() : '';
-  syncKey = cleanVaultId(syncKey);
-
-  if (!email || !email.includes('@')) {
-    showToast('Введите корректный email адрес вашего профиля', 'warning');
-    if (emailInput) emailInput.focus();
-    return;
-  }
-
-  if (!syncKey) {
-    // If syncKey field is empty, check if this device has a saved profile with that email
-    const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
-    if (localUserRaw) {
-      try {
-        const parsed = JSON.parse(localUserRaw);
-        if (parsed && parsed.vaultId && parsed.email?.toLowerCase() === email) {
-          syncKey = parsed.vaultId;
-        }
-      } catch (_) {}
-    }
-  }
-
-  // STEP 1: Generate & send code if not generated yet or expired
-  if (!resetPasswordState || resetPasswordState.email !== email || Date.now() > resetPasswordState.expires) {
-    if (submitBtn) submitBtn.disabled = true;
-
-    try {
-      let vaultData = null;
-      try {
-        vaultData = await fetchCloudVault(syncKey || email);
-        if (vaultData && vaultData.vaultId) {
-          syncKey = vaultData.vaultId;
-        }
-      } catch (err) {
-        console.warn('fetchCloudVault error for key:', syncKey, err);
-      }
-
-      // If cloud fetch had issue, check local profile
-      const localUserRaw = localStorage.getItem(STORAGE_KEY_USER);
-      let localUser = null;
-      if (localUserRaw) {
-        try { localUser = JSON.parse(localUserRaw); } catch (_) {}
-      }
-
-      if (!vaultData && localUser && (localUser.email?.toLowerCase() === email || localUser.vaultId === syncKey)) {
-        vaultData = {
-          userId: localUser.userId,
-          userName: localUser.name,
-          userEmail: localUser.email,
-          vaultId: localUser.vaultId,
-          passwordHash: localUser.passwordHash,
-          savedPassword: localUser.savedPassword
-        };
-      }
-
-      if (!vaultData) {
-        showToast(`Профиль с кодом "${syncKey || email}" не найден. Проверьте правильность данных.`, 'error');
-        if (submitBtn) submitBtn.disabled = false;
-        return;
-      }
-
-      // Verify email ownership
-      if (vaultData.userEmail && vaultData.userEmail.toLowerCase() !== email) {
-        showToast('Указанный email не совпадает с email этого кода профиля', 'error');
-        if (submitBtn) submitBtn.disabled = false;
-        return;
-      }
-
-      // Generate 6-digit verification code
-      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-      resetPasswordState = {
-        email: email,
-        syncKey: syncKey,
-        code: resetCode,
-        expires: Date.now() + 15 * 60 * 1000,
-        vaultData: vaultData
-      };
-
-      // 1. Send real email via FormSubmit AJAX endpoint
-      try {
-        fetch(`https://formsubmit.co/ajax/${encodeURIComponent(email)}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            _subject: `Код сброса пароля TradeLog: ${resetCode}`,
-            email: email,
-            message: `Здравствуйте, ${vaultData.userName || 'трейдер'}!\n\nВаш проверочный код для сброса пароля в TradeLog: ${resetCode}\n\nКод действителен 15 минут. Введите его в приложении TradeLog для установки нового пароля.`,
-            _template: 'box',
-            _captcha: 'false'
-          })
-        }).catch(err => console.warn('Email relay notice:', err));
-      } catch (_) {}
-
-      // Reveal step 2 in form & display the code right on screen
-      if (step2) step2.style.display = 'block';
-      const codeDisplay = document.getElementById('resetCodeDisplay');
-      if (codeDisplay) codeDisplay.textContent = resetCode;
-
-      if (btnText) btnText.textContent = 'Подтвердить и сбросить пароль';
-      if (codeInput) {
-        codeInput.value = resetCode;
-      }
-      if (newPassInput) {
-        newPassInput.focus();
-      }
-
-      showToast(`Проверочный код сброса: ${resetCode}. Введите новый пароль.`, 'success');
-
-    } catch (err) {
-      console.error('Reset password step 1 error:', err);
-      showToast('Ошибка при формировании кода сброса: ' + err.message, 'error');
-    } finally {
-      if (submitBtn) submitBtn.disabled = false;
-    }
-    return;
-  }
-
-  // STEP 2: Verify code and apply new password
-  const enteredCode = codeInput ? codeInput.value.trim() : '';
-  const newPassword = newPassInput ? newPassInput.value : '';
-
-  if (!enteredCode) {
-    showToast('Введите 6-значный код подтверждения', 'warning');
-    if (codeInput) codeInput.focus();
-    return;
-  }
-
-  if (enteredCode !== resetPasswordState.code) {
-    showToast('Неверный код подтверждения! Проверьте введённый код.', 'error');
-    if (codeInput) codeInput.classList.add('input-error');
-    return;
-  }
-
-  if (!newPassword || newPassword.length < 4) {
-    showToast('Новый пароль должен содержать минимум 4 символа', 'warning');
-    if (newPassInput) newPassInput.focus();
-    return;
-  }
-
-  if (submitBtn) submitBtn.disabled = true;
-
+  const passwordInput = document.getElementById('resetNewPassword');
+  button.disabled = true;
   try {
-    const targetVaultId = resetPasswordState.syncKey;
-    const newHash = await hashString(newPassword + ':' + email);
-
-    // 1. Fetch fresh cloud vault or use cached from step 1
-    let vaultData = resetPasswordState.vaultData;
-    if (targetVaultId) {
-      try {
-        const fresh = await fetchCloudVault(targetVaultId);
-        if (fresh) vaultData = fresh;
-      } catch (cloudErr) {
-        console.warn('Could not re-fetch cloud vault during reset, using cached state:', cloudErr);
-      }
+    if (!resetPasswordState || resetPasswordState.email !== email || resetPasswordState.identifier !== identifier) {
+      await accountRequest('reset-request', { email, identifier });
+      resetPasswordState = { email, identifier };
+      startRecoveryCooldown();
+      document.getElementById('resetVerificationStep').style.display = 'block';
+      document.getElementById('resetSubmitBtnText').textContent = 'Сохранить новый пароль';
+      codeInput.required = true;
+      passwordInput.required = true;
+      codeInput.focus();
+      showToast('Если профиль найден, письмо отправлено. Проверьте также папку «Спам».', 'success');
+    } else {
+      if (!/^\d{6}$/.test(codeInput.value.trim())) throw new Error('Введите шестизначный код из письма.');
+      if (passwordInput.value.length < 8) throw new Error('Новый пароль должен содержать минимум 8 символов.');
+      const vault = await accountRequest('reset-confirm', {
+        email, identifier, code: codeInput.value.trim(), password: passwordInput.value
+      });
+      await acceptCloudProfile(vault, passwordInput.value);
+      resetPasswordState = null;
+      codeInput.value = ''; passwordInput.value = '';
+      closeProfileModal();
+      showToast('Пароль изменён. Вход выполнен.', 'success');
     }
-
-    if (!vaultData) {
-      throw new Error('Данные профиля не найдены');
-    }
-
-    // 2. Update password in vault data and save to cloud
-    vaultData.passwordHash = newHash;
-    vaultData.savedPassword = newPassword;
-    vaultData.updatedAt = new Date().toISOString();
-
-    if (targetVaultId) {
-      try {
-        await updateCloudVault(targetVaultId, vaultData);
-      } catch (upErr) {
-        console.warn('Cloud vault update notice:', upErr);
-      }
-    }
-
-    // 3. Construct authenticated user profile using REAL user data
-    const realName = vaultData.userName || 'Трейдер';
-    const realUserId = vaultData.userId || 'usr_' + Date.now().toString(36);
-    const realEmail = vaultData.userEmail || email;
-    const realRegisteredAt = vaultData.createdAt || vaultData.updatedAt || new Date().toISOString();
-
-    const userProfile = {
-      userId: realUserId,
-      name: realName,
-      email: realEmail,
-      vaultId: targetVaultId,
-      passwordHash: newHash,
-      savedPassword: newPassword,
-      registeredAt: realRegisteredAt,
-      lastSyncAt: new Date().toISOString()
-    };
-
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userProfile));
-    currentUser = userProfile;
-
-    // 4. Merge all cloud data (trades, thoughts, presets) into local IndexedDB
-    if (Array.isArray(vaultData.trades) && typeof mergeCloudTrades === 'function') {
-      await mergeCloudTrades(vaultData.trades, vaultData.deletedTradeUuids || []);
-    }
-    if (Array.isArray(vaultData.thoughts) && typeof mergeCloudThoughts === 'function') {
-      await mergeCloudThoughts(vaultData.thoughts, vaultData.deletedThoughtUuids || []);
-    }
-
-    if (vaultData.presets) {
-      if (Array.isArray(vaultData.presets.tickers) && typeof saveCustomPresets === 'function') {
-        saveCustomPresets('symbol', vaultData.presets.tickers);
-      }
-      if (Array.isArray(vaultData.presets.setups) && typeof saveCustomPresets === 'function') {
-        saveCustomPresets('setup', vaultData.presets.setups);
-      }
-      if (Array.isArray(vaultData.presets.criteria) && typeof saveCustomPresets === 'function') {
-        saveCustomPresets('criteria', vaultData.presets.criteria);
-      }
-      if (Array.isArray(vaultData.presets.timeframes) && typeof saveCustomPresets === 'function') {
-        saveCustomPresets('timeframe', vaultData.presets.timeframes);
-      }
-      if (typeof populatePresetSelects === 'function') {
-        populatePresetSelects();
-      }
-    }
-
-    // 5. Refresh all screens in the app
-    if (typeof refreshTrades === 'function') {
-      await refreshTrades();
-    }
-    if (typeof loadAndRenderJournal === 'function') {
-      await loadAndRenderJournal();
-    }
-
-    resetPasswordState = null;
-    updateProfileUI();
-    closeProfileModal();
-    showToast(`Пароль успешно обновлён! Добро пожаловать, ${realName}!`, 'success');
-
-  } catch (err) {
-    console.error('Password reset step 2 error:', err);
-    showToast('Ошибка при сохранении нового пароля: ' + err.message, 'error');
-  } finally {
-    if (submitBtn) submitBtn.disabled = false;
-  }
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { button.disabled = false; }
 }
 window.handleResetPasswordSubmit = handleResetPasswordSubmit;
 
@@ -1471,8 +922,9 @@ window.copyProfilePasswordToClipboard = copyProfilePasswordToClipboard;
 /**
  * Logout User
  */
-function handleUserLogout() {
+async function handleUserLogout() {
   if (confirm('Выйти из профиля на этом устройстве? Все уже сохраненные здесь сделки останутся на месте.')) {
+    try { await accountRequest('logout'); } catch (error) { showToast('Нет связи с сервером. Повторите выход после подключения.', 'error'); return; }
     localStorage.removeItem(STORAGE_KEY_USER);
     currentUser = null;
     updateProfileUI();

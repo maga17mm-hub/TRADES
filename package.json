@@ -1,0 +1,13 @@
+{
+  "name": "tradelog",
+  "private": true,
+  "scripts": {
+    "build": "node tools/build.cjs",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy --config cloudflare/voice-signature/wrangler.jsonc && wrangler deploy",
+    "test": "node tests/assistant.test.cjs && node --test tests/cloudflare.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.2"
+  }
+}

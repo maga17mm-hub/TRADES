@@ -19,8 +19,8 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
   <!-- Fonts & Styles -->
-  <link rel="stylesheet" href="./css/style.css?v=32">
-  <link rel="stylesheet" href="./css/books.css?v=32">
+  <link rel="stylesheet" href="./css/style.css?v=33">
+  <link rel="stylesheet" href="./css/books.css?v=33">
   <script>
     // Apply the saved appearance before paint; existing theme choices are retained.
     try { document.documentElement.dataset.theme = localStorage.getItem("tradelog_theme") || "books"; }
@@ -956,8 +956,8 @@
             </div>
           </div>
           <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 0.72rem;">CORS Proxy URL (опционально, если API блокируется браузером)</label>
-            <input type="text" id="aiSettingProxy" class="form-input" style="font-size: 0.8rem;" placeholder="например https://corsproxy.io/?url={url}">
+            <label class="form-label" style="font-size: 0.72rem;">Подключение через сервер сайта</label>
+            <p class="form-helper">ИИ подключается напрямую через сервер. Переходить на сторонние сайты для разрешения доступа не нужно.</p>
           </div>
           <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
             <button type="button" class="btn btn-secondary btn-sm" onclick="resetAiSettings()">Сбросить</button>
@@ -1101,7 +1101,7 @@
               </svg>
             </div>
             <div class="auth-info-text">
-              Сброс пароля через электронную почту. Введите email вашего профиля, и мы вышлем 6-значный код подтверждения для установки нового пароля!
+              Введите email профиля — мы отправим шестизначный код для восстановления пароля.
             </div>
           </div>
 
@@ -1112,30 +1112,26 @@
 
           <div class="form-group">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <label class="form-label" for="resetSyncKey" style="margin-bottom: 0;">Код профиля (Sync Key вашего аккаунта)</label>
+              <label class="form-label" for="resetSyncKey" style="margin-bottom: 0;">Код профиля (необязательно)</label>
               <button type="button" class="btn-link" onclick="pasteToInput('resetSyncKey')" style="background: none; border: none; color: var(--brand, #ff6363); font-size: 0.78rem; cursor: pointer; text-decoration: underline; padding: 2px 4px;">
                 Вставить
               </button>
             </div>
-            <input type="text" id="resetSyncKey" class="form-input" placeholder="Код профиля вашего существующего аккаунта" autocomplete="off" required>
+            <input type="text" id="resetSyncKey" class="form-input" placeholder="Код профиля вашего существующего аккаунта" autocomplete="off">
           </div>
 
           <div id="resetVerificationStep" style="display: none;">
-            <div id="resetCodeBanner" style="background: var(--brand-soft, rgba(255, 99, 99, 0.1)); border: 1px solid var(--border-medium); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 14px;">
-              <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px;">Ваш проверочный код сброса:</div>
-              <div id="resetCodeDisplay" style="font-size: 1.5rem; font-weight: 700; letter-spacing: 4px; color: var(--brand); font-family: var(--font-mono); user-select: all;">------</div>
-              <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">Код также отправлен на ваш email. Введите его ниже и укажите новый пароль.</div>
-            </div>
 
             <div class="form-group">
               <label class="form-label" for="resetCode">Код подтверждения</label>
-              <input type="text" id="resetCode" class="form-input" placeholder="6-значный код..." maxlength="8" style="font-family: var(--font-mono); letter-spacing: 2px;">
-              <span class="form-helper">Введите код, показанный выше или полученный на почту</span>
+              <input type="text" id="resetCode" class="form-input" placeholder="Код из 6 цифр" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="font-family: var(--font-mono); letter-spacing: 2px;">
+              <span class="form-helper">Скопируйте весь код из письма. Срок действия — 15 минут.</span>
+              <button type="button" id="resetResendBtn" class="btn-link" onclick="resendResetCode()" style="margin-top: 8px;">Отправить код повторно</button>
             </div>
 
             <div class="form-group">
               <label class="form-label" for="resetNewPassword">Новый пароль</label>
-              <input type="password" id="resetNewPassword" class="form-input" placeholder="Минимум 4 символа...">
+              <input type="password" id="resetNewPassword" class="form-input" placeholder="Минимум 8 символов..." minlength="8" maxlength="256" autocomplete="new-password">
             </div>
           </div>
 
@@ -1179,7 +1175,7 @@
 
           <div class="form-group">
             <label class="form-label" for="regPassword">Придумайте пароль</label>
-            <input type="password" id="regPassword" class="form-input" placeholder="Минимум 4 символа..." autocomplete="new-password" required>
+            <input type="password" id="regPassword" class="form-input" placeholder="Минимум 8 символов..." autocomplete="new-password" required>
           </div>
 
           <button type="submit" id="regSubmitBtn" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; gap: 8px; margin-top: 16px; margin-bottom: 28px;">
@@ -1357,10 +1353,10 @@
             Голос и акцент
           </label>
           <select id="settingsVoiceSelect" class="form-select" onchange="handleVoiceSelectChange(this)" style="font-size: 0.86rem; padding: 10px 14px; border-radius: var(--radius-sm);">
-            <option value="">Дмитрий (Основной русский голос)</option>
+            <option value="">Дмитрий — нейросетевой (Microsoft Edge)</option>
           </select>
           <span class="form-helper" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px; display: block;">
-            Выберите голосовой синтезатор в вашей операционной системе или региональный акцент
+            Дмитрий доступен через интернет. Другие голоса устройства можно выбрать вручную.
           </span>
         </div>
 
@@ -1397,10 +1393,12 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="./js/db.js?v=32"></script>
-  <script src="./js/auth.js?v=32"></script>
-  <script src="./js/notes.js?v=32"></script>
-  <script src="./js/app.js?v=32"></script>
-  <script src="./js/ai.js?v=32"></script>
+  <script src="./js/db.js?v=33"></script>
+  <script src="./js/backend.js?v=33"></script>
+  <script src="./js/auth.js?v=33"></script>
+  <script src="./js/notes.js?v=33"></script>
+  <script src="./js/app.js?v=33"></script>
+  <script src="./js/trade-parser.js?v=33"></script>
+  <script src="./js/ai.js?v=33"></script>
 </body>
 </html>

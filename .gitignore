@@ -1,5 +1,16 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.vercel/
+node_modules/
+.venv/
 .DS_Store
 Thumbs.db
 *.log
 .vscode/
 .idea/
+dist/
+.wrangler/
+.dev.vars*

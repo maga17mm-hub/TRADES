@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tradelog",
+  "main": "cloudflare/index.mjs",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "services": [{"binding": "VOICE_SIGNATURE", "service": "tradelog-voice-signature"}],
+  "triggers": {"crons": ["23 3 * * *"]},
+  "assets": {"directory": "./dist", "binding": "ASSETS", "run_worker_first": ["/api/*"]},
+  "d1_databases": [{"binding": "DB", "database_name": "tradelog", "database_id": "6b494a6f-15eb-45ec-9601-a0e768ef721a", "migrations_dir": "cloudflare/migrations"}],
+  "vars": {"AI_BASE_URL": "https://tooken.club/v1", "AI_MODEL": "gpt-5.6-terra", "SMTP_HOST": "smtp.mail.ru", "SMTP_PORT": "465"}
+}

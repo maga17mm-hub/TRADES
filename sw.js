@@ -1,21 +1,25 @@
-const CACHE_NAME = 'tradelog-v32';
+const CACHE_NAME = 'tradelog-v33';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './css/style.css',
-  './css/style.css?v=32',
+  './css/style.css?v=33',
   './css/books.css',
-  './css/books.css?v=32',
+  './css/books.css?v=33',
   './js/db.js',
-  './js/db.js?v=32',
+  './js/db.js?v=33',
   './js/auth.js',
-  './js/auth.js?v=32',
+  './js/backend.js',
+  './js/backend.js?v=33',
+  './js/auth.js?v=33',
   './js/app.js',
-  './js/app.js?v=32',
+  './js/app.js?v=33',
+  './js/trade-parser.js',
+  './js/trade-parser.js?v=33',
   './js/ai.js',
-  './js/ai.js?v=32',
+  './js/ai.js?v=33',
   './js/notes.js',
-  './js/notes.js?v=32',
+  './js/notes.js?v=33',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -71,6 +75,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin || /\/api\//.test(url.pathname)) return;
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
 

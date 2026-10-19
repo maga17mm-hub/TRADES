@@ -63,7 +63,7 @@ const lightboxCaptionEl = document.getElementById('lightboxCaption');
 const recordTradeFormEl = document.getElementById('recordTradeForm');
 
 // App Build Version for auto cache invalidation
-const CURRENT_APP_BUILD = 'v32';
+const CURRENT_APP_BUILD = 'v33';
 
 function checkAppBuildVersion() {
   try {
@@ -2316,7 +2316,7 @@ function getThemeDisplayName(theme) {
 
 function populateSettingsVoiceList() {
   const select = document.getElementById('settingsVoiceSelect');
-  if (!select || !('speechSynthesis' in window)) return;
+  if (!select) return;
 
   const voices = typeof getAvailableRussianVoices === 'function' ? getAvailableRussianVoices() : [];
   let selectedVoice = localStorage.getItem('tradelog_selected_voice') || '';
@@ -2325,7 +2325,7 @@ function populateSettingsVoiceList() {
     selectedVoice = '';
   }
 
-  select.innerHTML = '<option value="">Дмитрий (Основной русский голос)</option>';
+  select.innerHTML = '<option value="">Дмитрий — нейросетевой (Microsoft Edge)</option>';
 
   voices.forEach(v => {
     const nameLower = (v.name || '').toLowerCase();
@@ -2346,7 +2346,7 @@ function handleVoiceSelectChange(selectEl) {
     showToast(`Выбран голос: ${selectEl.value}`, 'success');
   } else {
     localStorage.removeItem('tradelog_selected_voice');
-    showToast('Включен автовыбор голоса', 'info');
+    showToast('Выбран нейросетевой Дмитрий', 'info');
   }
 }
 window.handleVoiceSelectChange = handleVoiceSelectChange;
