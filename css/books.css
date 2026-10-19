@@ -56,8 +56,11 @@ html:not([data-theme]), [data-theme="books"] {
 }
 html[data-theme]:not([data-theme="books"]) { color-scheme: dark; --text-muted: #a0a19f; --text-secondary: #b6b7b4; --color-smoke: #a0a19f; --color-ash: #b6b7b4; }
 
-html, body { background: var(--bg-primary); color: var(--text-primary); font-size: 15px; overscroll-behavior-y: none; }
-body { background-image: none; padding-bottom: 0 !important; }
+html { background: var(--bg-primary); color: var(--text-primary); font-size: 15px; overflow-x: hidden; overflow-y: auto; }
+body { background: var(--bg-primary); color: var(--text-primary); font-size: 15px; background-image: none; padding-bottom: 0 !important; overflow-x: clip; overflow-y: visible; }
+@media (max-width: 767px) {
+  html, body { overscroll-behavior-y: none; }
+}
 button, input, textarea, select { font: inherit; }
 button, a, input, select, textarea { touch-action: manipulation; }
 button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
@@ -230,13 +233,14 @@ main.app-container { padding-top: 43px; }
   right: 0 !important;
   width: 100% !important;
   z-index: 999 !important;
+  pointer-events: none !important;
   background: linear-gradient(to top, var(--bg-primary) 30%, transparent) !important;
   padding-top: 18px;
   -webkit-transform: translate3d(0, 0, 0);
   transform: translate3d(0, 0, 0);
   will-change: transform;
 }
-.bottom-nav-inner { background: color-mix(in srgb, var(--bg-card) 90%, transparent); border-color: var(--border-subtle); box-shadow: 0 6px 26px rgb(0 0 0 / 8%); }
+.bottom-nav-inner { pointer-events: auto !important; background: color-mix(in srgb, var(--bg-card) 90%, transparent); border-color: var(--border-subtle); box-shadow: 0 6px 26px rgb(0 0 0 / 8%); }
 .bottom-nav-item { color: var(--text-secondary); }
 .bottom-nav-item.active { color: var(--text-primary); background: var(--bg-input); box-shadow: none; }
 .bottom-nav-item.active svg { stroke: var(--brand); }
@@ -368,6 +372,13 @@ body.modal-open {
   left: 0 !important;
   right: 0 !important;
 }
+@media (min-width: 768px) {
+  body.modal-open {
+    position: static !important;
+    overflow: hidden !important;
+    width: 100% !important;
+  }
+}
 body.modal-open main.app-container,
 body.modal-open .app-header {
   pointer-events: none !important;
@@ -417,6 +428,24 @@ body.modal-open::-webkit-scrollbar,
   height: 0 !important;
   background: transparent !important;
 }
+@media (min-width: 768px) {
+  .modal-overlay { overflow-y: auto !important; }
+  .modal-content {
+    max-height: 86vh !important;
+    overflow-y: auto !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--border-subtle) transparent !important;
+  }
+  .modal-content::-webkit-scrollbar {
+    display: block !important;
+    width: 6px !important;
+    height: 6px !important;
+  }
+  .modal-content::-webkit-scrollbar-track { background: transparent !important; }
+  .modal-content::-webkit-scrollbar-thumb { background: var(--border-subtle) !important; border-radius: 4px !important; }
+}
+.trade-criteria-badge { background: var(--bg-card) !important; border-color: var(--border-subtle) !important; color: var(--text-primary) !important; }
+.trade-criteria-badge svg { color: var(--win) !important; }
 .modal-header { position: sticky; top: 0; z-index: 2; background: var(--bg-modal); padding-block: 24px 19px; border-color: var(--border-subtle); gap: 14px; }
 .modal-title { font-family: var(--font-editorial); font-size: 29px; font-weight: 500; letter-spacing: -.7px; line-height: 1.2; }
 .close-btn, .btn-icon-danger { width: 40px; height: 40px; min-width: 40px; padding: 10px; border: 0; border-radius: 50%; background: var(--bg-input); }

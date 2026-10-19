@@ -1021,6 +1021,7 @@ async function executeAddTradeFromAi(tradeObj) {
     direction,
     timeframe,
     setup,
+    criteria: tradeObj.criteria || tradeObj.entryCriteria || tradeObj.entry_criteria || '',
     outcome,
     entryTime,
     exitTime,
@@ -1035,6 +1036,7 @@ async function executeAddTradeFromAi(tradeObj) {
   // Auto-save presets
   if (typeof saveTicker === 'function') saveTicker(symbol);
   if (typeof saveSetup === 'function') saveSetup(setup);
+  if (typeof saveCriteria === 'function' && tradeData.criteria) saveCriteria(tradeData.criteria);
   if (typeof saveTimeframe === 'function') saveTimeframe(timeframe);
 
   const newId = await addTrade(tradeData);

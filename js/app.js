@@ -63,7 +63,7 @@ const lightboxCaptionEl = document.getElementById('lightboxCaption');
 const recordTradeFormEl = document.getElementById('recordTradeForm');
 
 // App Build Version for auto cache invalidation
-const CURRENT_APP_BUILD = 'v23';
+const CURRENT_APP_BUILD = 'v24';
 
 function checkAppBuildVersion() {
   try {
@@ -1388,6 +1388,9 @@ function renderTradeCard(t) {
   `;
 }
 
+let savedTradeDetailScrollY = 0;
+let savedTradeModalScrollY = 0;
+
 function openTradeDetailModal(id) {
   const trade = allTrades.find((t) => String(t.id) === String(id));
   if (!trade) return;
@@ -1396,6 +1399,8 @@ function openTradeDetailModal(id) {
   const body = document.getElementById('tradeDetailBody');
   if (!modal || !body) return;
 
+  savedTradeDetailScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+
   const outcomeClass = (trade.outcome || 'be').toLowerCase();
   const dirClass = (trade.direction || 'long').toLowerCase();
   const outcomeLabel = trade.outcome === 'WIN' ? 'Тейк-профит' : trade.outcome === 'LOSS' ? 'Стоп-лосс' : 'Безубыток';
@@ -1403,6 +1408,7 @@ function openTradeDetailModal(id) {
   const exitFormatted = formatDateTimeDisplay(trade.exitTime);
   const durationText = calculateDuration(trade.entryTime, trade.exitTime);
   const pnlDisplay = escapeHtml(trade.pnl || '0R');
+  const criteriaValue = (trade.criteria || trade.entryCriteria || trade.entry_criteria || '').trim();
 
   let imagesHtml = '';
   if (trade.images && trade.images.length > 0) {
@@ -1482,9 +1488,11 @@ function openTradeDetailModal(id) {
         <span class="trade-detail-label">Длительность</span>
         <span class="trade-detail-val">${durationText || '—'}</span>
       </div>
-      <div class="trade-detail-item">
+      <div class="trade-detail-item trade-detail-item-full">
         <span class="trade-detail-label">Критерии входа</span>
-        <span class="trade-detail-val">${escapeHtml(trade.criteria || '—')}</span>
+        <div class="trade-detail-val trade-detail-criteria-val">
+          ${criteriaValue ? `<span class="trade-criteria-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>${escapeHtml(criteriaValue)}</span>` : '<span class="trade-detail-empty">Не указаны</span>'}
+        </div>
       </div>
     </div>
 
@@ -1519,7 +1527,9 @@ function openTradeDetailModal(id) {
   modal.classList.add('active');
   document.body.classList.add('modal-open');
   document.documentElement.classList.add('modal-open');
-  document.body.style.overflow = 'hidden';
+  if (window.innerWidth < 768) {
+    document.body.style.top = `-${savedTradeDetailScrollY}px`;
+  }
 }
 window.openTradeDetailModal = openTradeDetailModal;
 
@@ -1528,9 +1538,17 @@ function closeTradeDetailModal() {
   if (modal) {
     modal.classList.remove('active');
   }
-  document.body.classList.remove('modal-open');
-  document.documentElement.classList.remove('modal-open');
-  document.body.style.overflow = '';
+  const otherActiveModal = document.querySelector('.modal-overlay.active:not(#tradeDetailModal), .ai-modal-overlay.active');
+  if (!otherActiveModal) {
+    document.body.classList.remove('modal-open');
+    document.documentElement.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    const restoreY = Math.abs(parseInt(document.body.style.top || '0', 10)) || savedTradeDetailScrollY;
+    document.body.style.top = '';
+    if (restoreY && window.innerWidth < 768) {
+      window.scrollTo(0, restoreY);
+    }
+  }
 }
 window.closeTradeDetailModal = closeTradeDetailModal;
 
@@ -1721,6 +1739,7 @@ function setupEventListeners() {
         closeLightbox();
         return;
       }
+      closeTradeDetailModal();
       closeTradeModal();
       closeBackupModal();
     }
@@ -2011,14 +2030,15 @@ function openTradeModal(trade = null) {
     }
 
     if (criteriaSelect) {
-      const match = Array.from(criteriaSelect.options).find(o => o.value === trade.criteria);
+      const critVal = (trade.criteria || trade.entryCriteria || trade.entry_criteria || '').trim();
+      const match = Array.from(criteriaSelect.options).find(o => o.value === critVal);
       if (match) {
-        criteriaSelect.value = trade.criteria;
-      } else if (trade.criteria) {
+        criteriaSelect.value = critVal;
+      } else if (critVal) {
         criteriaSelect.value = '__custom__';
         if (criteriaCustom) {
           criteriaCustom.style.display = 'block';
-          criteriaCustom.value = trade.criteria || '';
+          criteriaCustom.value = critVal;
         }
       } else {
         const critList = getCustomPresets('criteria');
@@ -2074,10 +2094,13 @@ function openTradeModal(trade = null) {
     renderImagePreviews('formImagePreviews', modalTradeImages, null);
   });
 
+  savedTradeModalScrollY = window.scrollY || document.documentElement.scrollTop || 0;
   tradeModalEl.classList.add('active');
   document.body.classList.add('modal-open');
   document.documentElement.classList.add('modal-open');
-  document.body.style.overflow = 'hidden';
+  if (window.innerWidth < 768) {
+    document.body.style.top = `-${savedTradeModalScrollY}px`;
+  }
 }
 window.openTradeModal = openTradeModal;
 
@@ -2096,9 +2119,17 @@ window.editTrade = editTrade;
 
 function closeTradeModal() {
   tradeModalEl.classList.remove('active');
-  document.body.classList.remove('modal-open');
-  document.documentElement.classList.remove('modal-open');
-  document.body.style.overflow = '';
+  const otherActiveModal = document.querySelector('.modal-overlay.active:not(#tradeModal), .ai-modal-overlay.active');
+  if (!otherActiveModal) {
+    document.body.classList.remove('modal-open');
+    document.documentElement.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    const restoreY = Math.abs(parseInt(document.body.style.top || '0', 10)) || savedTradeModalScrollY;
+    document.body.style.top = '';
+    if (restoreY && window.innerWidth < 768) {
+      window.scrollTo(0, restoreY);
+    }
+  }
 
   ['symbol', 'direction', 'setup', 'timeframe', 'criteria'].forEach((type) => {
     const p = document.getElementById(`presetManager_${type}`);

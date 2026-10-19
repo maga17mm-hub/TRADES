@@ -170,8 +170,10 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
+html {
   min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   background-color: var(--color-void-black);
   color: var(--text-primary);
   font-family: var(--font-main);
@@ -179,10 +181,16 @@ html, body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
 }
 
 body {
+  min-height: 100vh;
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-x: clip;
+  overflow-y: visible;
   background-image: 
     radial-gradient(ellipse 90% 45% at 50% -10%, rgba(20, 60, 163, 0.16), transparent 70%),
     radial-gradient(circle at 100% 100%, rgba(255, 99, 99, 0.03), transparent 45%);
@@ -1120,6 +1128,45 @@ body {
   word-break: break-word;
 }
 
+.trade-detail-item-full {
+  grid-column: 1 / -1;
+}
+
+.trade-detail-criteria-val {
+  font-variant-numeric: normal;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.trade-criteria-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.trade-criteria-badge svg {
+  color: var(--win);
+  flex-shrink: 0;
+}
+
+.trade-detail-empty {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: normal;
+  font-style: italic;
+}
+
 .trade-detail-notes-box {
   padding: 10px 14px;
   background: var(--bg-card);
@@ -1304,15 +1351,45 @@ body.modal-open .bottom-nav {
 }
 
 @media (min-width: 768px) {
+  body.modal-open {
+    position: static !important;
+    overflow: hidden !important;
+    width: 100% !important;
+  }
+
   .modal-overlay {
     align-items: center;
-    padding: 20px;
+    padding: 24px 20px;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   .modal-content {
     border-radius: var(--radius-lg);
     transform: translateY(20px) scale(0.97);
-    max-height: 85vh;
+    max-height: 86vh;
+    overflow-y: auto !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--border-medium) transparent !important;
+  }
+
+  .modal-content::-webkit-scrollbar {
+    display: block !important;
+    width: 6px !important;
+    height: 6px !important;
+  }
+
+  .modal-content::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+
+  .modal-content::-webkit-scrollbar-thumb {
+    background: var(--border-medium) !important;
+    border-radius: 4px !important;
+  }
+
+  .modal-content::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted) !important;
   }
 }
 
