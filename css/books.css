@@ -668,6 +668,14 @@ body.modal-open::-webkit-scrollbar,
   color: #ffffff !important;
 }
 
+[data-theme="books"] #tabJournalView {
+  margin-top: -36px;
+}
+
+[data-theme="books"] .apple-journal-fab {
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 36px) !important;
+}
+
 [data-theme="books"] .apple-journal-card {
   background: #1e1927 !important;
   border-color: rgba(255, 255, 255, 0.06) !important;
