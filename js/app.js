@@ -63,7 +63,7 @@ const lightboxCaptionEl = document.getElementById('lightboxCaption');
 const recordTradeFormEl = document.getElementById('recordTradeForm');
 
 // App Build Version for auto cache invalidation
-const CURRENT_APP_BUILD = 'v35';
+const CURRENT_APP_BUILD = 'v36';
 
 function checkAppBuildVersion() {
   try {

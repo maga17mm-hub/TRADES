@@ -32,12 +32,13 @@ document.addEventListener('DOMContentLoaded', () => {
 function initAuthAndProfile() {
   loadLocalUserProfile();
   updateProfileUI();
+  setupCloudSyncTriggers();
 
   // If user is already logged in, trigger initial background sync
   if (currentUser && currentUser.vaultId) {
     setTimeout(() => {
       syncWithCloud(true).catch(err => console.warn('Initial background sync error:', err));
-    }, 2000);
+    }, 1200);
   }
 }
 window.initAuthAndProfile = initAuthAndProfile;
@@ -288,10 +289,21 @@ function sanitizeTradesForCloud(trades) {
     const clean = { ...t };
     if (Array.isArray(clean.images)) {
       clean.images = clean.images.slice(0, 2).map(img => {
-        if (typeof img === 'string' && img.length > 300000) {
-          return '';
+        if (!img) return null;
+        if (typeof img === 'string') {
+          return img.length > 350000 ? null : img;
         }
-        return img;
+        if (typeof img === 'object') {
+          const dataUrl = img.dataUrl || '';
+          if (dataUrl.length > 350000) return null;
+          return {
+            name: img.name || 'chart.webp',
+            dataUrl: dataUrl,
+            width: img.width || 0,
+            height: img.height || 0
+          };
+        }
+        return null;
       }).filter(Boolean);
     } else {
       clean.images = [];
@@ -326,7 +338,7 @@ async function accountRequest(action, payload = {}, retrySession = true) {
     const data = await response.json().catch(() => null);
     if (!data) throw new Error('Облако недоступно на этом адресе. Откройте сайт с серверными функциями.');
     if (response.status === 401 && retrySession && ['read', 'sync'].includes(action) && currentUser?.savedPassword) {
-      await accountRequest('login', {identifier: currentUser.vaultId, password: currentUser.savedPassword}, false);
+      await accountRequest('login', {identifier: currentUser.vaultId || currentUser.email, password: currentUser.savedPassword}, false);
       return accountRequest(action, payload, false);
     }
     if (!response.ok) throw new Error(data.error || 'Ошибка облачного сервиса');
@@ -475,6 +487,33 @@ async function handleRegisterSubmit(e) {
 
   } catch (err) {
     console.error('Registration failed:', err);
+    const errMsg = String(err?.message || '');
+    if (errMsg.includes('уже существует') || errMsg.includes('409') || errMsg.includes('already exists')) {
+      try {
+        if (submitBtn) {
+          submitBtn.innerHTML = `
+            <span class="btn-spinner"></span>
+            <span>Профиль найден, вход...</span>
+          `;
+        }
+        const vault = await accountRequest('login', { identifier: email, password: password });
+        await acceptCloudProfile(vault, password);
+        closeProfileModal();
+        showToast('Профиль найден! Вы успешно вошли, все сделки синхронизированы.', 'success');
+        return;
+      } catch (loginErr) {
+        switchAuthTab('login');
+        const loginInput = document.getElementById('loginSyncKey');
+        if (loginInput) loginInput.value = email;
+        const passInput = document.getElementById('loginPassword');
+        if (passInput) {
+          passInput.value = '';
+          passInput.focus();
+        }
+        showToast('Профиль с этим email уже существует. Введите пароль для входа.', 'info');
+        return;
+      }
+    }
     showToast(`Ошибка регистрации: ${err.message}`, 'error');
   } finally {
     if (submitBtn) {
@@ -490,18 +529,27 @@ window.handleRegisterSubmit = handleRegisterSubmit;
  */
 async function handleLoginSubmit(e) {
   if (e) e.preventDefault();
-  const identifier = cleanVaultId(document.getElementById('loginSyncKey').value);
+  const rawKey = document.getElementById('loginSyncKey').value;
+  const identifier = cleanVaultId(rawKey);
   const password = document.getElementById('loginPassword').value;
   const button = document.getElementById('loginSubmitBtn');
   if (!identifier || !password) return showToast('Введите email или код профиля и пароль', 'warning');
   button.disabled = true;
+  if (button) {
+    button.innerHTML = `<span class="btn-spinner"></span> <span>Вход в профиль...</span>`;
+  }
   try {
     const vault = await accountRequest('login', { identifier, password });
     await acceptCloudProfile(vault, password);
     closeProfileModal();
     showToast('Вход выполнен. Данные профиля загружены.', 'success');
   } catch (error) { showToast(error.message, 'error'); }
-  finally { button.disabled = false; }
+  finally {
+    button.disabled = false;
+    if (button) {
+      button.innerHTML = `<span>Войти в профиль</span>`;
+    }
+  }
 }
 
 async function acceptCloudProfile(vault, password) {
@@ -762,10 +810,42 @@ function scheduleAutoSync() {
   if (!isUserLoggedIn()) return;
   clearTimeout(autoSyncTimeout);
   autoSyncTimeout = setTimeout(() => {
+    autoSyncTimeout = null;
     syncWithCloud(true).catch(err => console.warn('Auto-sync error:', err));
-  }, 2500);
+  }, 600);
 }
 window.scheduleAutoSync = scheduleAutoSync;
+
+function flushPendingSync() {
+  if (!isUserLoggedIn() || !autoSyncTimeout) return;
+  clearTimeout(autoSyncTimeout);
+  autoSyncTimeout = null;
+  syncWithCloud(true).catch(() => {});
+}
+
+function setupCloudSyncTriggers() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isUserLoggedIn()) {
+      syncWithCloud(true).catch(() => {});
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    if (isUserLoggedIn()) {
+      syncWithCloud(true).catch(() => {});
+    }
+  });
+
+  window.addEventListener('pagehide', flushPendingSync);
+  window.addEventListener('beforeunload', flushPendingSync);
+
+  // Background sync every 45 seconds while tab is active
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && isUserLoggedIn() && !isSyncing) {
+      syncWithCloud(true).catch(() => {});
+    }
+  }, 45000);
+}
 
 /**
  * Manual Sync Button Handler

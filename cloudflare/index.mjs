@@ -9,7 +9,7 @@ function json(data, status = 200, cookie) {
 }
 export function checkOrigin(request) {
   const origin = request.headers.get('Origin');
-  const trustedPages = origin === 'https://maga17mm-hub.github.io';
+  const trustedPages = origin === 'https://maga17mm-hub.github.io' || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '');
   if ((origin && origin !== new URL(request.url).origin && !trustedPages) ||
       (request.headers.get('Sec-Fetch-Site') === 'cross-site' && !trustedPages))
     throw new ApiError('Запрос с другого сайта запрещён.', 403);
@@ -28,9 +28,7 @@ export async function api(request, env) {
   if (!body || Array.isArray(body) || typeof body !== 'object') throw new ApiError('Некорректный JSON.');
   if (url.pathname === '/api/account') {
     const {data, cookie} = await handleAccount(body, request, env);
-    // Only the existing GitHub Pages frontend receives a tab-scoped bearer token.
-    // Same-origin Cloudflare sessions continue to use HttpOnly cookies.
-    if (cookie && request.headers.get('Origin') === 'https://maga17mm-hub.github.io') {
+    if (cookie) {
       const token = cookie.match(/^tradelog_session=([^;]+)/)?.[1];
       if (token) data.sessionToken = token;
     }
@@ -69,7 +67,8 @@ export async function api(request, env) {
 export default {
   async fetch(request, env) {
     let response;
-    const pages = request.headers.get('Origin') === 'https://maga17mm-hub.github.io';
+    const origin = request.headers.get('Origin') || '';
+    const pages = origin === 'https://maga17mm-hub.github.io' || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
     try {
       if (request.method === 'OPTIONS') response = new Response(null, {status: pages ? 204 : 403});
       else response = await api(request, env);
@@ -80,7 +79,7 @@ export default {
     }
     if (pages) {
       response = new Response(response.body, response);
-      response.headers.set('Access-Control-Allow-Origin', 'https://maga17mm-hub.github.io');
+      response.headers.set('Access-Control-Allow-Origin', origin);
       response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
       response.headers.set('Vary', 'Origin');

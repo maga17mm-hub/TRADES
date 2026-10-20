@@ -30,7 +30,8 @@ function getThoughtSig(t) {
 function getDeletedTradeSigs() {
   try {
     const raw = localStorage.getItem(LS_DELETED_TRADES_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter(s => s && typeof s === 'string' && !/^\d+$/.test(s.trim())) : [];
   } catch {
     return [];
   }
@@ -39,10 +40,13 @@ function getDeletedTradeSigs() {
 function recordDeletedTradeTombstone(trade) {
   if (!trade) return;
   const sigs = new Set(getDeletedTradeSigs());
-  if (trade.uuid) sigs.add(trade.uuid);
+  if (trade.uuid && !/^\d+$/.test(String(trade.uuid).trim())) {
+    const cleanUuid = String(trade.uuid).replace(/^uuid:+/, '');
+    sigs.add(cleanUuid);
+    sigs.add('uuid:' + cleanUuid);
+  }
   const sig = getTradeSig(trade);
-  if (sig) sigs.add(sig);
-  if (trade.id !== undefined && trade.id !== null) sigs.add(String(trade.id));
+  if (sig && !/^\d+$/.test(String(sig).trim())) sigs.add(sig);
   try {
     localStorage.setItem(LS_DELETED_TRADES_KEY, JSON.stringify(Array.from(sigs).slice(-500)));
   } catch (_) {}
@@ -51,17 +55,22 @@ function recordDeletedTradeTombstone(trade) {
 function isTradeDeletedLocally(trade) {
   if (!trade) return false;
   const sigs = new Set(getDeletedTradeSigs());
-  if (trade.uuid && sigs.has(trade.uuid)) return true;
-  if (trade.id !== undefined && trade.id !== null && sigs.has(String(trade.id))) return true;
+  if (trade.uuid) {
+    const cleanUuid = String(trade.uuid).replace(/^uuid:+/, '');
+    if (sigs.has(cleanUuid) || sigs.has('uuid:' + cleanUuid)) return true;
+  }
   const sig = getTradeSig(trade);
   if (sig && sigs.has(sig)) return true;
+  const contentSig = `${(trade.symbol || '').toUpperCase()}|${(trade.entryTime || '').trim()}|${(trade.direction || '').toUpperCase()}`;
+  if (sigs.has(contentSig)) return true;
   return false;
 }
 
 function getDeletedThoughtSigs() {
   try {
     const raw = localStorage.getItem(LS_DELETED_THOUGHTS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter(s => s && typeof s === 'string' && !/^\d+$/.test(s.trim())) : [];
   } catch {
     return [];
   }
@@ -70,10 +79,13 @@ function getDeletedThoughtSigs() {
 function recordDeletedThoughtTombstone(thought) {
   if (!thought) return;
   const sigs = new Set(getDeletedThoughtSigs());
-  if (thought.uuid) sigs.add(thought.uuid);
+  if (thought.uuid && !/^\d+$/.test(String(thought.uuid).trim())) {
+    const cleanUuid = String(thought.uuid).replace(/^uuid:+/, '');
+    sigs.add(cleanUuid);
+    sigs.add('uuid:' + cleanUuid);
+  }
   const sig = getThoughtSig(thought);
-  if (sig) sigs.add(sig);
-  if (thought.id !== undefined && thought.id !== null) sigs.add(String(thought.id));
+  if (sig && !/^\d+$/.test(String(sig).trim())) sigs.add(sig);
   try {
     localStorage.setItem(LS_DELETED_THOUGHTS_KEY, JSON.stringify(Array.from(sigs).slice(-500)));
   } catch (_) {}
@@ -82,8 +94,10 @@ function recordDeletedThoughtTombstone(thought) {
 function isThoughtDeletedLocally(thought) {
   if (!thought) return false;
   const sigs = new Set(getDeletedThoughtSigs());
-  if (thought.uuid && sigs.has(thought.uuid)) return true;
-  if (thought.id !== undefined && thought.id !== null && sigs.has(String(thought.id))) return true;
+  if (thought.uuid) {
+    const cleanUuid = String(thought.uuid).replace(/^uuid:+/, '');
+    if (sigs.has(cleanUuid) || sigs.has('uuid:' + cleanUuid)) return true;
+  }
   const sig = getThoughtSig(thought);
   if (sig && sigs.has(sig)) return true;
   return false;
@@ -201,6 +215,23 @@ async function getAllTradesRaw() {
     request.onsuccess = () => {
       let items = request.result || [];
       items = items.filter(t => !isTradeDeletedLocally(t));
+      let needsBackfill = false;
+      items.forEach(t => {
+        if (!t.uuid) {
+          t.uuid = 'tr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+          needsBackfill = true;
+        }
+      });
+      if (needsBackfill) {
+        setTimeout(async () => {
+          try {
+            const upDb = await getDB();
+            const tx = upDb.transaction([STORE_NAME], 'readwrite');
+            const s = tx.objectStore(STORE_NAME);
+            items.forEach(t => { if (t.id && t.uuid) s.put(t); });
+          } catch (_) {}
+        }, 100);
+      }
       resolve(items);
     };
     request.onerror = (e) => reject(e.target.error);
@@ -278,8 +309,6 @@ async function deleteTrade(id) {
     const trade = await getTrade(id);
     if (trade) {
       recordDeletedTradeTombstone(trade);
-    } else {
-      recordDeletedTradeTombstone({ id: id });
     }
   } catch (_) {}
 
@@ -468,7 +497,7 @@ async function importFromJSON(jsonString) {
  * Client-side image optimization (compresses high-res chart screenshots)
  * Converts to WebP / JPEG with max dimensions to preserve chart readability while keeping DB fast
  */
-function compressImage(file, maxWidth = 1920, maxHeight = 1080, quality = 0.85) {
+function compressImage(file, maxWidth = 1280, maxHeight = 720, quality = 0.75) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -570,8 +599,6 @@ async function deleteJournalThought(id) {
     const thought = await getJournalThought(id);
     if (thought) {
       recordDeletedThoughtTombstone(thought);
-    } else {
-      recordDeletedThoughtTombstone({ id: id });
     }
   } catch (_) {}
 
@@ -629,9 +656,13 @@ async function getJournalThought(id) {
 async function mergeCloudTrades(cloudTrades, remoteDeletedSigs = []) {
   const localDeletedSigs = new Set(getDeletedTradeSigs());
   (remoteDeletedSigs || []).forEach(sig => {
-    if (sig) {
-      localDeletedSigs.add(String(sig));
-      recordDeletedTradeTombstone({ uuid: String(sig) });
+    if (sig && typeof sig === 'string') {
+      const clean = sig.trim().replace(/^uuid:+/, '');
+      if (clean && !/^\d+$/.test(clean)) {
+        localDeletedSigs.add(clean);
+        localDeletedSigs.add('uuid:' + clean);
+        recordDeletedTradeTombstone({ uuid: clean });
+      }
     }
   });
 
@@ -639,8 +670,7 @@ async function mergeCloudTrades(cloudTrades, remoteDeletedSigs = []) {
 
   // Purge any local trades that have been deleted in remote tombstones
   for (const lt of localTrades) {
-    const sig = getTradeSig(lt);
-    if (localDeletedSigs.has(sig) || (lt.uuid && localDeletedSigs.has(lt.uuid)) || localDeletedSigs.has(String(lt.id))) {
+    if (isTradeDeletedLocally(lt)) {
       await deleteTradeFromStoreOnly(lt.id);
     }
   }
@@ -648,29 +678,45 @@ async function mergeCloudTrades(cloudTrades, remoteDeletedSigs = []) {
   if (!Array.isArray(cloudTrades) || cloudTrades.length === 0) return 0;
 
   const freshLocalTrades = await getAllTradesRaw();
-  const localMap = new Map();
+  const localUuidMap = new Map();
+  const localContentMap = new Map();
+  const getContentKey = (t) => `${(t.symbol || '').toUpperCase()}|${(t.entryTime || '').trim()}|${(t.direction || '').toUpperCase()}`;
+
   freshLocalTrades.forEach(lt => {
-    localMap.set(getTradeSig(lt), lt);
+    if (lt.uuid) {
+      const clean = String(lt.uuid).replace(/^uuid:+/, '');
+      localUuidMap.set(clean, lt);
+    }
+    const ck = getContentKey(lt);
+    if (ck && !localContentMap.has(ck)) {
+      localContentMap.set(ck, lt);
+    }
   });
 
   let mergedCount = 0;
 
   for (const ct of cloudTrades) {
     if (!ct || typeof ct !== 'object') continue;
-    const sig = getTradeSig(ct);
+    if (isTradeDeletedLocally(ct)) continue;
 
-    // If trade was deleted locally or remotely, do NOT re-add or update it!
-    if (localDeletedSigs.has(sig) || (ct.uuid && localDeletedSigs.has(ct.uuid)) || localDeletedSigs.has(String(ct.id)) || isTradeDeletedLocally(ct)) {
-      continue;
+    const ctCleanUuid = ct.uuid ? String(ct.uuid).replace(/^uuid:+/, '') : '';
+    const ctContentKey = getContentKey(ct);
+
+    // Look for existing trade: first by UUID, then fallback to content key
+    let existing = ctCleanUuid ? localUuidMap.get(ctCleanUuid) : null;
+    if (!existing && ctContentKey) {
+      existing = localContentMap.get(ctContentKey);
     }
 
-    const existing = localMap.get(sig);
-
     if (existing) {
+      // If existing trade lacks UUID but cloud trade has one, attach it
+      if (!existing.uuid && ctCleanUuid) {
+        existing.uuid = ctCleanUuid;
+      }
       const cloudTime = ct.updatedAt ? new Date(ct.updatedAt).getTime() : 0;
       const localTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
-      if (cloudTime > localTime) {
-        const updated = { ...ct, id: existing.id };
+      if (cloudTime >= localTime) {
+        const updated = { ...ct, id: existing.id, uuid: existing.uuid || ctCleanUuid || ct.uuid };
         await updateTrade(updated);
         mergedCount++;
       }
@@ -680,7 +726,10 @@ async function mergeCloudTrades(cloudTrades, remoteDeletedSigs = []) {
       if (!newTrade.uuid) {
         newTrade.uuid = 'tr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
       }
-      await addTrade(newTrade);
+      const newId = await addTrade(newTrade);
+      newTrade.id = newId;
+      if (newTrade.uuid) localUuidMap.set(newTrade.uuid, newTrade);
+      if (ctContentKey) localContentMap.set(ctContentKey, newTrade);
       mergedCount++;
     }
   }
@@ -695,9 +744,13 @@ window.mergeCloudTrades = mergeCloudTrades;
 async function mergeCloudThoughts(cloudThoughts, remoteDeletedSigs = []) {
   const localDeletedSigs = new Set(getDeletedThoughtSigs());
   (remoteDeletedSigs || []).forEach(sig => {
-    if (sig) {
-      localDeletedSigs.add(String(sig));
-      recordDeletedThoughtTombstone({ uuid: String(sig) });
+    if (sig && typeof sig === 'string') {
+      const clean = sig.trim().replace(/^uuid:+/, '');
+      if (clean && !/^\d+$/.test(clean)) {
+        localDeletedSigs.add(clean);
+        localDeletedSigs.add('uuid:' + clean);
+        recordDeletedThoughtTombstone({ uuid: clean });
+      }
     }
   });
 
@@ -705,8 +758,7 @@ async function mergeCloudThoughts(cloudThoughts, remoteDeletedSigs = []) {
 
   // Purge any local thoughts that have been deleted in remote tombstones
   for (const lt of localThoughts) {
-    const sig = getThoughtSig(lt);
-    if (localDeletedSigs.has(sig) || (lt.uuid && localDeletedSigs.has(lt.uuid)) || localDeletedSigs.has(String(lt.id))) {
+    if (isThoughtDeletedLocally(lt)) {
       await deleteThoughtFromStoreOnly(lt.id);
     }
   }
@@ -714,29 +766,43 @@ async function mergeCloudThoughts(cloudThoughts, remoteDeletedSigs = []) {
   if (!Array.isArray(cloudThoughts) || cloudThoughts.length === 0) return 0;
 
   const freshLocalThoughts = await getAllJournalThoughts();
-  const localMap = new Map();
+  const localUuidMap = new Map();
+  const localContentMap = new Map();
+  const getThoughtKey = (t) => `${(t.createdAt || '').substring(0, 19)}|${(t.title || '').trim()}|${(t.text || '').substring(0, 30)}`;
+
   freshLocalThoughts.forEach(lt => {
-    localMap.set(getThoughtSig(lt), lt);
+    if (lt.uuid) {
+      const clean = String(lt.uuid).replace(/^uuid:+/, '');
+      localUuidMap.set(clean, lt);
+    }
+    const tk = getThoughtKey(lt);
+    if (tk && !localContentMap.has(tk)) {
+      localContentMap.set(tk, lt);
+    }
   });
 
   let mergedCount = 0;
 
   for (const ct of cloudThoughts) {
     if (!ct || typeof ct !== 'object') continue;
-    const sig = getThoughtSig(ct);
+    if (isThoughtDeletedLocally(ct)) continue;
 
-    // If thought was deleted locally or remotely, do NOT re-add or update it!
-    if (localDeletedSigs.has(sig) || (ct.uuid && localDeletedSigs.has(ct.uuid)) || localDeletedSigs.has(String(ct.id)) || isThoughtDeletedLocally(ct)) {
-      continue;
+    const ctCleanUuid = ct.uuid ? String(ct.uuid).replace(/^uuid:+/, '') : '';
+    const ctThoughtKey = getThoughtKey(ct);
+
+    let existing = ctCleanUuid ? localUuidMap.get(ctCleanUuid) : null;
+    if (!existing && ctThoughtKey) {
+      existing = localContentMap.get(ctThoughtKey);
     }
 
-    const existing = localMap.get(sig);
-
     if (existing) {
+      if (!existing.uuid && ctCleanUuid) {
+        existing.uuid = ctCleanUuid;
+      }
       const cloudTime = ct.updatedAt ? new Date(ct.updatedAt).getTime() : 0;
       const localTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
-      if (cloudTime > localTime) {
-        const updated = { ...ct, id: existing.id };
+      if (cloudTime >= localTime) {
+        const updated = { ...ct, id: existing.id, uuid: existing.uuid || ctCleanUuid || ct.uuid };
         await updateJournalThought(updated);
         mergedCount++;
       }
@@ -746,7 +812,10 @@ async function mergeCloudThoughts(cloudThoughts, remoteDeletedSigs = []) {
       if (!newThought.uuid) {
         newThought.uuid = 'th_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
       }
-      await addJournalThought(newThought);
+      const newId = await addJournalThought(newThought);
+      newThought.id = newId;
+      if (newThought.uuid) localUuidMap.set(newThought.uuid, newThought);
+      if (ctThoughtKey) localContentMap.set(ctThoughtKey, newThought);
       mergedCount++;
     }
   }

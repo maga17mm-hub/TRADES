@@ -1,5 +1,5 @@
 /* GitHub Pages keeps the existing IndexedDB; only API calls go to Cloudflare. */
-const TRADELOG_API_ORIGIN = location.hostname === 'maga17mm-hub.github.io'
+const TRADELOG_API_ORIGIN = (location.hostname === 'maga17mm-hub.github.io' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')
   ? 'https://tradelog.maga17mm-trades.workers.dev' : '';
 const TRADELOG_SESSION_KEY = 'tradelog_cloud_session';
 

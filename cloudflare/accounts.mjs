@@ -57,7 +57,7 @@ async function github(env, path) {
   return response.json();
 }
 async function unpackGist(gist) {
-  const file = gist?.files?.['tradelog_vault.json'];
+  const file = gist?.files?.['tradelog_vault.json'] || (gist?.files ? Object.values(gist.files)[0] : null);
   if (!file) return null;
   let data;
   if (file.truncated || !file.content) {
@@ -107,7 +107,16 @@ function chunkStatements(env, id, vault) {
 }
 async function publicVault(env, account) {
   const chunks = await query(env, 'SELECT content FROM vault_chunks WHERE account_id=? ORDER BY chunk_index', account.id).all();
-  const data = JSON.parse(chunks.results.map(row => row.content).join('') || '{}');
+  let data = JSON.parse(chunks.results.map(row => row.content).join('') || '{}');
+  if ((!data.trades || data.trades.length === 0) && env.LEGACY_GITHUB_TOKEN) {
+    try {
+      const legacy = await legacyVault(env, account.id) || (account.email ? await legacyVault(env, account.email) : null);
+      if (legacy && Array.isArray(legacy.trades) && legacy.trades.length > 0) {
+        data = { ...legacy, ...data, trades: legacy.trades, thoughts: legacy.thoughts || data.thoughts || [] };
+        await env.DB.batch(chunkStatements(env, account.id, data));
+      }
+    } catch (_) {}
+  }
   return {...data, version: 3, vaultId: account.id, userId: account.id, userName: account.name,
     userEmail: account.email, createdAt: account.created_at};
 }
@@ -165,11 +174,20 @@ export async function sendRecovery(env, email, code) {
   }
 }
 
+function cleanIdentifier(raw) {
+  if (!raw) return '';
+  let str = String(raw).trim().replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/^["']|["']$/g, '');
+  if (str.toUpperCase().startsWith('TL-') || str.toUpperCase().startsWith('TL_')) str = str.substring(3).trim();
+  const urlMatch = str.match(/gist\.github(?:usercontent)?\.com\/[^/]+\/([a-f0-9]{20,40})/i);
+  if (urlMatch) return urlMatch[1].toLowerCase();
+  return str;
+}
+
 export async function handleAccount(body, request, env, services = {}) {
   const action = body.action;
   const ip = request.headers.get('CF-Connecting-IP') || 'local';
-  const identifier = String(body.identifier || body.email || '').trim();
-  const email = String(body.email || '').trim().toLowerCase();
+  const identifier = cleanIdentifier(body.identifier || body.email || '');
+  const email = cleanIdentifier(body.email || (identifier.includes('@') ? identifier : '')).toLowerCase();
   if (action === 'logout') {
     await query(env, 'DELETE FROM sessions WHERE token_hash=?', await digest(cookieToken(request))).run();
     return {data: {}, cookie: sessionCookie('', request.url)};
@@ -248,7 +266,9 @@ export async function handleAccount(body, request, env, services = {}) {
     return {data: await publicVault(env, account), cookie: await newSession(env, account, request.url)};
   }
   const account = await authenticate(request, env);
-  if (identifier && identifier !== account.id) throw new ApiError('Нет доступа к другому профилю.', 403);
+  if (identifier && identifier.toLowerCase() !== account.id.toLowerCase() && identifier.toLowerCase() !== account.email.toLowerCase()) {
+    throw new ApiError('Нет доступа к другому профилю.', 403);
+  }
   if (action === 'read') return {data: await publicVault(env, account)};
   if (action === 'sync') {
     await rateLimit(env, 'sync:' + account.id, 60, 60);
