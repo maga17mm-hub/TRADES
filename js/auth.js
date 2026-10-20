@@ -328,15 +328,16 @@ function sanitizeThoughtsForCloud(thoughts) {
  */
 async function accountRequest(action, payload = {}, retrySession = true) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 55000);
+  const timer = setTimeout(() => controller.abort(), 35000);
   try {
     const response = await tradeLogApiFetch('/api/account', {
-      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, ...payload }), signal: controller.signal
+      body: JSON.stringify({ action, ...payload }),
+      signal: controller.signal
     });
     const data = await response.json().catch(() => null);
-    if (!data) throw new Error('Облако недоступно на этом адресе. Откройте сайт с серверными функциями.');
+    if (!data) throw new Error('Облачный сервер вернул пустой ответ. Повторите попытку.');
     if (response.status === 401 && retrySession && ['read', 'sync'].includes(action) && currentUser?.savedPassword) {
       await accountRequest('login', {identifier: currentUser.vaultId || currentUser.email, password: currentUser.savedPassword}, false);
       return accountRequest(action, payload, false);
@@ -349,7 +350,11 @@ async function accountRequest(action, payload = {}, retrySession = true) {
     if (action === 'logout') sessionStorage.removeItem(TRADELOG_SESSION_KEY);
     return data;
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error('Сервер не ответил. Повторите позже.');
+    if (error.name === 'AbortError') throw new Error('Сервер не ответил вовремя. Проверьте интернет-соединение.');
+    const msg = String(error.message || '');
+    if (msg.toLowerCase().includes('load failed') || msg.toLowerCase().includes('failed to fetch')) {
+      throw new Error('Не удалось подключиться к облачному серверу. Проверьте интернет.');
+    }
     throw error;
   } finally { clearTimeout(timer); }
 }
@@ -454,10 +459,22 @@ async function handleRegisterSubmit(e) {
       deletedThoughtUuids: typeof getDeletedThoughtSigs === 'function' ? getDeletedThoughtSigs() : []
     };
 
-    const vaultId = await createCloudVault(vaultData);
+    let vaultId = null;
+    let cloudSynced = false;
+    try {
+      vaultId = await createCloudVault(vaultData);
+      cloudSynced = true;
+    } catch (cloudErr) {
+      console.warn('Cloud vault creation error:', cloudErr);
+      const errMsg = String(cloudErr?.message || '');
+      if (errMsg.includes('уже существует') || errMsg.includes('409') || errMsg.includes('already exists')) {
+        throw cloudErr;
+      }
+      vaultId = 'tl_' + userId;
+    }
 
     if (!vaultId) {
-      throw new Error('Не удалось сгенерировать код профиля');
+      vaultId = 'tl_' + userId;
     }
 
     // Save profile locally
@@ -469,14 +486,18 @@ async function handleRegisterSubmit(e) {
       passwordHash: passwordHash,
       savedPassword: password,
       registeredAt: new Date().toISOString(),
-      lastSyncAt: new Date().toISOString()
+      lastSyncAt: cloudSynced ? new Date().toISOString() : null
     };
 
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userProfile));
     currentUser = userProfile;
 
     updateProfileUI();
-    showToast('Профиль успешно создан! Данные синхронизированы.', 'success');
+    if (cloudSynced) {
+      showToast('Профиль успешно создан! Данные синхронизированы.', 'success');
+    } else {
+      showToast('Профиль создан! Облачная синхронизация подключится при появлении связи.', 'info');
+    }
 
     // Switch to profile view
     await renderProfileModalDetails(currentUser);
@@ -704,6 +725,51 @@ async function syncWithCloud(silent = false) {
   }
 
   try {
+    // If the profile was created locally when offline, register or link to cloud now
+    if (user.vaultId && user.vaultId.startsWith('tl_') && user.savedPassword) {
+      try {
+        const rawTrades = typeof getAllTradesRaw === 'function' ? await getAllTradesRaw() : [];
+        const rawThoughts = typeof getAllJournalThoughts === 'function' ? await getAllJournalThoughts() : [];
+        const registered = await accountRequest('register', {
+          vault: {
+            userId: user.userId,
+            userName: user.name,
+            userEmail: user.email,
+            trades: sanitizeTradesForCloud(rawTrades),
+            thoughts: sanitizeThoughtsForCloud(rawThoughts),
+            presets: {
+              tickers: typeof getCustomPresets === 'function' ? getCustomPresets('symbol') : [],
+              directions: typeof getCustomPresets === 'function' ? getCustomPresets('direction') : [],
+              setups: typeof getCustomPresets === 'function' ? getCustomPresets('setup') : [],
+              timeframes: typeof getCustomPresets === 'function' ? getCustomPresets('timeframe') : [],
+              criteria: typeof getCustomPresets === 'function' ? getCustomPresets('criteria') : []
+            },
+            deletedTradeUuids: typeof getDeletedTradeSigs === 'function' ? getDeletedTradeSigs() : [],
+            deletedThoughtUuids: typeof getDeletedThoughtSigs === 'function' ? getDeletedThoughtSigs() : []
+          },
+          password: user.savedPassword
+        });
+        if (registered && registered.vaultId) {
+          user.vaultId = registered.vaultId;
+          localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+          currentUser = user;
+          updateProfileUI();
+        }
+      } catch (regErr) {
+        if (String(regErr?.message || '').includes('уже существует') || String(regErr?.message || '').includes('409')) {
+          try {
+            const loggedIn = await accountRequest('login', { identifier: user.email, password: user.savedPassword });
+            if (loggedIn && loggedIn.vaultId) {
+              user.vaultId = loggedIn.vaultId;
+              localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+              currentUser = user;
+              updateProfileUI();
+            }
+          } catch (_) {}
+        }
+      }
+    }
+
     // 1. Fetch remote vault
     const remoteData = await fetchCloudVault(user.vaultId);
 

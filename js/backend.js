@@ -1,6 +1,6 @@
 /* GitHub Pages keeps the existing IndexedDB; only API calls go to Cloudflare. */
-const TRADELOG_API_ORIGIN = (location.hostname === 'maga17mm-hub.github.io' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'https://tradelog.maga17mm-trades.workers.dev' : '';
+const TRADELOG_API_ORIGIN = location.hostname === 'tradelog.maga17mm-trades.workers.dev'
+  ? '' : 'https://tradelog.maga17mm-trades.workers.dev';
 const TRADELOG_SESSION_KEY = 'tradelog_cloud_session';
 
 function tradeLogApiFetch(path, options = {}) {
@@ -9,7 +9,13 @@ function tradeLogApiFetch(path, options = {}) {
     const token = sessionStorage.getItem(TRADELOG_SESSION_KEY);
     if (token) headers.set('Authorization', 'Bearer ' + token);
   }
+  const cleanOptions = { ...options };
+  delete cleanOptions.headers;
+  delete cleanOptions.cache;
+  delete cleanOptions.credentials;
   return fetch(TRADELOG_API_ORIGIN + path, {
-    ...options, headers, credentials: TRADELOG_API_ORIGIN ? 'omit' : 'same-origin'
+    ...cleanOptions,
+    headers,
+    credentials: TRADELOG_API_ORIGIN ? 'omit' : 'same-origin'
   });
 }
