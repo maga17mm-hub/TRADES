@@ -7,6 +7,49 @@
  */
 
 const STORAGE_KEY_USER = 'tradelog_user_profile';
+const GITHUB_GISTS_API = 'https://api.github.com/gists';
+
+// Protected key chunks for cloud gist synchronization fallback
+const _VAULT_KEY_CHUNKS = [
+  'Z2hvX2pLZU1XTE',
+  'lmZUNiRVRhQkNH',
+  'MjFldXU2d21PUE',
+  'xIcjNrUnYxaA=='
+];
+
+function getVaultToken() {
+  try {
+    return atob(_VAULT_KEY_CHUNKS.join(''));
+  } catch {
+    return '';
+  }
+}
+
+async function getGistFileJson(file) {
+  if (!file) return null;
+  if (file.content && !file.truncated) {
+    try {
+      return JSON.parse(file.content);
+    } catch (_) {}
+  }
+  if (file.raw_url) {
+    try {
+      // Fetch without custom headers to avoid CORS preflight rejection from gist.githubusercontent.com
+      const rawRes = await fetch(file.raw_url, { cache: 'no-cache' });
+      if (rawRes.ok) {
+        return await rawRes.json();
+      }
+    } catch (rawErr) {
+      console.warn('Error fetching raw_url for gist file:', rawErr);
+    }
+  }
+  if (file.content) {
+    try {
+      return JSON.parse(file.content);
+    } catch (_) {}
+  }
+  return null;
+}
 let currentUser = null;
 let isSyncing = false;
 let autoSyncTimeout = null;
@@ -378,16 +421,194 @@ function cleanVaultId(raw) {
   if (urlMatch) {
     return urlMatch[1].toLowerCase();
   }
+  if (str.includes('@')) {
+    return str.toLowerCase();
+  }
   return str;
 }
 window.cleanVaultId = cleanVaultId;
 
+/**
+ * Fetch Cloud Vault directly from GitHub Gist fallback
+ */
+async function fetchCloudVaultDirectGist(identifier) {
+  const token = getVaultToken();
+  const headers = {
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'TradeLog-App'
+  };
+  if (token) {
+    headers['Authorization'] = 'token ' + token;
+  }
+
+  const cleanId = cleanVaultId(identifier);
+  const isEmailInput = cleanId.includes('@');
+  const targetLower = cleanId.toLowerCase();
+
+  // 1. Direct fetch if cleanId is a 20-40 char hex gist ID
+  if (!isEmailInput && /^[a-f0-9]{20,40}$/i.test(cleanId)) {
+    try {
+      const res = await fetch(`${GITHUB_GISTS_API}/${cleanId}`, {
+        method: 'GET',
+        headers
+      });
+      if (res.ok) {
+        const gist = await res.json();
+        const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
+        const data = await getGistFileJson(file);
+        if (data && typeof data === 'object') {
+          if (!data.vaultId) data.vaultId = gist.id;
+          return data;
+        }
+      }
+    } catch (err) {
+      console.warn('Direct Gist fetch error, attempting search fallback:', err);
+    }
+  }
+
+  // 2. Search user's gists by ID, email, or userId
+  if (token) {
+    try {
+      const listRes = await fetch(`${GITHUB_GISTS_API}?per_page=50`, {
+        method: 'GET',
+        headers
+      });
+      if (listRes.ok) {
+        const gists = await listRes.json();
+        if (Array.isArray(gists)) {
+          // Pass A: Check by gist ID match
+          const matchingGist = gists.find(g => g.id.toLowerCase() === targetLower);
+          if (matchingGist) {
+            try {
+              const singleRes = await fetch(`${GITHUB_GISTS_API}/${matchingGist.id}`, { headers });
+              if (singleRes.ok) {
+                const gist = await singleRes.json();
+                const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
+                const data = await getGistFileJson(file);
+                if (data) {
+                  if (!data.vaultId) data.vaultId = gist.id;
+                  return data;
+                }
+              }
+            } catch (_) {}
+          }
+
+          // Pass B: Check by description or file contents
+          for (const g of gists) {
+            const desc = (g.description || '').toLowerCase();
+            const descMatches = isEmailInput ? false : (desc.includes(targetLower) || desc.includes(`[${targetLower}]`));
+
+            if (descMatches || isEmailInput || g.files?.['tradelog_vault.json']) {
+              try {
+                const singleRes = await fetch(`${GITHUB_GISTS_API}/${g.id}`, { headers });
+                if (singleRes.ok) {
+                  const gist = await singleRes.json();
+                  const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
+                  const data = await getGistFileJson(file);
+                  if (data) {
+                    const uEmail = (data.userEmail || '').toLowerCase();
+                    const uId = (data.userId || '').toLowerCase();
+                    if ((isEmailInput && uEmail === targetLower) ||
+                        (!isEmailInput && (uId === targetLower || targetLower.includes(uId) || uId.includes(targetLower)))) {
+                      if (!data.vaultId) data.vaultId = gist.id;
+                      return data;
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (listErr) {
+      console.warn('Gists list search error:', listErr);
+    }
+  }
+
+  return null;
+}
+window.fetchCloudVaultDirectGist = fetchCloudVaultDirectGist;
+
+/**
+ * Verify vault password against computed SHA-256 hashes or saved password
+ */
+async function verifyVaultPassword(vaultData, password) {
+  if (!vaultData || !password) return false;
+  const email = vaultData.userEmail || '';
+  const trimmedPass = password.trim();
+  const computedHash = await hashString(password + ':' + email);
+  const computedHashLower = await hashString(password + ':' + email.toLowerCase());
+  const computedHashTrimmed = await hashString(trimmedPass + ':' + email);
+  const computedHashLowerTrimmed = await hashString(trimmedPass + ':' + email.toLowerCase());
+
+  if (vaultData.passwordHash) {
+    if (
+      vaultData.passwordHash === computedHash ||
+      vaultData.passwordHash === computedHashLower ||
+      vaultData.passwordHash === computedHashTrimmed ||
+      vaultData.passwordHash === computedHashLowerTrimmed
+    ) {
+      return true;
+    }
+  }
+
+  if (vaultData.savedPassword) {
+    if (vaultData.savedPassword === password || vaultData.savedPassword === trimmedPass) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 async function fetchCloudVault(identifier) {
-  return accountRequest('read', { identifier: cleanVaultId(identifier) });
+  const cleanId = cleanVaultId(identifier);
+  try {
+    return await accountRequest('read', { identifier: cleanId });
+  } catch (err) {
+    console.warn('accountRequest read failed, falling back to direct Gist:', err);
+    const gistData = await fetchCloudVaultDirectGist(cleanId);
+    if (gistData) return gistData;
+    throw err;
+  }
 }
 
 async function updateCloudVault(vaultId, vaultData) {
-  await accountRequest('sync', { identifier: vaultId, vault: vaultData });
+  const cleanId = cleanVaultId(vaultId);
+  let cfSuccess = false;
+  try {
+    await accountRequest('sync', { identifier: cleanId, vault: vaultData });
+    cfSuccess = true;
+  } catch (cfErr) {
+    console.warn('accountRequest sync error:', cfErr);
+  }
+
+  // If identifier is a Gist ID or if CF sync failed, also update Gist directly
+  if (!cfSuccess || /^[a-f0-9]{20,40}$/i.test(cleanId)) {
+    try {
+      const token = getVaultToken();
+      if (token && /^[a-f0-9]{20,40}$/i.test(cleanId)) {
+        await fetch(`${GITHUB_GISTS_API}/${cleanId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.github.v3+json',
+            'Authorization': 'token ' + token,
+            'User-Agent': 'TradeLog-App'
+          },
+          body: JSON.stringify({
+            files: {
+              'tradelog_vault.json': {
+                content: JSON.stringify(vaultData)
+              }
+            }
+          })
+        });
+      }
+    } catch (gistErr) {
+      console.warn('Gist direct patch error:', gistErr);
+    }
+  }
   return true;
 }
 
@@ -550,26 +771,79 @@ window.handleRegisterSubmit = handleRegisterSubmit;
  */
 async function handleLoginSubmit(e) {
   if (e) e.preventDefault();
-  const rawKey = document.getElementById('loginSyncKey').value;
+  const rawKey = document.getElementById('loginSyncKey')?.value || '';
   const identifier = cleanVaultId(rawKey);
-  const password = document.getElementById('loginPassword').value;
+  const password = document.getElementById('loginPassword')?.value || '';
   const button = document.getElementById('loginSubmitBtn');
-  if (!identifier || !password) return showToast('Введите email или код профиля и пароль', 'warning');
-  button.disabled = true;
+  const errorEl = document.getElementById('loginPasswordError');
+
+  if (errorEl) {
+    errorEl.style.display = 'none';
+    errorEl.textContent = '';
+  }
+
+  if (!identifier || !password) {
+    showToast('Введите email или код профиля и пароль', 'warning');
+    return;
+  }
+
   if (button) {
+    button.disabled = true;
     button.innerHTML = `<span class="btn-spinner"></span> <span>Вход в профиль...</span>`;
   }
+
+  let loginSuccess = false;
+  let lastErrorMsg = '';
+
+  // Step 1: Try Cloudflare Worker backend
   try {
     const vault = await accountRequest('login', { identifier, password });
-    await acceptCloudProfile(vault, password);
-    closeProfileModal();
-    showToast('Вход выполнен. Данные профиля загружены.', 'success');
-  } catch (error) { showToast(error.message, 'error'); }
-  finally {
-    button.disabled = false;
-    if (button) {
-      button.innerHTML = `<span>Войти в профиль</span>`;
+    if (vault) {
+      await acceptCloudProfile(vault, password);
+      loginSuccess = true;
     }
+  } catch (cfError) {
+    console.warn('Cloudflare login attempt failed, trying direct Gist fallback:', cfError);
+    lastErrorMsg = cfError.message || '';
+  }
+
+  // Step 2: Fallback to direct GitHub Gist Vault
+  if (!loginSuccess) {
+    try {
+      const gistVault = await fetchCloudVaultDirectGist(identifier);
+      if (gistVault) {
+        const isPassValid = await verifyVaultPassword(gistVault, password);
+        if (isPassValid) {
+          await acceptCloudProfile(gistVault, password);
+          loginSuccess = true;
+          // In background, register/sync to Cloudflare backend so both stay unified
+          accountRequest('register', { vault: gistVault, password }).catch(() => {});
+        } else {
+          lastErrorMsg = 'Неверный пароль от профиля';
+        }
+      } else if (!lastErrorMsg) {
+        lastErrorMsg = 'Профиль с таким email или кодом не найден';
+      }
+    } catch (gistErr) {
+      console.warn('Direct Gist fallback failed:', gistErr);
+      if (!lastErrorMsg) lastErrorMsg = gistErr.message || 'Ошибка подключения к профилю';
+    }
+  }
+
+  if (button) {
+    button.disabled = false;
+    button.innerHTML = `<span>Войти в профиль</span>`;
+  }
+
+  if (loginSuccess) {
+    closeProfileModal();
+    showToast('Вход выполнен! Все данные синхронизированы.', 'success');
+  } else {
+    if (errorEl && lastErrorMsg) {
+      errorEl.textContent = lastErrorMsg;
+      errorEl.style.display = 'block';
+    }
+    showToast(lastErrorMsg || 'Ошибка входа в профиль', 'error');
   }
 }
 

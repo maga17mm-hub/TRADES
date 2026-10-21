@@ -19,6 +19,7 @@ let currentFilter = {
 let recordTradeImages = [];
 let modalTradeImages = [];
 let editingTradeId = null;
+let editingTrade = null;
 let deferredInstallPrompt = null;
 
 // DOM Elements - Tabs & Nav
@@ -63,7 +64,7 @@ const lightboxCaptionEl = document.getElementById('lightboxCaption');
 const recordTradeFormEl = document.getElementById('recordTradeForm');
 
 // App Build Version for auto cache invalidation
-const CURRENT_APP_BUILD = 'v37';
+const CURRENT_APP_BUILD = 'v38';
 
 function checkAppBuildVersion() {
   try {
@@ -1969,6 +1970,7 @@ async function handleRecordTradeSubmit(e) {
  */
 function openTradeModal(trade = null) {
   editingTradeId = trade ? trade.id : null;
+  editingTrade = trade || null;
   if (modalTitleEl) {
     modalTitleEl.textContent = trade ? `Редактирование сделки #${trade.id}` : 'Новая сделка';
   }
@@ -2118,6 +2120,8 @@ async function editTrade(id) {
 window.editTrade = editTrade;
 
 function closeTradeModal() {
+  editingTradeId = null;
+  editingTrade = null;
   tradeModalEl.classList.remove('active');
   const otherActiveModal = document.querySelector('.modal-overlay.active:not(#tradeModal), .ai-modal-overlay.active');
   if (!otherActiveModal) {
@@ -2251,6 +2255,11 @@ async function handleModalTradeSubmit(e) {
   try {
     if (editingTradeId) {
       tradeData.id = editingTradeId;
+      const existing = editingTrade || (typeof getTrade === 'function' ? await getTrade(editingTradeId) : null);
+      if (existing) {
+        if (existing.uuid) tradeData.uuid = existing.uuid;
+        if (existing.createdAt) tradeData.createdAt = existing.createdAt;
+      }
       await updateTrade(tradeData);
       showToast('Сделка успешно обновлена!', 'success');
     } else {

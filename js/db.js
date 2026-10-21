@@ -276,7 +276,26 @@ async function addTrade(trade) {
  * Update existing trade
  */
 async function updateTrade(trade) {
+  if (!trade) return;
   const db = await getDB();
+
+  // Ensure uuid and createdAt are preserved on edit even if caller omitted them
+  if (trade.id && (!trade.uuid || !trade.createdAt)) {
+    try {
+      const existing = await getTrade(trade.id);
+      if (existing) {
+        if (!trade.uuid && existing.uuid) trade.uuid = existing.uuid;
+        if (!trade.createdAt && existing.createdAt) trade.createdAt = existing.createdAt;
+      }
+    } catch (_) {}
+  }
+  if (!trade.uuid) {
+    trade.uuid = 'tr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+  }
+  if (!trade.createdAt) {
+    trade.createdAt = new Date().toISOString();
+  }
+
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
@@ -354,6 +373,100 @@ async function getTrade(id) {
 }
 
 /**
+ * Deduplicate local trades in IndexedDB:
+ * 1. Groups by UUID: preserves newest trade by updatedAt/id, removes duplicates.
+ * 2. Groups by trade signature (symbol, direction, entryTime, outcome): preserves newest, removes duplicates.
+ */
+async function deduplicateTradesLocal() {
+  const db = await getDB();
+  const rawList = await new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_NAME], 'readonly');
+    const s = tx.objectStore(STORE_NAME);
+    const req = s.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = (e) => reject(e.target.error);
+  });
+
+  if (!rawList || rawList.length <= 1) return rawList || [];
+
+  const toDeleteIds = new Set();
+  const seenUuids = new Map();
+  const seenSignatures = new Map();
+
+  const getSig = (t) => {
+    const sym = (t.symbol || '').toUpperCase().trim();
+    const dir = (t.direction || '').toUpperCase().trim();
+    const et = (t.entryTime || '').trim();
+    const out = (t.outcome || '').toUpperCase().trim();
+    return `${sym}|${dir}|${et}|${out}`;
+  };
+
+  const getTradeScore = (t) => {
+    const upd = t.updatedAt ? new Date(t.updatedAt).getTime() : 0;
+    const cr = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+    const numId = Number(t.id) || 0;
+    return Math.max(upd, cr, numId);
+  };
+
+  // Sort trades so newest / most complete comes first
+  const sorted = [...rawList].sort((a, b) => getTradeScore(b) - getTradeScore(a));
+
+  for (const t of sorted) {
+    if (!t || !t.id) continue;
+    if (isTradeDeletedLocally(t)) {
+      toDeleteIds.add(t.id);
+      continue;
+    }
+
+    const cleanUuid = t.uuid ? String(t.uuid).replace(/^uuid:+/, '').trim() : '';
+    const sig = getSig(t);
+
+    let isDuplicate = false;
+
+    // Check UUID duplicate
+    if (cleanUuid) {
+      if (seenUuids.has(cleanUuid)) {
+        isDuplicate = true;
+      } else {
+        seenUuids.set(cleanUuid, t);
+      }
+    }
+
+    // Check content signature duplicate
+    if (sig && sig.length > 5) {
+      if (seenSignatures.has(sig)) {
+        isDuplicate = true;
+      } else {
+        seenSignatures.set(sig, t);
+      }
+    }
+
+    if (isDuplicate) {
+      toDeleteIds.add(t.id);
+    }
+  }
+
+  if (toDeleteIds.size > 0) {
+    await new Promise((resolve) => {
+      const tx = db.transaction([STORE_NAME], 'readwrite');
+      const s = tx.objectStore(STORE_NAME);
+      for (const id of toDeleteIds) {
+        const numId = Number(id);
+        if (!isNaN(numId)) s.delete(numId);
+        s.delete(String(id));
+      }
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  }
+
+  const remaining = sorted.filter(t => !toDeleteIds.has(t.id));
+  syncTradesToLocalStorage(remaining);
+  return remaining;
+}
+window.deduplicateTradesLocal = deduplicateTradesLocal;
+
+/**
  * Get all trades
  */
 async function getAllTrades() {
@@ -367,6 +480,14 @@ async function getAllTrades() {
 
       // Filter out any trade that is marked as deleted
       list = list.filter(t => !isTradeDeletedLocally(t));
+
+      // Deduplicate if multiple records exist
+      if (list.length > 1) {
+        try {
+          list = await deduplicateTradesLocal();
+          list = list.filter(t => !isTradeDeletedLocally(t));
+        } catch (_) {}
+      }
 
       // One-time cleanup: If existing trades are ONLY the original hardcoded demo trades, clear them so app is clean empty
       if (localStorage.getItem('tradelog_demo_cleaned_v2') !== 'true') {
@@ -616,11 +737,28 @@ async function deleteJournalThought(id) {
 }
 
 async function updateJournalThought(thought) {
+  if (!thought) return;
   const db = await getDB();
+  if (thought.id && (!thought.uuid || !thought.createdAt)) {
+    try {
+      const existing = await getJournalThought(thought.id);
+      if (existing) {
+        if (!thought.uuid && existing.uuid) thought.uuid = existing.uuid;
+        if (!thought.createdAt && existing.createdAt) thought.createdAt = existing.createdAt;
+      }
+    } catch (_) {}
+  }
+  if (!thought.uuid) {
+    thought.uuid = 'th_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+  }
+  if (!thought.createdAt) {
+    thought.createdAt = new Date().toISOString();
+  }
+  thought.updatedAt = new Date().toISOString();
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction([THOUGHTS_STORE], 'readwrite');
     const store = tx.objectStore(THOUGHTS_STORE);
-    thought.updatedAt = new Date().toISOString();
     const request = store.put(thought);
     request.onsuccess = () => resolve(request.result);
     request.onerror = (e) => reject(e.target.error);
@@ -666,6 +804,11 @@ async function mergeCloudTrades(cloudTrades, remoteDeletedSigs = []) {
     }
   });
 
+  // Run local deduplication first to ensure clean baseline
+  try {
+    await deduplicateTradesLocal();
+  } catch (_) {}
+
   const localTrades = await getAllTradesRaw();
 
   // Purge any local trades that have been deleted in remote tombstones
@@ -677,14 +820,32 @@ async function mergeCloudTrades(cloudTrades, remoteDeletedSigs = []) {
 
   if (!Array.isArray(cloudTrades) || cloudTrades.length === 0) return 0;
 
+  // Deduplicate incoming cloud trades array before merging
+  const cleanCloudTrades = [];
+  const cloudSeenUuids = new Set();
+  const cloudSeenSigs = new Set();
+  const getSig = (t) => `${(t.symbol || '').toUpperCase().trim()}|${(t.direction || '').toUpperCase().trim()}|${(t.entryTime || '').trim()}|${(t.outcome || '').toUpperCase().trim()}`;
+
+  for (const ct of cloudTrades) {
+    if (!ct || typeof ct !== 'object') continue;
+    if (isTradeDeletedLocally(ct)) continue;
+    const u = ct.uuid ? String(ct.uuid).replace(/^uuid:+/, '').trim() : '';
+    const s = getSig(ct);
+    if (u && cloudSeenUuids.has(u)) continue;
+    if (s && s.length > 5 && cloudSeenSigs.has(s)) continue;
+    if (u) cloudSeenUuids.add(u);
+    if (s && s.length > 5) cloudSeenSigs.add(s);
+    cleanCloudTrades.push(ct);
+  }
+
   const freshLocalTrades = await getAllTradesRaw();
   const localUuidMap = new Map();
   const localContentMap = new Map();
-  const getContentKey = (t) => `${(t.symbol || '').toUpperCase()}|${(t.entryTime || '').trim()}|${(t.direction || '').toUpperCase()}`;
+  const getContentKey = (t) => `${(t.symbol || '').toUpperCase().trim()}|${(t.entryTime || '').trim()}|${(t.direction || '').toUpperCase().trim()}`;
 
   freshLocalTrades.forEach(lt => {
     if (lt.uuid) {
-      const clean = String(lt.uuid).replace(/^uuid:+/, '');
+      const clean = String(lt.uuid).replace(/^uuid:+/, '').trim();
       localUuidMap.set(clean, lt);
     }
     const ck = getContentKey(lt);
@@ -695,11 +856,8 @@ async function mergeCloudTrades(cloudTrades, remoteDeletedSigs = []) {
 
   let mergedCount = 0;
 
-  for (const ct of cloudTrades) {
-    if (!ct || typeof ct !== 'object') continue;
-    if (isTradeDeletedLocally(ct)) continue;
-
-    const ctCleanUuid = ct.uuid ? String(ct.uuid).replace(/^uuid:+/, '') : '';
+  for (const ct of cleanCloudTrades) {
+    const ctCleanUuid = ct.uuid ? String(ct.uuid).replace(/^uuid:+/, '').trim() : '';
     const ctContentKey = getContentKey(ct);
 
     // Look for existing trade: first by UUID, then fallback to content key
@@ -709,14 +867,18 @@ async function mergeCloudTrades(cloudTrades, remoteDeletedSigs = []) {
     }
 
     if (existing) {
-      // If existing trade lacks UUID but cloud trade has one, attach it
       if (!existing.uuid && ctCleanUuid) {
         existing.uuid = ctCleanUuid;
       }
       const cloudTime = ct.updatedAt ? new Date(ct.updatedAt).getTime() : 0;
       const localTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
       if (cloudTime >= localTime) {
-        const updated = { ...ct, id: existing.id, uuid: existing.uuid || ctCleanUuid || ct.uuid };
+        const updated = {
+          ...ct,
+          id: existing.id,
+          uuid: existing.uuid || ctCleanUuid || ct.uuid,
+          createdAt: existing.createdAt || ct.createdAt
+        };
         await updateTrade(updated);
         mergedCount++;
       }
@@ -724,7 +886,7 @@ async function mergeCloudTrades(cloudTrades, remoteDeletedSigs = []) {
       const newTrade = { ...ct };
       delete newTrade.id;
       if (!newTrade.uuid) {
-        newTrade.uuid = 'tr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+        newTrade.uuid = ctCleanUuid || ('tr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8));
       }
       const newId = await addTrade(newTrade);
       newTrade.id = newId;
@@ -733,6 +895,11 @@ async function mergeCloudTrades(cloudTrades, remoteDeletedSigs = []) {
       mergedCount++;
     }
   }
+
+  // Final deduplication pass to ensure 100% clean state
+  try {
+    await deduplicateTradesLocal();
+  } catch (_) {}
 
   return mergedCount;
 }
