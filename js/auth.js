@@ -414,17 +414,15 @@ function cleanVaultId(raw) {
   // Strip invisible unicode characters (zero-width spaces, BOM, non-breaking spaces)
   str = str.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
   str = str.replace(/^["']|["']$/g, '').trim();
+  str = str.replace(/\s+/g, '');
   if (str.toUpperCase().startsWith('TL-') || str.toUpperCase().startsWith('TL_')) {
-    str = str.substring(3).trim();
+    str = str.substring(3);
   }
   const urlMatch = str.match(/gist\.github(?:usercontent)?\.com\/[^/]+\/([a-f0-9]{20,40})/i);
   if (urlMatch) {
     return urlMatch[1].toLowerCase();
   }
-  if (str.includes('@')) {
-    return str.toLowerCase();
-  }
-  return str;
+  return str.toLowerCase();
 }
 window.cleanVaultId = cleanVaultId;
 
@@ -448,10 +446,17 @@ async function fetchCloudVaultDirectGist(identifier) {
   // 1. Direct fetch if cleanId is a 20-40 char hex gist ID
   if (!isEmailInput && /^[a-f0-9]{20,40}$/i.test(cleanId)) {
     try {
-      const res = await fetch(`${GITHUB_GISTS_API}/${cleanId}`, {
+      let res = await fetch(`${GITHUB_GISTS_API}/${cleanId}`, {
         method: 'GET',
         headers
       });
+      // Fallback without auth token if token gave 401/403 or failed
+      if (res.status === 401 || res.status === 403 || !res.ok) {
+        res = await fetch(`${GITHUB_GISTS_API}/${cleanId}`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'TradeLog-App' }
+        });
+      }
       if (res.ok) {
         const gist = await res.json();
         const file = gist.files && (gist.files['tradelog_vault.json'] || Object.values(gist.files)[0]);
@@ -555,6 +560,64 @@ async function verifyVaultPassword(vaultData, password) {
   if (vaultData.savedPassword) {
     if (vaultData.savedPassword === password || vaultData.savedPassword === trimmedPass) {
       return true;
+    }
+  }
+
+  // Fallback 1: If vaultData lacks passwordHash, check against Cloudflare with its email
+  if (email && email.includes('@')) {
+    try {
+      const cfCheck = await accountRequest('login', { identifier: email.toLowerCase(), password: trimmedPass });
+      if (cfCheck && (cfCheck.vaultId || cfCheck.userId)) {
+        return true;
+      }
+    } catch (_) {}
+    if (password !== trimmedPass) {
+      try {
+        const cfCheck = await accountRequest('login', { identifier: email.toLowerCase(), password });
+        if (cfCheck && (cfCheck.vaultId || cfCheck.userId)) {
+          return true;
+        }
+      } catch (_) {}
+    }
+  }
+
+  // Fallback 2: If vaultData is from a Gist whose recent commits stripped passwordHash,
+  // recover passwordHash from the initial creation commit
+  if (vaultData.vaultId && /^[a-f0-9]{20,40}$/i.test(vaultData.vaultId)) {
+    try {
+      const token = getVaultToken();
+      const headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'TradeLog-App' };
+      if (token) headers['Authorization'] = 'token ' + token;
+      let cRes = await fetch(`${GITHUB_GISTS_API}/${vaultData.vaultId}/commits`, { headers });
+      if (cRes.status === 401 || !cRes.ok) {
+        cRes = await fetch(`${GITHUB_GISTS_API}/${vaultData.vaultId}/commits`, {
+          headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'TradeLog-App' }
+        });
+      }
+      if (cRes.ok) {
+        const commits = await cRes.json();
+        if (Array.isArray(commits) && commits.length > 0) {
+          const earliest = commits[commits.length - 1];
+          let eRes = await fetch(`${GITHUB_GISTS_API}/${vaultData.vaultId}/${earliest.version}`, { headers });
+          if (eRes.status === 401 || !eRes.ok) {
+            eRes = await fetch(`${GITHUB_GISTS_API}/${vaultData.vaultId}/${earliest.version}`, {
+              headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'TradeLog-App' }
+            });
+          }
+          if (eRes.ok) {
+            const earlyGist = await eRes.json();
+            const earlyFile = earlyGist.files && (earlyGist.files['tradelog_vault.json'] || Object.values(earlyGist.files)[0]);
+            const earlyData = await getGistFileJson(earlyFile);
+            if (earlyData && (earlyData.passwordHash || earlyData.savedPassword)) {
+              vaultData.passwordHash = earlyData.passwordHash;
+              vaultData.savedPassword = earlyData.savedPassword;
+              return verifyVaultPassword(vaultData, password);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Gist history password recovery error:', e);
     }
   }
 
@@ -773,7 +836,8 @@ async function handleLoginSubmit(e) {
   if (e) e.preventDefault();
   const rawKey = document.getElementById('loginSyncKey')?.value || '';
   const identifier = cleanVaultId(rawKey);
-  const password = document.getElementById('loginPassword')?.value || '';
+  const rawPassword = document.getElementById('loginPassword')?.value || '';
+  const password = rawPassword.trim();
   const button = document.getElementById('loginSubmitBtn');
   const errorEl = document.getElementById('loginPasswordError');
 
@@ -795,38 +859,63 @@ async function handleLoginSubmit(e) {
   let loginSuccess = false;
   let lastErrorMsg = '';
 
-  // Step 1: Try Cloudflare Worker backend
-  try {
-    const vault = await accountRequest('login', { identifier, password });
-    if (vault) {
-      await acceptCloudProfile(vault, password);
-      loginSuccess = true;
+  const passwordsToTry = [password];
+  if (rawPassword !== password) passwordsToTry.push(rawPassword);
+
+  const identifiersToTry = [identifier];
+  if (!identifier.includes('@')) {
+    if (identifier.startsWith('tl_')) {
+      identifiersToTry.push(identifier.substring(3));
+    } else {
+      identifiersToTry.push('tl_' + identifier);
     }
-  } catch (cfError) {
-    console.warn('Cloudflare login attempt failed, trying direct Gist fallback:', cfError);
-    lastErrorMsg = cfError.message || '';
+  }
+
+  // Step 1: Try Cloudflare Worker backend
+  for (const idCandidate of identifiersToTry) {
+    if (loginSuccess) break;
+    for (const passCandidate of passwordsToTry) {
+      if (loginSuccess) break;
+      try {
+        const vault = await accountRequest('login', { identifier: idCandidate, password: passCandidate });
+        if (vault) {
+          await acceptCloudProfile(vault, passCandidate);
+          loginSuccess = true;
+          break;
+        }
+      } catch (cfError) {
+        lastErrorMsg = cfError.message || '';
+      }
+    }
   }
 
   // Step 2: Fallback to direct GitHub Gist Vault
   if (!loginSuccess) {
-    try {
-      const gistVault = await fetchCloudVaultDirectGist(identifier);
-      if (gistVault) {
-        const isPassValid = await verifyVaultPassword(gistVault, password);
-        if (isPassValid) {
-          await acceptCloudProfile(gistVault, password);
-          loginSuccess = true;
-          // In background, register/sync to Cloudflare backend so both stay unified
-          accountRequest('register', { vault: gistVault, password }).catch(() => {});
-        } else {
-          lastErrorMsg = 'Неверный пароль от профиля';
+    for (const idCandidate of identifiersToTry) {
+      if (loginSuccess) break;
+      try {
+        const gistVault = await fetchCloudVaultDirectGist(idCandidate);
+        if (gistVault) {
+          for (const passCandidate of passwordsToTry) {
+            const isPassValid = await verifyVaultPassword(gistVault, passCandidate);
+            if (isPassValid) {
+              await acceptCloudProfile(gistVault, passCandidate);
+              loginSuccess = true;
+              // In background, register/sync to Cloudflare backend so both stay unified
+              accountRequest('register', { vault: gistVault, password: passCandidate }).catch(() => {});
+              break;
+            }
+          }
+          if (!loginSuccess) {
+            lastErrorMsg = 'Неверный пароль от профиля';
+          }
+        } else if (!lastErrorMsg) {
+          lastErrorMsg = 'Профиль с таким email или кодом не найден';
         }
-      } else if (!lastErrorMsg) {
-        lastErrorMsg = 'Профиль с таким email или кодом не найден';
+      } catch (gistErr) {
+        console.warn('Direct Gist fallback failed:', gistErr);
+        if (!lastErrorMsg) lastErrorMsg = gistErr.message || 'Ошибка подключения к профилю';
       }
-    } catch (gistErr) {
-      console.warn('Direct Gist fallback failed:', gistErr);
-      if (!lastErrorMsg) lastErrorMsg = gistErr.message || 'Ошибка подключения к профилю';
     }
   }
 

@@ -19,8 +19,8 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
   <!-- Fonts & Styles -->
-  <link rel="stylesheet" href="./css/style.css?v=39">
-  <link rel="stylesheet" href="./css/books.css?v=39">
+  <link rel="stylesheet" href="./css/style.css?v=40">
+  <link rel="stylesheet" href="./css/books.css?v=40">
   <script>
     // Apply the saved appearance before paint; existing theme choices are retained.
     try { document.documentElement.dataset.theme = localStorage.getItem("tradelog_theme") || "books"; }
@@ -1067,13 +1067,13 @@
                 Вставить
               </button>
             </div>
-            <input type="text" id="loginSyncKey" class="form-input sync-key-input" placeholder="Код профиля или ваш email..." autocomplete="username email" required>
+            <input type="text" id="loginSyncKey" class="form-input sync-key-input" placeholder="Код профиля или ваш email..." autocomplete="username email" autocapitalize="none" autocorrect="off" spellcheck="false" required>
             <span class="form-helper">Введите код профиля из настроек либо email вашего аккаунта</span>
           </div>
 
           <div class="form-group">
             <label class="form-label" for="loginPassword">Пароль от профиля</label>
-            <input type="password" id="loginPassword" class="form-input" placeholder="Введите ваш пароль..." autocomplete="current-password" required oninput="const e=document.getElementById('loginPasswordError'); if(e){e.style.display='none'; this.classList.remove('input-error');}">
+            <input type="password" id="loginPassword" class="form-input" placeholder="Введите ваш пароль..." autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required oninput="const e=document.getElementById('loginPasswordError'); if(e){e.style.display='none'; this.classList.remove('input-error');}">
             <div id="loginPasswordError" class="form-error-msg" style="display: none; color: #ef4444; font-size: 0.78rem; margin-top: 6px; font-weight: 500;"></div>
             <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
               <button type="button" class="btn-link" onclick="openResetPasswordView()" style="background: none; border: none; color: var(--brand, #ff6363); font-size: 0.78rem; cursor: pointer; text-decoration: underline; padding: 2px 0;">
@@ -1396,14 +1396,14 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="./js/db.js?v=39"></script>
-  <script src="./js/backend.js?v=39"></script>
-  <script src="./js/auth.js?v=39"></script>
-  <script src="./js/notes.js?v=39"></script>
-  <script src="./js/app.js?v=39"></script>
-  <script src="./js/trade-parser.js?v=39"></script>
-  <script src="./js/voice-recorder.js?v=39"></script>
-  <script src="./js/piper-engine.js?v=39"></script>
-  <script src="./js/ai.js?v=39"></script>
+  <script src="./js/db.js?v=40"></script>
+  <script src="./js/backend.js?v=40"></script>
+  <script src="./js/auth.js?v=40"></script>
+  <script src="./js/notes.js?v=40"></script>
+  <script src="./js/app.js?v=40"></script>
+  <script src="./js/trade-parser.js?v=40"></script>
+  <script src="./js/voice-recorder.js?v=40"></script>
+  <script src="./js/piper-engine.js?v=40"></script>
+  <script src="./js/ai.js?v=40"></script>
 </body>
 </html>

@@ -30,9 +30,12 @@ export async function passwordMatches(password, record) {
   }
   if (!record?.startsWith('pbkdf2$')) return false;
   const [, count, salt, expected] = record.split('$');
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({name: 'PBKDF2', salt: Buffer.from(salt, 'hex'), iterations: Number(count), hash: 'SHA-256'}, key, 256);
-  return equal(Buffer.from(bits).toString('hex'), expected);
+  for (const candidate of [password, password.trim()]) {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(candidate), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({name: 'PBKDF2', salt: Buffer.from(salt, 'hex'), iterations: Number(count), hash: 'SHA-256'}, key, 256);
+    if (equal(Buffer.from(bits).toString('hex'), expected)) return true;
+  }
+  return false;
 }
 export async function rateLimit(env, key, maximum, seconds) {
   const timestamp = now();
@@ -45,7 +48,7 @@ export async function rateLimit(env, key, maximum, seconds) {
 }
 
 async function accountByIdentifier(env, identifier) {
-  return query(env, 'SELECT * FROM accounts WHERE id=? OR email=? COLLATE NOCASE', identifier, identifier).first();
+  return query(env, 'SELECT * FROM accounts WHERE id=? COLLATE NOCASE OR email=? COLLATE NOCASE', identifier, identifier).first();
 }
 async function github(env, path) {
   const response = await fetch('https://api.github.com/gists' + path, {headers: {
@@ -177,10 +180,11 @@ export async function sendRecovery(env, email, code) {
 function cleanIdentifier(raw) {
   if (!raw) return '';
   let str = String(raw).trim().replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/^["']|["']$/g, '');
-  if (str.toUpperCase().startsWith('TL-') || str.toUpperCase().startsWith('TL_')) str = str.substring(3).trim();
+  str = str.replace(/\s+/g, '');
+  if (str.toUpperCase().startsWith('TL-') || str.toUpperCase().startsWith('TL_')) str = str.substring(3);
   const urlMatch = str.match(/gist\.github(?:usercontent)?\.com\/[^/]+\/([a-f0-9]{20,40})/i);
   if (urlMatch) return urlMatch[1].toLowerCase();
-  return str;
+  return str.toLowerCase();
 }
 
 export async function handleAccount(body, request, env, services = {}) {
