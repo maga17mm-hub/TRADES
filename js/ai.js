@@ -915,7 +915,7 @@ window.viewTradeInJournal = viewTradeInJournal;
 let pendingTradeDictation = '';
 
 async function handleAiSubmit(e) {
-  if (e) e.preventDefault();
+  if (e) { if (e.preventDefault) e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); }
 
   const inputEl = document.getElementById('aiChatInput');
   if (!inputEl) return;
@@ -1163,7 +1163,7 @@ function closeAiSettings() {
 window.closeAiSettings = closeAiSettings;
 
 function saveAiSettings(e) {
-  if (e) e.preventDefault();
+  if (e) { if (e.preventDefault) e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); }
 
   const keyInput = document.getElementById('aiSettingKey');
   const modelInput = document.getElementById('aiSettingModel');

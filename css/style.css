@@ -2836,6 +2836,13 @@ html.lightbox-open {
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
+  position: relative;
+  z-index: 5;
+  pointer-events: auto;
+}
+
+.ai-send-btn * {
+  pointer-events: none;
 }
 
 .ai-send-btn:hover {
