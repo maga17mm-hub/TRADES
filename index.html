@@ -19,8 +19,8 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
   <!-- Fonts & Styles -->
-  <link rel="stylesheet" href="./css/style.css?v=40">
-  <link rel="stylesheet" href="./css/books.css?v=40">
+  <link rel="stylesheet" href="./css/style.css?v=41">
+  <link rel="stylesheet" href="./css/books.css?v=41">
   <script>
     // Apply the saved appearance before paint; existing theme choices are retained.
     try { document.documentElement.dataset.theme = localStorage.getItem("tradelog_theme") || "books"; }
@@ -1124,9 +1124,9 @@
           <div id="resetVerificationStep" style="display: none;">
 
             <div class="form-group">
-              <label class="form-label" for="resetCode">Код подтверждения</label>
-              <input type="text" id="resetCode" class="form-input" placeholder="Код из 6 цифр" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="font-family: var(--font-mono); letter-spacing: 2px;">
-              <span class="form-helper">Скопируйте весь код из письма. Срок действия — 15 минут.</span>
+              <label class="form-label" for="resetCode">Код подтверждения или Код профиля</label>
+              <input type="text" id="resetCode" class="form-input" placeholder="6 цифр из письма или Код профиля" maxlength="40" inputmode="text" autocomplete="one-time-code" style="font-family: var(--font-mono); letter-spacing: 1px;">
+              <span class="form-helper">Введите 6-значный код из письма (проверьте папку «Спам») или ваш Код профиля для мгновенного сброса.</span>
               <button type="button" id="resetResendBtn" class="btn-link" onclick="resendResetCode()" style="margin-top: 8px;">Отправить код повторно</button>
             </div>
 
@@ -1170,8 +1170,8 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="regEmail">Email</label>
-            <input type="email" id="regEmail" class="form-input" placeholder="trader@example.com" autocomplete="email" required>
+            <label class="form-label" for="regEmail">Email или Код профиля</label>
+            <input type="text" id="regEmail" class="form-input" placeholder="trader@example.com или ваш код профиля" autocomplete="email" required>
           </div>
 
           <div class="form-group">
@@ -1396,14 +1396,14 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="./js/db.js?v=40"></script>
-  <script src="./js/backend.js?v=40"></script>
-  <script src="./js/auth.js?v=40"></script>
-  <script src="./js/notes.js?v=40"></script>
-  <script src="./js/app.js?v=40"></script>
-  <script src="./js/trade-parser.js?v=40"></script>
-  <script src="./js/voice-recorder.js?v=40"></script>
-  <script src="./js/piper-engine.js?v=40"></script>
-  <script src="./js/ai.js?v=40"></script>
+  <script src="./js/db.js?v=41"></script>
+  <script src="./js/backend.js?v=41"></script>
+  <script src="./js/auth.js?v=41"></script>
+  <script src="./js/notes.js?v=41"></script>
+  <script src="./js/app.js?v=41"></script>
+  <script src="./js/trade-parser.js?v=41"></script>
+  <script src="./js/voice-recorder.js?v=41"></script>
+  <script src="./js/piper-engine.js?v=41"></script>
+  <script src="./js/ai.js?v=41"></script>
 </body>
 </html>

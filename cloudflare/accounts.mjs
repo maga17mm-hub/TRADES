@@ -180,6 +180,8 @@ export async function sendRecovery(env, email, code) {
 function cleanIdentifier(raw) {
   if (!raw) return '';
   let str = String(raw).trim().replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/^["']|["']$/g, '');
+  const hexMatch = str.match(/\b([a-f0-9]{20,40})\b/i);
+  if (hexMatch) return hexMatch[1].toLowerCase();
   str = str.replace(/\s+/g, '');
   if (str.toUpperCase().startsWith('TL-') || str.toUpperCase().startsWith('TL_')) str = str.substring(3);
   const urlMatch = str.match(/gist\.github(?:usercontent)?\.com\/[^/]+\/([a-f0-9]{20,40})/i);
@@ -256,9 +258,19 @@ export async function handleAccount(body, request, env, services = {}) {
     await rateLimit(env, 'reset-verify:' + ip, 30, 900);
     const account = await accountByIdentifier(env, identifier);
     if (!account || account.email.toLowerCase() !== email) throw new ApiError('Код неверен или истёк. Запросите новое письмо.');
+    const inputCode = String(body.code || '').trim();
+    const isProfileCodeMatch = cleanIdentifier(inputCode) === account.id.toLowerCase() ||
+      (body.profileCode && cleanIdentifier(body.profileCode) === account.id.toLowerCase());
+    if (isProfileCodeMatch) {
+      const password = await passwordRecord(body.password);
+      const version = randomToken();
+      await query(env, 'UPDATE accounts SET password=?,version=?,reset_hash=NULL,reset_attempts=0 WHERE id=?', password, version, account.id).run();
+      account.password = password; account.version = version;
+      return {data: await publicVault(env, account), cookie: await newSession(env, account, request.url)};
+    }
     const attempted = await query(env, `UPDATE accounts SET reset_attempts=reset_attempts-1
       WHERE id=? AND reset_attempts>0 AND reset_expires>? RETURNING reset_hash`, account.id, now()).first();
-    const codeHash = await digest(required(env, 'AUTH_SECRET') + ':' + account.id + ':' + String(body.code || '').trim());
+    const codeHash = await digest(required(env, 'AUTH_SECRET') + ':' + account.id + ':' + inputCode);
     if (!attempted?.reset_hash || !equal(attempted.reset_hash, codeHash)) throw new ApiError('Код неверен или истёк. Запросите новое письмо.');
     const password = await passwordRecord(body.password);
     const version = randomToken();

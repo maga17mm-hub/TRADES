@@ -414,13 +414,17 @@ function cleanVaultId(raw) {
   // Strip invisible unicode characters (zero-width spaces, BOM, non-breaking spaces)
   str = str.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
   str = str.replace(/^["']|["']$/g, '').trim();
-  str = str.replace(/\s+/g, '');
-  if (str.toUpperCase().startsWith('TL-') || str.toUpperCase().startsWith('TL_')) {
-    str = str.substring(3);
+  const hexMatch = str.match(/\b([a-f0-9]{20,40})\b/i);
+  if (hexMatch) {
+    return hexMatch[1].toLowerCase();
   }
   const urlMatch = str.match(/gist\.github(?:usercontent)?\.com\/[^/]+\/([a-f0-9]{20,40})/i);
   if (urlMatch) {
     return urlMatch[1].toLowerCase();
+  }
+  str = str.replace(/\s+/g, '');
+  if (str.toUpperCase().startsWith('TL-') || str.toUpperCase().startsWith('TL_')) {
+    str = str.substring(3);
   }
   return str.toLowerCase();
 }
@@ -683,16 +687,28 @@ async function handleRegisterSubmit(e) {
   const passwordInput = document.getElementById('regPassword');
   const submitBtn = document.getElementById('regSubmitBtn');
 
-  const name = nameInput ? nameInput.value.trim() : '';
-  const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
+  const rawName = nameInput ? nameInput.value.trim() : '';
+  const rawEmail = emailInput ? emailInput.value.trim() : '';
   const password = passwordInput ? passwordInput.value : '';
 
-  if (!name || name.length < 2) {
-    showToast('Введите ваше имя (минимум 2 символа)', 'warning');
-    return;
+  // Check if user entered a profile code in email or name field
+  const candidateKey = cleanVaultId(rawEmail || rawName);
+  const isProfileCodeInput = (/^[a-f0-9]{20,40}$/i.test(candidateKey) || candidateKey.startsWith('usr_')) && !rawEmail.includes('@');
+  if (isProfileCodeInput) {
+    switchAuthTab('login');
+    const loginSyncKey = document.getElementById('loginSyncKey');
+    const loginPass = document.getElementById('loginPassword');
+    if (loginSyncKey) loginSyncKey.value = candidateKey;
+    if (loginPass) loginPass.value = password;
+    showToast('Распознан код профиля. Выполняем вход...', 'info');
+    return handleLoginSubmit(e);
   }
+
+  const email = rawEmail.toLowerCase().replace(/\s+/g, '');
+  const name = rawName || email.split('@')[0] || 'Трейдер';
+
   if (!email || !email.includes('@')) {
-    showToast('Введите корректный email адрес', 'warning');
+    showToast('Введите корректный email адрес или войдите по коду профиля', 'warning');
     return;
   }
   if (!password || password.length < 8) {
@@ -801,21 +817,33 @@ async function handleRegisterSubmit(e) {
             <span>Профиль найден, вход...</span>
           `;
         }
-        const vault = await accountRequest('login', { identifier: email, password: password });
-        await acceptCloudProfile(vault, password);
-        closeProfileModal();
-        showToast('Профиль найден! Вы успешно вошли, все сделки синхронизированы.', 'success');
-        return;
+        let vault = null;
+        try {
+          vault = await accountRequest('login', { identifier: email, password: password });
+        } catch (cfLoginErr) {
+          const gistVault = await fetchCloudVaultDirectGist(email);
+          if (gistVault && await verifyVaultPassword(gistVault, password)) {
+            vault = gistVault;
+          } else {
+            throw cfLoginErr;
+          }
+        }
+        if (vault) {
+          await acceptCloudProfile(vault, password);
+          closeProfileModal();
+          showToast('Профиль найден! Вы успешно вошли, все сделки синхронизированы.', 'success');
+          return;
+        }
       } catch (loginErr) {
         switchAuthTab('login');
         const loginInput = document.getElementById('loginSyncKey');
         if (loginInput) loginInput.value = email;
         const passInput = document.getElementById('loginPassword');
         if (passInput) {
-          passInput.value = '';
+          passInput.value = password;
           passInput.focus();
         }
-        showToast('Профиль с этим email уже существует. Введите пароль для входа.', 'info');
+        showToast('Профиль с этим email уже существует. Проверьте пароль или нажмите «Забыли пароль».', 'info');
         return;
       }
     }
@@ -1036,7 +1064,8 @@ async function handleResetPasswordSubmit(e) {
   const button = document.getElementById('resetSubmitBtn');
   if (button.disabled) return;
   const email = document.getElementById('resetEmail').value.trim().toLowerCase();
-  const identifier = cleanVaultId(document.getElementById('resetSyncKey').value) || email;
+  const rawKey = document.getElementById('resetSyncKey')?.value || '';
+  const identifier = cleanVaultId(rawKey) || email;
   const codeInput = document.getElementById('resetCode');
   const passwordInput = document.getElementById('resetNewPassword');
   button.disabled = true;
@@ -1050,18 +1079,58 @@ async function handleResetPasswordSubmit(e) {
       codeInput.required = true;
       passwordInput.required = true;
       codeInput.focus();
-      showToast('Если профиль найден, письмо отправлено. Проверьте также папку «Спам».', 'success');
+      showToast('Письмо отправлено! Проверьте входящие и папку «Спам». Также можно ввести Код профиля.', 'success');
     } else {
-      if (!/^\d{6}$/.test(codeInput.value.trim())) throw new Error('Введите шестизначный код из письма.');
-      if (passwordInput.value.length < 8) throw new Error('Новый пароль должен содержать минимум 8 символов.');
-      const vault = await accountRequest('reset-confirm', {
-        email, identifier, code: codeInput.value.trim(), password: passwordInput.value
-      });
-      await acceptCloudProfile(vault, passwordInput.value);
-      resetPasswordState = null;
-      codeInput.value = ''; passwordInput.value = '';
-      closeProfileModal();
-      showToast('Пароль изменён. Вход выполнен.', 'success');
+      const codeVal = codeInput.value.trim();
+      const newPass = passwordInput.value;
+      if (!codeVal) throw new Error('Введите 6-значный код из письма или ваш Код профиля.');
+      if (newPass.length < 8) throw new Error('Новый пароль должен содержать минимум 8 символов.');
+
+      let resetSuccess = false;
+      let lastErr = null;
+
+      try {
+        const vault = await accountRequest('reset-confirm', {
+          email,
+          identifier,
+          code: codeVal,
+          profileCode: identifier || codeVal,
+          password: newPass
+        });
+        if (vault) {
+          await acceptCloudProfile(vault, newPass);
+          resetSuccess = true;
+        }
+      } catch (cfErr) {
+        lastErr = cfErr;
+      }
+
+      // Fallback: direct Gist password update if secret Profile Code matches
+      if (!resetSuccess && identifier && /^[a-f0-9]{20,40}$/i.test(identifier)) {
+        try {
+          const gistVault = await fetchCloudVaultDirectGist(identifier);
+          if (gistVault && gistVault.userEmail && gistVault.userEmail.toLowerCase() === email) {
+            const passwordHash = await hashString(newPass + ':' + email);
+            gistVault.passwordHash = passwordHash;
+            gistVault.savedPassword = newPass;
+            gistVault.updatedAt = new Date().toISOString();
+            await updateCloudVault(identifier, gistVault);
+            await acceptCloudProfile(gistVault, newPass);
+            resetSuccess = true;
+          }
+        } catch (gistErr) {
+          console.warn('Direct Gist password reset fallback error:', gistErr);
+        }
+      }
+
+      if (resetSuccess) {
+        resetPasswordState = null;
+        codeInput.value = ''; passwordInput.value = '';
+        closeProfileModal();
+        showToast('Пароль успешно обновлён! Вход выполнен.', 'success');
+      } else {
+        throw (lastErr || new Error('Код неверен или истёк. Проверьте данные и повторите.'));
+      }
     }
   } catch (error) { showToast(error.message, 'error'); }
   finally { button.disabled = false; }

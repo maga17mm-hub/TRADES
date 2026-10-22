@@ -46,11 +46,14 @@ export async function sendSmtp(env, recipient, text, connectOverride) {
     await command('MAIL FROM:<' + sender + '>', [250]);
     await command('RCPT TO:<' + recipient + '>', [250, 251]);
     await command('DATA', [354]);
+    const domain = (typeof sender === 'string' && sender.includes('@')) ? sender.split('@')[1] : 'mail.ru';
     const encodedText = Buffer.from(text).toString('base64').match(/.{1,76}/g).join('\r\n');
     const subject = Buffer.from('TradeLog — восстановление пароля').toString('base64');
     const message = ['From: TradeLog <' + sender + '>', 'To: <' + recipient + '>',
       'Subject: =?UTF-8?B?' + subject + '?=', 'Date: ' + new Date().toUTCString(),
-      'Message-ID: <' + crypto.randomUUID() + '@tradelog.local>', 'MIME-Version: 1.0',
+      'Message-ID: <' + crypto.randomUUID() + '@' + domain + '>', 'MIME-Version: 1.0',
+      'Reply-To: <' + sender + '>',
+      'X-Mailer: TradeLog-Auth',
       'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', encodedText, '.'].join('\r\n');
     await command(message, [250]);
     // Acceptance after DATA is the delivery hand-off; QUIT cannot undo it.

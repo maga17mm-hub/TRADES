@@ -1,4 +1,44 @@
 /**
+ * Clean corrupted question marks from Russian text in thoughts
+ */
+function cleanCorruptedRussianText(text) {
+  if (!text || typeof text !== 'string') return text || '';
+  let s = text;
+  s = s.replace(/---\s*\n\?{5}:/g, '---\nСетап:');
+  s = s.replace(/\?{5}:\s*/g, 'Сетап: ');
+  s = s.replace(/\?{8}\s+\?{5}:\s*/g, 'Контекст рынка: ');
+  s = s.replace(/\?{15}\s+\?{9}:\s*/g, 'Психологическое состояние: ');
+  s = s.replace(/\?{7}\s+\?{5}:\s*/g, 'Главный вывод: ');
+  s = s.replace(/^\?{6,9}\s*$/gm, 'Запись');
+  s = s.replace(/^Сщсзазаза\s*\n*/g, '');
+  // Clean question marks attached directly to or standing near Russian/Latin words
+  s = s.replace(/([\u0400-\u04FFa-zA-Z0-9])\?{2,}/g, '$1');
+  s = s.replace(/\?{2,}([\u0400-\u04FFa-zA-Z0-9])/g, '$1');
+  s = s.replace(/([\u0400-\u04FFa-zA-Z0-9])\s+\?{2,}/g, '$1');
+  s = s.replace(/\?{2,}\s+([\u0400-\u04FFa-zA-Z0-9])/g, '$1');
+  return s;
+}
+
+function cleanThoughtContent(thought) {
+  if (!thought || typeof thought !== 'object') return thought;
+  if (thought.tag && /^\?+$/.test(thought.tag.trim())) {
+    thought.tag = 'Запись';
+  }
+  if (thought.title && /^\?+$/.test(thought.title.trim())) {
+    thought.title = '';
+  }
+  if (typeof thought.title === 'string' && thought.title.includes('?')) {
+    thought.title = cleanCorruptedRussianText(thought.title);
+  }
+  if (typeof thought.text === 'string' && thought.text.includes('?')) {
+    thought.text = cleanCorruptedRussianText(thought.text);
+  }
+  return thought;
+}
+window.cleanThoughtContent = cleanThoughtContent;
+window.cleanCorruptedRussianText = cleanCorruptedRussianText;
+
+/**
  * ============================================================================
  * TradeLog Journal Thoughts & Voice Memos Module (Apple Journal iOS Style)
  * Manages trader reflections, psychology, market analysis, and voice memos.
@@ -43,7 +83,15 @@ async function loadAndRenderJournal() {
   try {
     if (typeof getAllJournalThoughts === 'function') {
       const thoughts = await getAllJournalThoughts();
-      allJournalThoughts = Array.isArray(thoughts) ? thoughts : [];
+      allJournalThoughts = Array.isArray(thoughts) ? thoughts.map(t => {
+        const cleaned = cleanThoughtContent({ ...t });
+        if (cleaned.text !== t.text || cleaned.tag !== t.tag || cleaned.title !== t.title) {
+          if (typeof updateJournalThought === 'function') {
+            updateJournalThought(cleaned).catch(() => {});
+          }
+        }
+        return cleaned;
+      }) : [];
     } else {
       allJournalThoughts = [];
     }
@@ -91,10 +139,11 @@ function groupThoughtsByDate(thoughts) {
  * Extract Title and Body from thought
  */
 function getThoughtTitleAndBody(thought) {
-  if (thought.title && thought.title.trim()) {
+  const cleanT = cleanThoughtContent(thought);
+  if (cleanT.title && cleanT.title.trim()) {
     return {
-      title: thought.title.trim(),
-      body: (thought.text || '').trim()
+      title: cleanT.title.trim(),
+      body: (cleanT.text || '').trim()
     };
   }
 
